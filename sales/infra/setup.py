@@ -274,13 +274,26 @@ def step_scheduler() -> None:
 
 
 def step_trigger() -> None:
+    """GitHub の main に sales/ の変更が push されたらデプロイするトリガー（YAML で作成・更新する）。
+
+    コマンドの引数で渡すと、Windows のコマンドプロンプトが ^ を消してしまう（^main$ が main$ になる）ため、YAML で渡す。
+    レポート（Artifact の原本）と説明書だけの変更ではデプロイしない。
+    """
     repo = f"projects/{PROJECT}/locations/{REGION}/connections/{GITHUB_CONNECTION}/repositories/{GITHUB_REPO}"
-    if exists("builds", "triggers", "describe", "sales-deploy", f"--region={REGION}"):
-        print("  トリガー sales-deploy は作成済み")
-        return
-    gcloud("builds", "triggers", "create", "github", "--name=sales-deploy", f"--region={REGION}",
-           f"--repository={repo}", "--branch-pattern=^main$", "--build-config=sales/cloudbuild.yaml",
-           "--included-files=sales/**", f"--service-account=projects/{PROJECT}/serviceAccounts/{DEPLOYER}")
+    trigger = {
+        "name": "sales-deploy", "filename": "sales/cloudbuild.yaml",
+        "includedFiles": ["sales/**"], "ignoredFiles": ["sales/report/**", "sales/docs/**", "sales/README.md"],
+        "repositoryEventConfig": {"repository": repo, "repositoryType": "GITHUB", "push": {"branch": "^main$"}},
+        "serviceAccount": f"projects/{PROJECT}/serviceAccounts/{DEPLOYER}",
+    }
+    if not DRY:
+        current = gcloud("builds", "triggers", "describe", "sales-deploy", f"--region={REGION}", "--format=value(id)",
+                         capture=True, check=False)
+        if current:
+            trigger["id"] = current
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+        json.dump(trigger, f)
+    gcloud("builds", "triggers", "import", f"--source={f.name}", f"--region={REGION}")
 
 
 def step_deploy() -> None:

@@ -1,218 +1,298 @@
 <title>Bar null 売上レポート</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* Bar null 売上レポート — Apple 風のすりガラス（frosted glass）。アクセントは赤ピンク。
-   レイアウト: 左にガラスのサイドバー（年 → 月の囲み → 週）、右に選んだ期間の紙面。上部に追従するガラスのツールバー。
-   本文のカードはガラスにせず、厚い素材（ほぼ不透明）にする（文字と表を読みやすくするため）。 */
+/* Bar null 売上レポート — Liquid Glass（Windows の Chrome / Edge 向けに落とし込み）。アクセントは赤ピンク。
+   ・ガラス: 透明度が高く、縁が明るく光り（スペキュラ）、下に柔らかい影を落とす厚いガラス板
+   ・屈折: Chrome / Edge では、ガラスの縁で背景が曲がる（SVG の displacement map を backdrop-filter で適用。JS の Lens）
+           それ以外のブラウザや「レンズ効果」オフのときは、ぼかしだけのすりガラス
+   ・「色の上にガラスのカプセル」: 選択中の期間・スライダー・スイッチ（参考画像の緑のトグルや青のスライダー）
+   ・背景: 明るいグレーに、作図線のような細い円と線 */
 :root{
-  --accent:#FF2D6F; --accent-fill:#D6124F; --accent-text:#C4104A; --on-accent:#fff;
-  --accent-soft:color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent:#FF2D6F; --accent-2:#E0115F; --accent-fill:#D6124F; --accent-text:#C4104A; --on-accent:#fff;
+  --accent-soft:color-mix(in srgb, var(--accent) 13%, transparent);
   --accent-ring:color-mix(in srgb, var(--accent) 60%, transparent);
-  --label:rgba(0,0,0,.88); --label-2:rgba(60,60,67,.70); --label-3:rgba(60,60,67,.46);
-  --separator:rgba(60,60,67,.16); --fill:rgba(120,120,128,.10); --fill-2:rgba(120,120,128,.16);
-  --bg-base:#F2F2F7; --card:rgba(255,255,255,.86); --card-solid:#fff;
-  --green:#248A3D; --red:#D70015; --orange:#C93400;
-  --bar:rgba(120,120,128,.30); --bar-cur:color-mix(in srgb, var(--accent) 34%, transparent);
-  --glass-user:1; --glass-tint:250,250,252;
-  --glass-bg:rgba(var(--glass-tint), min(.92, calc(.64 * var(--glass-user))));
-  --glass-bg-thick:rgba(var(--glass-tint), min(.92, calc(.80 * var(--glass-user))));
-  --glass-blur:blur(20px) saturate(180%);
-  --glass-border:1px solid rgba(255,255,255,.55);
-  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.75), inset 0 -1px 0 rgba(255,255,255,.14);
-  --glass-shadow:0 10px 30px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
-  --card-shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05);
-  --r-control:10px; --r-card:20px; --r-sheet:28px;
-  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable Text","Segoe UI","Hiragino Sans","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+  --accent-grad:linear-gradient(135deg, #FF5A8E 0%, #FF2D6F 45%, #D6124F 100%);
+  --label:rgba(0,0,0,.88); --label-2:rgba(60,60,67,.72); --label-3:rgba(60,60,67,.46);
+  --separator:rgba(60,60,67,.14); --fill:rgba(120,120,128,.10); --fill-2:rgba(120,120,128,.16);
+  --bg-base:#ECEEF3; --decor:rgba(40,50,80,.09); --card-solid:#fff;
+  --green:#248A3D; --red:#D70015;
+  --bar:rgba(120,120,128,.24); --bar-cur:color-mix(in srgb, var(--accent) 34%, transparent);
+  --bar-top:#FF6B98; --bar-bottom:#D6124F;
+  --blob-a:color-mix(in srgb, var(--accent) 22%, transparent); --blob-b:rgba(150,170,255,.20); --blob-c:rgba(120,220,200,.16);
+
+  /* ガラス（--glass-user は透明度のスライダー。値が大きいほど曇る） */
+  --glass-user:1; --lg-tint:255,255,255;
+  --lg-a:min(.92, calc(.30 * var(--glass-user)));          /* 背景が見えるガラス（サイドバー・ツールバー） */
+  --lg-a-text:min(.94, calc(.56 * var(--glass-user)));     /* 文字の多いカード */
+  --lg-blur:blur(14px) saturate(185%) brightness(1.04);
+  --lg-rim:rgba(255,255,255,.80);
+  --lg-hi:rgba(255,255,255,.95); --lg-lo:rgba(255,255,255,.40); --lg-glow:rgba(255,255,255,.38);
+  --lg-sheen:radial-gradient(120% 70% at 12% -10%, rgba(255,255,255,.55), rgba(255,255,255,0) 55%);
+  --lg-shadow:0 24px 48px -16px rgba(30,35,60,.20), 0 6px 14px -4px rgba(30,35,60,.08);
+  --lg-chroma:conic-gradient(from 210deg, rgba(255,90,142,.55), rgba(175,82,222,.45), rgba(90,170,255,.45), rgba(255,255,255,0) 40%, rgba(255,255,255,0) 70%, rgba(255,214,90,.40), rgba(255,90,142,.55));
+
+  --r-control:12px; --r-card:24px; --r-sheet:30px;
+  --font:"Segoe UI Variable Text","Segoe UI Variable Display","Segoe UI",-apple-system,BlinkMacSystemFont,"SF Pro Text","Yu Gothic UI","Hiragino Sans","Meiryo",system-ui,sans-serif;
   --ease:cubic-bezier(.4,0,.6,1); --ease-spring:cubic-bezier(.2,.8,.2,1);
-  --blob-a:color-mix(in srgb, var(--accent) 34%, transparent); --blob-b:rgba(255,159,196,.32); --blob-c:rgba(142,197,255,.30);
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --accent:#FF5C8A; --accent-fill:#E5195A; --accent-text:#FF7FA3; --on-accent:#fff;
-  --label:rgba(255,255,255,.92); --label-2:rgba(235,235,245,.66); --label-3:rgba(235,235,245,.40);
-  --separator:rgba(84,84,88,.55); --fill:rgba(120,120,128,.20); --fill-2:rgba(120,120,128,.30);
-  --bg-base:#000; --card:rgba(28,28,30,.86); --card-solid:#1C1C1E;
-  --green:#30D158; --red:#FF453A; --orange:#FF9F0A;
-  --bar:rgba(235,235,245,.22);
-  --glass-tint:22,22,23; --glass-border:1px solid rgba(255,255,255,.12);
-  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.04);
-  --glass-shadow:0 12px 36px rgba(0,0,0,.50), 0 1px 2px rgba(0,0,0,.35);
-  --card-shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
-  --blob-a:color-mix(in srgb, var(--accent) 30%, transparent); --blob-b:rgba(175,82,222,.22); --blob-c:rgba(10,132,255,.20);
+  --accent:#FF5C8A; --accent-2:#FF2D6F; --accent-fill:#E5195A; --accent-text:#FF86A9;
+  --accent-grad:linear-gradient(135deg, #FF7AA2 0%, #FF4D80 45%, #E5195A 100%);
+  --label:rgba(255,255,255,.93); --label-2:rgba(235,235,245,.68); --label-3:rgba(235,235,245,.40);
+  --separator:rgba(255,255,255,.10); --fill:rgba(255,255,255,.06); --fill-2:rgba(255,255,255,.11);
+  --bg-base:#0C0C12; --decor:rgba(200,210,255,.07); --card-solid:#1C1C22;
+  --green:#30D158; --red:#FF453A; --bar:rgba(235,235,245,.20); --bar-top:#FF86A9; --bar-bottom:#E5195A;
+  --blob-a:color-mix(in srgb, var(--accent) 26%, transparent); --blob-b:rgba(110,90,255,.22); --blob-c:rgba(10,160,200,.16);
+  --lg-tint:38,38,46; --lg-a:min(.92, calc(.36 * var(--glass-user))); --lg-a-text:min(.94, calc(.60 * var(--glass-user)));
+  --lg-blur:blur(14px) saturate(170%) brightness(.95);
+  --lg-rim:rgba(255,255,255,.20); --lg-hi:rgba(255,255,255,.30); --lg-lo:rgba(255,255,255,.08); --lg-glow:rgba(255,255,255,.06);
+  --lg-sheen:radial-gradient(120% 70% at 12% -10%, rgba(255,255,255,.12), rgba(255,255,255,0) 55%);
+  --lg-shadow:0 24px 48px -16px rgba(0,0,0,.65), 0 6px 14px -4px rgba(0,0,0,.40);
   color-scheme:dark}}
 :root[data-theme="dark"]{
-  --accent:#FF5C8A; --accent-fill:#E5195A; --accent-text:#FF7FA3; --on-accent:#fff;
-  --label:rgba(255,255,255,.92); --label-2:rgba(235,235,245,.66); --label-3:rgba(235,235,245,.40);
-  --separator:rgba(84,84,88,.55); --fill:rgba(120,120,128,.20); --fill-2:rgba(120,120,128,.30);
-  --bg-base:#000; --card:rgba(28,28,30,.86); --card-solid:#1C1C1E;
-  --green:#30D158; --red:#FF453A; --orange:#FF9F0A;
-  --bar:rgba(235,235,245,.22);
-  --glass-tint:22,22,23; --glass-border:1px solid rgba(255,255,255,.12);
-  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.04);
-  --glass-shadow:0 12px 36px rgba(0,0,0,.50), 0 1px 2px rgba(0,0,0,.35);
-  --card-shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
-  --blob-a:color-mix(in srgb, var(--accent) 30%, transparent); --blob-b:rgba(175,82,222,.22); --blob-c:rgba(10,132,255,.20);
+  --accent:#FF5C8A; --accent-2:#FF2D6F; --accent-fill:#E5195A; --accent-text:#FF86A9;
+  --accent-grad:linear-gradient(135deg, #FF7AA2 0%, #FF4D80 45%, #E5195A 100%);
+  --label:rgba(255,255,255,.93); --label-2:rgba(235,235,245,.68); --label-3:rgba(235,235,245,.40);
+  --separator:rgba(255,255,255,.10); --fill:rgba(255,255,255,.06); --fill-2:rgba(255,255,255,.11);
+  --bg-base:#0C0C12; --decor:rgba(200,210,255,.07); --card-solid:#1C1C22;
+  --green:#30D158; --red:#FF453A; --bar:rgba(235,235,245,.20); --bar-top:#FF86A9; --bar-bottom:#E5195A;
+  --blob-a:color-mix(in srgb, var(--accent) 26%, transparent); --blob-b:rgba(110,90,255,.22); --blob-c:rgba(10,160,200,.16);
+  --lg-tint:38,38,46; --lg-a:min(.92, calc(.36 * var(--glass-user))); --lg-a-text:min(.94, calc(.60 * var(--glass-user)));
+  --lg-blur:blur(14px) saturate(170%) brightness(.95);
+  --lg-rim:rgba(255,255,255,.20); --lg-hi:rgba(255,255,255,.30); --lg-lo:rgba(255,255,255,.08); --lg-glow:rgba(255,255,255,.06);
+  --lg-sheen:radial-gradient(120% 70% at 12% -10%, rgba(255,255,255,.12), rgba(255,255,255,0) 55%);
+  --lg-shadow:0 24px 48px -16px rgba(0,0,0,.65), 0 6px 14px -4px rgba(0,0,0,.40);
   color-scheme:dark}
 
 *{box-sizing:border-box}
 body{
   background:
-    radial-gradient(55% 45% at 8% 6%, var(--blob-a) 0, transparent 62%),
-    radial-gradient(45% 45% at 92% 14%, var(--blob-b) 0, transparent 60%),
-    radial-gradient(60% 55% at 70% 96%, var(--blob-c) 0, transparent 62%),
-    var(--bg-base);
-  background-attachment:fixed;
+    radial-gradient(48% 42% at 6% 4%, var(--blob-a) 0, transparent 62%),
+    radial-gradient(42% 40% at 96% 10%, var(--blob-b) 0, transparent 62%),
+    radial-gradient(55% 50% at 74% 98%, var(--blob-c) 0, transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-base) 70%, #fff) 0%, var(--bg-base) 55%);
+  background-color:var(--bg-base); background-attachment:fixed;
   color:var(--label); font-family:var(--font); font-size:15px; line-height:1.5;
-  -webkit-font-smoothing:antialiased;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
 }
 button,select,input{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--accent-ring);outline-offset:2px}
+:focus-visible{outline:2px solid var(--accent-ring);outline-offset:3px}
 .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 
-.glass{
-  background:var(--glass-bg);
-  -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
-  border:var(--glass-border); box-shadow:var(--glass-highlight), var(--glass-shadow);
+/* 背景の作図線（参考画像の細い円と線） */
+.decor{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.decor svg{width:100%;height:100%}
+.decor circle,.decor line,.decor rect{fill:none;stroke:var(--decor);stroke-width:1}
+
+/* ---------- Liquid Glass ---------- */
+.lg{
+  position:relative; isolation:isolate;
+  background:var(--lg-sheen), rgba(var(--lg-tint), var(--lg-a));
+  -webkit-backdrop-filter:var(--lg-blur); backdrop-filter:var(--lg-blur);
+  border:1px solid var(--lg-rim);
+  box-shadow:
+    inset 0 1.5px 0 var(--lg-hi),            /* 上の縁の光 */
+    inset 0 -1px 0 var(--lg-lo),             /* 下の縁の返り */
+    inset 0 0 22px var(--lg-glow),           /* 内側のにじみ */
+    var(--lg-shadow);
 }
-.glass--thick{background:var(--glass-bg-thick)}
+.lg::after{   /* 縁の虹色のにじみ（光の分散） */
+  content:""; position:absolute; inset:-1px; border-radius:inherit; padding:1.5px; pointer-events:none; z-index:2;
+  background:var(--lg-chroma); opacity:.55;
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude;
+}
+.lg--text{background:var(--lg-sheen), rgba(var(--lg-tint), var(--lg-a-text))}
+/* 屈折を有効にした要素（Lens が backdrop-filter を設定する。ここではぼかしを弱めて屈折を見せる） */
+.lens-on .lg[data-lens]{background:var(--lg-sheen), rgba(var(--lg-tint), calc(var(--lg-a) * .75))}
 
 /* ---------- 全体の配置 ---------- */
-.app{display:grid;grid-template-columns:288px minmax(0,1fr);gap:16px;min-height:100vh;
-  padding-block:12px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.app{display:grid;grid-template-columns:292px minmax(0,1fr);gap:18px;min-height:100vh;
+  padding-block:14px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
 
 /* ---------- サイドバー ---------- */
-.side{position:sticky;top:calc(12px + env(safe-area-inset-top,0px));height:calc(100vh - 24px);border-radius:var(--r-card);
+.side{position:sticky;top:calc(14px + env(safe-area-inset-top,0px));height:calc(100vh - 28px);border-radius:var(--r-sheet);
   display:flex;flex-direction:column;overflow:hidden}
-.side-head{padding:18px 18px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.brand{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.side-head{padding:20px 20px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.brand{margin:0;font-size:21px;font-weight:700;letter-spacing:-.015em}
 .brand small{display:block;font-size:12px;font-weight:500;color:var(--label-2);letter-spacing:0}
 .navtoggle{display:none}
-.nav{flex:1;overflow:auto;padding:4px 10px 16px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin}
-.year{display:flex;flex-direction:column;gap:8px}
+.nav{flex:1;overflow:auto;padding:4px 12px 18px;display:flex;flex-direction:column;gap:16px;scrollbar-width:thin;scrollbar-color:rgba(120,120,128,.35) transparent}
+.year{display:flex;flex-direction:column;gap:10px}
 .year-btn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;border:0;background:none;cursor:pointer;
-  padding:6px 8px;border-radius:var(--r-control);text-align:left}
+  padding:7px 10px;border-radius:999px;text-align:left;transition:background-color 160ms var(--ease)}
 .year-btn .yl{font-size:13px;font-weight:700;color:var(--label-2);letter-spacing:.02em;display:flex;align-items:center;gap:6px}
-.year-btn .chev{width:14px;height:14px;transition:transform var(--dur,320ms) var(--ease)}
+.year-btn .chev{width:14px;height:14px;transition:transform 320ms var(--ease)}
 .year[data-open="false"] .chev{transform:rotate(-90deg)}
 .year[data-open="false"] .months{display:none}
 .year-btn .yv{font-size:12px;color:var(--label-3)}
 .year-btn:hover{background:var(--fill)}
 .year-btn[aria-current="true"]{background:var(--accent-soft)}
 .year-btn[aria-current="true"] .yl,.year-btn[aria-current="true"] .yv{color:var(--accent-text)}
-.months{display:flex;flex-direction:column;gap:10px}
-.month{background:var(--fill);border-radius:16px;padding:6px;display:flex;flex-direction:column;gap:2px}
-.row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;min-height:36px;border:0;background:none;
-  cursor:pointer;text-align:left;padding:6px 10px;border-radius:var(--r-control);transition:background-color 160ms var(--ease), transform 160ms var(--ease-spring)}
+.months{display:flex;flex-direction:column;gap:12px}
+/* 月の囲み: ガラスにくぼんだ受け皿（内側の影） */
+.month{border-radius:20px;padding:6px;display:flex;flex-direction:column;gap:2px;
+  background:rgba(var(--lg-tint), .22);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.06), inset 0 -1px 0 rgba(255,255,255,.55), 0 1px 0 rgba(255,255,255,.45)}
+.row{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;min-height:38px;border:0;background:none;
+  cursor:pointer;text-align:left;padding:6px 12px;border-radius:999px;transition:background-color 160ms var(--ease), transform 200ms var(--ease-spring)}
 .row:hover{background:var(--fill-2)}
-.row:active{transform:scale(.98)}
+.row:active{transform:scale(.97)}
 .row .t{display:flex;flex-direction:column;min-width:0}
 .row .t b{font-weight:600;font-size:14px}
 .row .t span{font-size:12px;color:var(--label-2)}
 .row .v{font-size:13px;color:var(--label-2)}
-.row.month-row{min-height:44px}
-.row.month-row .t b{font-size:16px;font-weight:700;letter-spacing:-.01em}
-.row.month-row .v{font-size:14px;font-weight:600;color:var(--label)}
-.row[aria-current="true"]{background:var(--accent-fill);color:var(--on-accent);box-shadow:0 6px 18px color-mix(in srgb, var(--accent) 30%, transparent)}
-.row[aria-current="true"] .t span,.row[aria-current="true"] .v{color:color-mix(in srgb, var(--on-accent) 82%, transparent)}
-.weeks{display:flex;flex-direction:column;gap:2px;padding-top:2px;border-top:1px solid var(--separator);margin:2px 6px 0}
-.weeks .row{padding-inline:8px}
-.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text);margin-left:6px;vertical-align:1px}
-.row[aria-current="true"] .tag{background:rgba(255,255,255,.22);color:var(--on-accent)}
-.side-foot{padding:10px 16px 14px;border-top:1px solid var(--separator);display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--label-2)}
+.row.month-row{min-height:46px;border-radius:16px}
+.row.month-row .t b{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.row.month-row .v{font-size:14px;font-weight:650;color:var(--label)}
+/* 選択中: 色のカプセルの上に、少しずらしたガラスのカプセル（参考画像の緑のトグル） */
+.row[aria-current="true"]{color:var(--on-accent);background:none}
+.row[aria-current="true"]::before{content:"";position:absolute;inset:2px;border-radius:inherit;z-index:-2;background:var(--accent-grad);
+  box-shadow:0 8px 20px -6px color-mix(in srgb, var(--accent) 55%, transparent)}
+.row[aria-current="true"]::after{content:"";position:absolute;top:-3px;bottom:-3px;left:42%;right:-3px;border-radius:999px;z-index:-1;
+  background:linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,.06) 55%, rgba(255,255,255,.18));
+  border:1.5px solid rgba(255,255,255,.75);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -2px 6px rgba(255,255,255,.25), inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
+             0 6px 14px -4px rgba(0,0,0,.20)}
+.row.month-row[aria-current="true"]::after{border-radius:18px}
+.row[aria-current="true"] .t span,.row[aria-current="true"] .v{color:rgba(255,255,255,.88)}
+.weeks{display:flex;flex-direction:column;gap:2px;padding-top:4px;border-top:1px solid var(--separator);margin:3px 8px 0}
+.weeks .row{padding-inline:10px}
+.tag{display:inline-block;font-size:11px;font-weight:650;padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text);margin-left:6px;vertical-align:1px}
+.row[aria-current="true"] .tag{background:rgba(255,255,255,.25);color:#fff}
+.side-foot{padding:12px 18px 16px;border-top:1px solid var(--separator);display:flex;flex-direction:column;gap:12px;font-size:13px;color:var(--label-2)}
 .field{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.field select{background:var(--fill);border:0;border-radius:8px;padding:4px 8px}
-.field input[type=range]{width:120px;accent-color:var(--accent-fill)}
+.field select{background:rgba(var(--lg-tint),.5);border:1px solid var(--lg-rim);border-radius:999px;padding:4px 10px;box-shadow:inset 0 1px 0 var(--lg-hi)}
+
+/* スライダー: 色のトラックの上にガラスのつまみ（参考画像の青いスライダー） */
+input[type=range].lgrange{-webkit-appearance:none;appearance:none;width:132px;height:28px;background:none;cursor:pointer;--val:57%}
+.lgrange::-webkit-slider-runnable-track{height:8px;border-radius:999px;
+  background:linear-gradient(90deg, var(--accent-2), var(--accent) var(--val), rgba(120,120,128,.20) var(--val));
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.12)}
+.lgrange::-moz-range-track{height:8px;border-radius:999px;background:rgba(120,120,128,.20);box-shadow:inset 0 1px 2px rgba(0,0,0,.12)}
+.lgrange::-moz-range-progress{height:8px;border-radius:999px;background:var(--accent)}
+.lgrange::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:22px;margin-top:-7px;border-radius:999px;
+  background:radial-gradient(80% 60% at 50% 20%, rgba(255,255,255,.95), rgba(255,255,255,.35) 60%, rgba(255,255,255,.55));
+  border:1.5px solid rgba(255,255,255,.95);
+  box-shadow:inset 0 -2px 4px rgba(0,0,0,.06), inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent), 0 4px 10px rgba(0,0,0,.18), 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+  transition:transform 200ms var(--ease-spring)}
+.lgrange:active::-webkit-slider-thumb{transform:scale(1.15)}
+.lgrange::-moz-range-thumb{width:34px;height:22px;border-radius:999px;border:1.5px solid #fff;
+  background:radial-gradient(80% 60% at 50% 20%, rgba(255,255,255,.95), rgba(255,255,255,.4) 60%, rgba(255,255,255,.6));
+  box-shadow:0 4px 10px rgba(0,0,0,.18)}
+
+/* スイッチ: 色のトラックと、はみ出すガラスのつまみ */
+.switch{position:relative;width:52px;height:30px;border:0;border-radius:999px;cursor:pointer;flex:none;
+  background:rgba(120,120,128,.22);box-shadow:inset 0 1px 3px rgba(0,0,0,.14);transition:background-color 320ms var(--ease)}
+.switch::after{content:"";position:absolute;top:-2px;left:-2px;width:36px;height:34px;border-radius:999px;
+  background:radial-gradient(80% 60% at 50% 18%, rgba(255,255,255,.98), rgba(255,255,255,.55) 65%, rgba(255,255,255,.75));
+  border:1.5px solid rgba(255,255,255,.95);
+  box-shadow:inset 0 -2px 5px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.20);transition:transform 320ms var(--ease-spring)}
+.switch[aria-checked="true"]{background:var(--accent-grad)}
+.switch[aria-checked="true"]::after{transform:translateX(20px);box-shadow:inset 0 -2px 5px rgba(0,0,0,.06), inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent), 0 4px 12px rgba(0,0,0,.22)}
+.switch:active::after{width:42px}
+.switch[aria-checked="true"]:active::after{transform:translateX(14px)}
+.switch[disabled]{opacity:.45;cursor:default}
 
 /* ---------- 本文 ---------- */
-main{min-width:0;display:flex;flex-direction:column;gap:16px;padding-bottom:40px}
-.toolbar{position:sticky;top:calc(12px + env(safe-area-inset-top,0px));z-index:5;border-radius:var(--r-card);
-  padding:12px 18px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
-.toolbar h1{margin:0;font-size:clamp(20px,2.6vw,28px);font-weight:700;letter-spacing:-.02em;line-height:1.25;text-wrap:balance}
+main{min-width:0;display:flex;flex-direction:column;gap:18px;padding-bottom:44px}
+.toolbar{position:sticky;top:calc(14px + env(safe-area-inset-top,0px));z-index:5;border-radius:999px;
+  padding:12px 14px 12px 26px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.toolbar h1{margin:0;font-size:clamp(20px,2.5vw,27px);font-weight:700;letter-spacing:-.02em;line-height:1.25;text-wrap:balance}
 .toolbar .sub{font-size:13px;color:var(--label-2)}
-.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--fill);color:var(--label-2);white-space:nowrap}
-.chip.live{background:var(--accent-soft);color:var(--accent-text)}
-.chip.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)}
-.content{display:flex;flex-direction:column;gap:16px;max-width:1080px;width:100%}
-.card{background:var(--card);border-radius:var(--r-card);box-shadow:var(--card-shadow);padding:20px;min-width:0}
-.card h2{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;padding:6px 12px;border-radius:999px;white-space:nowrap;
+  background:rgba(var(--lg-tint),.45);border:1px solid var(--lg-rim);box-shadow:inset 0 1px 0 var(--lg-hi);color:var(--label-2)}
+.chip.live{color:var(--accent-text)}
+.chip.live::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 10px var(--accent)}
+.content{display:flex;flex-direction:column;gap:18px;max-width:1100px;width:100%}
+.card{border-radius:var(--r-card);padding:22px;min-width:0}
+.card h2{margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em}
 .card .cap{margin:2px 0 14px;font-size:13px;color:var(--label-2)}
-.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.kpi{background:var(--card);border-radius:var(--r-card);box-shadow:var(--card-shadow);padding:16px 18px;display:flex;flex-direction:column;gap:2px;min-width:0;container-type:inline-size}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.kpi{border-radius:var(--r-card);padding:16px 20px;display:flex;flex-direction:column;gap:2px;min-width:0;container-type:inline-size}
 .kpi .lb{font-size:13px;color:var(--label-2);font-weight:500}
-.kpi .v{font-size:clamp(18px,14cqi,30px);font-weight:700;letter-spacing:-.02em;white-space:nowrap}
+.kpi .v{font-size:clamp(18px,14cqi,31px);font-weight:700;letter-spacing:-.02em;white-space:nowrap}
 .kpi .d{font-size:12px;color:var(--label-2)}
-.kpi:first-child .v{color:var(--accent-text)}
-.up{color:var(--green);font-weight:600} .down{color:var(--red);font-weight:600}
-.grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+.kpi:first-child .v{background:var(--accent-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.up{color:var(--green);font-weight:650} .down{color:var(--red);font-weight:650}
+.grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px}
 .chart svg{display:block;width:100%;height:auto;overflow:visible}
 .chart text{fill:var(--label-2);font-family:var(--font);font-size:11px}
 .chart .gl{stroke:var(--separator);stroke-width:1}
-.chart .b{fill:var(--bar)} .chart .b.sel{fill:var(--accent-fill)} .chart .b.cur{fill:var(--bar-cur)}
-.chart .vl{fill:var(--label);font-weight:600}
-.chart rect.b{transition:opacity 160ms var(--ease)} .chart rect.b:hover{opacity:.8}
+.chart .b{fill:var(--bar)} .chart .b.cur{fill:var(--bar-cur)}
+.chart .vl{fill:var(--label);font-weight:650}
+.chart rect.b{transition:opacity 160ms var(--ease)} .chart rect.b:hover{opacity:.82}
 .facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
-.fact{background:var(--fill);border-radius:14px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.fact{border-radius:16px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;min-width:0;
+  background:rgba(var(--lg-tint),.35);border:1px solid var(--lg-rim);box-shadow:inset 0 1px 0 var(--lg-hi)}
 .fact .k{font-size:12px;color:var(--label-2)}
-.fact .v{font-size:16px;font-weight:600;overflow-wrap:anywhere}
+.fact .v{font-size:16px;font-weight:650;overflow-wrap:anywhere}
 .tablewrap{overflow:auto;max-height:440px;margin-inline:-6px}
 table{width:100%;border-collapse:collapse;font-size:14px;min-width:560px}
-th,td{padding:9px 6px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--separator)}
-th{font-size:12px;color:var(--label-2);font-weight:600;position:sticky;top:0;background:var(--card-solid)}
+th,td{padding:10px 6px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--separator)}
+th{font-size:12px;color:var(--label-2);font-weight:650;position:sticky;top:0;background:color-mix(in srgb, var(--card-solid) 92%, transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 td.n{text-align:right}
-td a{color:var(--accent-text);text-decoration:none;font-weight:600}
+td a{color:var(--accent-text);text-decoration:none;font-weight:650}
 td a:hover{text-decoration:underline}
-.pill{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--fill);color:var(--label-2)}
+.pill{font-size:12px;font-weight:650;padding:3px 9px;border-radius:999px;background:var(--fill-2);color:var(--label-2)}
 .pill.rv{background:color-mix(in srgb, var(--red) 14%, transparent);color:var(--red)}
 .pill.ok{background:color-mix(in srgb, var(--green) 14%, transparent);color:var(--green)}
-.notice{border-radius:16px;padding:14px 16px;background:var(--accent-soft);font-size:14px}
+.notice{border-radius:20px;padding:14px 18px;font-size:14px;background:rgba(var(--lg-tint),.5);border:1px solid var(--lg-rim);
+  box-shadow:inset 0 1px 0 var(--lg-hi), inset 4px 0 0 var(--accent)}
 .notice strong{display:block;font-size:15px;margin-bottom:2px}
 .empty{color:var(--label-2);font-size:14px;padding:6px 0}
-.foot{font-size:12px;color:var(--label-2);padding:0 4px}
+.foot{font-size:12px;color:var(--label-2);padding:0 6px}
+
+/* ---------- ボタン ---------- */
+.btn{position:relative;border:1px solid var(--lg-rim);border-radius:999px;padding:9px 18px;min-height:38px;font-weight:650;font-size:14px;cursor:pointer;
+  background:rgba(var(--lg-tint),.45);box-shadow:inset 0 1px 0 var(--lg-hi), 0 4px 12px -4px rgba(0,0,0,.15);
+  transition:transform 200ms var(--ease-spring), box-shadow 200ms var(--ease), filter 200ms var(--ease)}
+.btn:active{transform:scale(.96)}
+/* 色のボタン: ピンクの上に光沢のガラス層 */
+.btn.filled{color:var(--on-accent);border-color:rgba(255,255,255,.55);
+  background:linear-gradient(180deg, rgba(255,255,255,.38), rgba(255,255,255,0) 52%), var(--accent-grad);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.75), inset 0 -2px 6px rgba(120,0,40,.25), 0 10px 26px -8px color-mix(in srgb, var(--accent) 70%, transparent)}
+.btn.filled:hover{filter:brightness(1.05) saturate(1.05)}
+.btn.tinted{color:var(--accent-text)}
+.btn.plain{background:none;border-color:transparent;box-shadow:none;color:var(--label-2)}
+.btn[disabled]{opacity:.5;cursor:default;transform:none}
 
 /* ---------- AI の示唆 ---------- */
-.ai{position:relative;overflow:hidden}
-.ai::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
-  background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 70%, transparent), transparent 40%, transparent 60%, color-mix(in srgb, var(--accent) 40%, transparent));
-  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.ai{overflow:hidden}
+.ai::before{content:"";position:absolute;inset:-40% -10% auto auto;width:60%;height:120%;pointer-events:none;z-index:-1;
+  background:radial-gradient(closest-side, color-mix(in srgb, var(--accent) 16%, transparent), transparent)}
 .ai-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px}
 .ai-head h2{display:flex;align-items:center;gap:8px}
-.spark{width:20px;height:20px;color:var(--accent)}
+.spark{width:22px;height:22px;color:var(--accent)}
 .ai-actions{display:flex;gap:8px;align-items:center}
-.btn{border:0;border-radius:999px;padding:8px 16px;min-height:36px;font-weight:600;font-size:14px;cursor:pointer;
-  transition:transform 160ms var(--ease-spring), box-shadow 160ms var(--ease), background-color 160ms var(--ease)}
-.btn:active{transform:scale(.97)}
-.btn.filled{background:var(--accent-fill);color:var(--on-accent);box-shadow:0 6px 20px color-mix(in srgb, var(--accent) 32%, transparent)}
-.btn.filled:hover{box-shadow:0 8px 26px color-mix(in srgb, var(--accent) 42%, transparent)}
-.btn.tinted{background:var(--accent-soft);color:var(--accent-text)}
-.btn.plain{background:none;color:var(--label-2)}
-.btn[disabled]{opacity:.5;cursor:default;transform:none}
-.ai-body{margin-top:14px;display:flex;flex-direction:column;gap:16px}
-.ai-headline{font-size:clamp(17px,2vw,21px);font-weight:700;letter-spacing:-.01em;line-height:1.45;text-wrap:balance}
+.ai-body{margin-top:10px;display:flex;flex-direction:column;gap:16px}
+.ai-headline{font-size:clamp(17px,2vw,22px);font-weight:700;letter-spacing:-.01em;line-height:1.45;text-wrap:balance}
 .ai-meta{font-size:12px;color:var(--label-2)}
 .ai-sec h3{margin:0 0 8px;font-size:13px;font-weight:700;color:var(--label-2);letter-spacing:.02em}
 .ai-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
-.ai-item{background:var(--fill);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.ai-item{border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0;
+  background:rgba(var(--lg-tint),.40);border:1px solid var(--lg-rim);box-shadow:inset 0 1px 0 var(--lg-hi), 0 6px 16px -10px rgba(0,0,0,.25)}
 .ai-item b{font-size:15px;font-weight:650}
 .ai-item p{margin:0;font-size:14px;line-height:1.65}
 .ai-item small{font-size:12px;color:var(--label-2)}
-.ai-item .prio{align-self:flex-start;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--fill-2);color:var(--label-2)}
-.ai-item .prio.high{background:var(--accent-fill);color:var(--on-accent)}
-.ai-out{background:var(--accent-soft);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.7}
+.ai-item .prio{align-self:flex-start;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--fill-2);color:var(--label-2)}
+.ai-item .prio.high{background:var(--accent-grad);color:#fff}
+.ai-out{border-radius:18px;padding:12px 16px;font-size:14px;line-height:1.7;background:var(--accent-soft);border:1px solid color-mix(in srgb, var(--accent) 22%, transparent)}
 .ai-out .range{display:block;margin-top:6px;font-weight:700;color:var(--accent-text)}
 .ai-caveats{margin:0;padding-left:18px;font-size:13px;color:var(--label-2)}
 .thinking{display:flex;align-items:center;gap:10px;color:var(--label-2);font-size:14px}
-.dots{display:inline-flex;gap:4px}
-.dots i{width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:.3;animation:pulse 1.2s infinite var(--ease)}
+.dots{display:inline-flex;gap:5px}
+.dots i{width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.3;animation:pulse 1.2s infinite var(--ease)}
 .dots i:nth-child(2){animation-delay:.2s} .dots i:nth-child(3){animation-delay:.4s}
-@keyframes pulse{50%{opacity:1}}
+@keyframes pulse{50%{opacity:1;transform:scale(1.15)}}
 
 /* ---------- 狭い画面: サイドバーを上部の折りたたみに ---------- */
 @media (max-width: 860px){
   .app{grid-template-columns:minmax(0,1fr);padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
-  .side{position:relative;top:0;height:auto;max-height:none}
+  .side{position:relative;top:0;height:auto}
   .navtoggle{display:inline-flex}
   .side:not(.open) .nav,.side:not(.open) .side-foot{display:none}
   .side.open .nav{max-height:62vh}
-  .toolbar{top:env(safe-area-inset-top,0px)}
+  .toolbar{top:env(safe-area-inset-top,0px);border-radius:var(--r-card)}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .grid2{grid-template-columns:minmax(0,1fr)}
 }
@@ -220,20 +300,35 @@ td a:hover{text-decoration:underline}
 
 /* ---------- アクセシビリティとフォールバック ---------- */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))){
-  .glass{background:rgba(var(--glass-tint),.92)}
+  .lg,.lg--text{background:rgba(var(--lg-tint),.92)}
 }
 @media (prefers-reduced-transparency: reduce){
-  .glass{background:rgba(var(--glass-tint),.96);-webkit-backdrop-filter:none;backdrop-filter:none}
+  .lg,.lg--text{background:rgba(var(--lg-tint),.96);-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
 }
 @media (prefers-contrast: more){
-  .glass{background:var(--bg-base);border:1px solid var(--label-2);-webkit-backdrop-filter:none;backdrop-filter:none}
-  .card,.kpi{background:var(--card-solid);border:1px solid var(--label-2)}
+  .lg,.lg--text{background:var(--card-solid);border:1px solid var(--label-2);-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+  .lg::after{display:none}
+}
+@media (forced-colors: active){   /* Windows のハイコントラスト */
+  .lg,.lg--text,.fact,.ai-item,.btn,.chip,.month{background:Canvas;border:1px solid CanvasText;box-shadow:none;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+  .lg::after,.row[aria-current="true"]::after{display:none}
+  .row[aria-current="true"]{outline:2px solid Highlight}
+  .row[aria-current="true"]::before{background:Highlight}
+  .kpi:first-child .v{color:CanvasText;background:none}
 }
 @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 
+<div class="decor" aria-hidden="true"><svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <rect x="-120" y="-140" width="520" height="580" rx="90"/><circle cx="250" cy="300" r="125"/><circle cx="250" cy="300" r="62"/>
+  <rect x="930" y="520" width="620" height="620" rx="96"/><circle cx="1075" cy="640" r="130"/><circle cx="1075" cy="640" r="58"/>
+  <circle cx="810" cy="500" r="78"/><line x1="560" y1="500" x2="1060" y2="500"/><line x1="810" y1="330" x2="810" y2="670"/>
+  <circle cx="1440" cy="370" r="110"/><line x1="1180" y1="370" x2="1600" y2="370"/><line x1="1440" y1="200" x2="1440" y2="540"/>
+</svg></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="lensdefs"></defs></svg>
+
 <div class="app">
-  <aside class="side glass" id="side" aria-label="期間">
+  <aside class="side lg" id="side" data-lens="side" aria-label="期間">
     <div class="side-head">
       <p class="brand">Bar null<small>売上レポート</small></p>
       <button type="button" class="btn tinted navtoggle" id="navtoggle" aria-expanded="false" aria-controls="nav">期間を選ぶ</button>
@@ -241,12 +336,13 @@ td a:hover{text-decoration:underline}
     <nav class="nav" id="nav"><p class="empty">読み込んでいます…</p></nav>
     <div class="side-foot">
       <label class="field">データ<select id="env"><option value="prod">本番</option><option value="test">テスト</option></select></label>
-      <label class="field">ガラスの透明度<input type="range" id="glass" min="0.6" max="1.3" step="0.05" value="1"></label>
+      <label class="field">ガラスの透明度<input type="range" class="lgrange" id="glass" min="0.6" max="1.3" step="0.05" value="1"></label>
+      <div class="field"><span id="lenslabel">レンズ効果（屈折）</span><button type="button" class="switch" role="switch" id="lens" aria-checked="false" aria-labelledby="lenslabel"></button></div>
     </div>
   </aside>
 
   <main>
-    <header class="toolbar glass" id="toolbar">
+    <header class="toolbar lg" id="toolbar" data-lens="bar">
       <div>
         <h1 id="title">売上レポート</h1>
         <div class="sub num" id="subtitle">Asana の伝票データを読み込んでいます</div>
@@ -258,13 +354,13 @@ td a:hover{text-decoration:underline}
       <div id="notice"></div>
 
       <section class="kpis" id="kpis" aria-label="主要な数字">
-        <div class="kpi"><span class="lb">売上</span><span class="v num">—</span><span class="d">　</span></div>
-        <div class="kpi"><span class="lb">予約数</span><span class="v num">—</span><span class="d">　</span></div>
-        <div class="kpi"><span class="lb">客単価（1組）</span><span class="v num">—</span><span class="d">　</span></div>
-        <div class="kpi"><span class="lb">1日あたり</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">売上</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">予約数</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">客単価（1組）</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">1日あたり</span><span class="v num">—</span><span class="d">　</span></div>
       </section>
 
-      <section class="card ai" id="ai" aria-live="polite">
+      <section class="card lg lg--text ai" id="ai" aria-live="polite">
         <div class="ai-head">
           <div>
             <h2><svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9.5l-4.7 1.9L12 16l-1.8-4.6L5.5 9.5l4.7-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>AI の示唆</h2>
@@ -278,13 +374,13 @@ td a:hover{text-decoration:underline}
         <div class="ai-body" id="aibody"></div>
       </section>
 
-      <section class="card chart"><h2 id="c1t">日ごとの売上</h2><p class="cap" id="c1c">営業日（6:00〜翌6:00）</p><div id="c1"></div></section>
+      <section class="card lg lg--text chart"><h2 id="c1t">日ごとの売上</h2><p class="cap" id="c1c">営業日（6:00〜翌6:00）</p><div id="c1"></div></section>
       <div class="grid2">
-        <section class="card chart"><h2 id="c2t">推移</h2><p class="cap" id="c2c"></p><div id="c2"></div></section>
-        <section class="card chart"><h2>曜日ごとの平均</h2><p class="cap" id="c3c">伝票のあった日の平均</p><div id="c3"></div></section>
+        <section class="card lg lg--text chart"><h2 id="c2t">推移</h2><p class="cap" id="c2c"></p><div id="c2"></div></section>
+        <section class="card lg lg--text chart"><h2>曜日ごとの平均</h2><p class="cap" id="c3c">伝票のあった日の平均</p><div id="c3"></div></section>
       </div>
-      <section class="card"><h2>内訳</h2><p class="cap" id="factscap">この期間</p><div class="facts num" id="facts"></div></section>
-      <section class="card" id="slipcard"><h2>伝票</h2><p class="cap">伝票 ID から Asana のタスクを開けます</p><div class="tablewrap" id="slips"></div></section>
+      <section class="card lg lg--text"><h2>内訳</h2><p class="cap" id="factscap">この期間</p><div class="facts num" id="facts"></div></section>
+      <section class="card lg lg--text" id="slipcard"><h2>伝票</h2><p class="cap">伝票 ID から Asana のタスクを開けます</p><div class="tablewrap" id="slips"></div></section>
       <p class="foot" id="fresh">定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る</p>
     </div>
   </main>
@@ -490,12 +586,17 @@ function bars(target, items, opts) {     // items: [{label, sub, value, cls, tit
   const max = Math.max(1000, ...items.map((i) => i.value)), step = niceStep(max), top = Math.ceil(max / step) * step;
   const bw = (W - L - R) / items.length, y = (v) => T + (H - T - B) * (1 - v / top);
   const every = Math.ceil(items.length / Math.max(4, Math.floor((W - L) / 38)));   // ラベルが重ならないように間引く
-  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(opts.label)}">`;
+  const gid = `g_${target.id}`;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(opts.label)}">` +
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--bar-top)"/><stop offset="1" style="stop-color:var(--bar-bottom)"/></linearGradient>` +
+    `<linearGradient id="${gid}h" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".0"/><stop offset=".35" stop-color="#fff" stop-opacity=".38"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`;
   for (let v = 0; v <= top + 1e-9; v += step) svg += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${short(v)}</text>`;
   items.forEach((it, i) => {
     const w = Math.min(36, bw * 0.62), x = L + i * bw + (bw - w) / 2, h = Math.max(0, y(0) - y(it.value));
     const r = Math.min(6, w / 2, h);
-    svg += `<rect class="b ${it.cls || ""}" x="${x}" y="${y(it.value)}" width="${w}" height="${h}" rx="${r}"><title>${esc(it.title || `${it.label} ${yen(it.value)}`)}</title></rect>`;
+    const fill = it.cls === "sel" ? ` style="fill:url(#${gid})"` : "";   // CSS の .b の色より優先させる
+    svg += `<rect class="b ${it.cls || ""}"${fill} x="${x}" y="${y(it.value)}" width="${w}" height="${h}" rx="${r}"><title>${esc(it.title || `${it.label} ${yen(it.value)}`)}</title></rect>`;
+    if (it.cls === "sel" && h > 6) svg += `<rect x="${x}" y="${y(it.value)}" width="${w}" height="${h}" rx="${r}" fill="url(#${gid}h)" pointer-events="none"/>`;
     if (it.cls === "sel" && it.value && opts.valueOnSel) svg += `<text class="vl" x="${x + w / 2}" y="${y(it.value) - 6}" text-anchor="middle">${short(it.value)}</text>`;
     if (i % every === 0 || it.cls === "sel") {
       svg += `<text x="${x + w / 2}" y="${H - B + 16}" text-anchor="middle">${esc(it.label)}</text>`;
@@ -807,6 +908,82 @@ function renderInsight(body, doc, p) {
     section("注意", ul);
   }
 }
+
+/* ======================= レンズ効果（Liquid Glass の屈折） =======================
+   ガラスの縁で背景が曲がって見える効果。要素の大きさに合わせて displacement map（R=横・G=縦のずれ、128 が0）を
+   canvas で作り、SVG フィルタにして backdrop-filter: url(#…) で背景にかける。
+   Chrome / Edge（Chromium）だけが対応。それ以外のブラウザと「レンズ効果」オフのときは、ぼかしだけのすりガラス。
+   重いので、サイドバー・ツールバー・数字のカードだけに使う。大きさが変わったら作り直す（Chromium はフィルタを ID で
+   キャッシュするので、作り直すたびに新しい ID にする）。 */
+const Lens = {
+  supported: false, on: false, seq: 0, ro: null, timers: new Map(),
+  PRESET: { side: { bezel: 26, scale: 46, blur: 3 }, bar: { bezel: 22, scale: 38, blur: 2.5 }, tile: { bezel: 18, scale: 30, blur: 2 } },
+  init() {
+    const brands = (navigator.userAgentData && navigator.userAgentData.brands) || [];
+    this.supported = brands.some((b) => /Chromium/.test(b.brand)) && CSS.supports("backdrop-filter", "url(#x)") &&
+      !matchMedia("(prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active)").matches;
+    const sw = $("lens");
+    if (!this.supported) { sw.disabled = true; sw.title = "このブラウザでは使えません（Chrome・Edge で使えます）"; return; }
+    const saved = store.get("barnull-lens");
+    this.set(saved == null ? true : saved === "1");
+    sw.addEventListener("click", () => { this.set(!this.on); store.set("barnull-lens", this.on ? "1" : "0"); });
+  },
+  set(on) {
+    this.on = on; $("lens").setAttribute("aria-checked", String(on));
+    document.documentElement.classList.toggle("lens-on", on);
+    const els = [...document.querySelectorAll("[data-lens]")];
+    if (this.ro) { this.ro.disconnect(); this.ro = null; }
+    if (!on) { els.forEach((el) => { el.style.backdropFilter = ""; el.style.webkitBackdropFilter = ""; }); $("lensdefs").textContent = ""; return; }
+    this.ro = new ResizeObserver((entries) => entries.forEach((e) => this.schedule(e.target)));
+    els.forEach((el) => { this.ro.observe(el); this.build(el); });
+  },
+  schedule(el) {
+    clearTimeout(this.timers.get(el));
+    this.timers.set(el, setTimeout(() => this.build(el), 120));
+  },
+  build(el) {
+    if (!this.on) return;
+    const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
+    if (w < 8 || h < 8) return;
+    const cs = getComputedStyle(el), radius = Math.min(parseFloat(cs.borderTopLeftRadius) || 0, w / 2, h / 2);
+    const p = this.PRESET[el.dataset.lens] || this.PRESET.tile;
+    const id = `lens${++this.seq}`, old = el.dataset.lensId;
+    const NS = "http://www.w3.org/2000/svg", f = document.createElementNS(NS, "filter");
+    const attrs = (node, a) => { Object.entries(a).forEach(([k, v]) => node.setAttribute(k, String(v))); return node; };
+    attrs(f, { id, x: 0, y: 0, width: w, height: h, filterUnits: "userSpaceOnUse", primitiveUnits: "userSpaceOnUse", "color-interpolation-filters": "sRGB" });
+    f.append(
+      attrs(document.createElementNS(NS, "feImage"), { href: this.map(w, h, radius, Math.min(p.bezel, radius || p.bezel)), x: 0, y: 0, width: w, height: h, preserveAspectRatio: "none", result: "map" }),
+      attrs(document.createElementNS(NS, "feGaussianBlur"), { in: "SourceGraphic", stdDeviation: p.blur, result: "soft" }),
+      attrs(document.createElementNS(NS, "feDisplacementMap"), { in: "soft", in2: "map", scale: p.scale, xChannelSelector: "R", yChannelSelector: "G", result: "bent" }),
+      attrs(document.createElementNS(NS, "feColorMatrix"), { in: "bent", type: "saturate", values: 1.8 }),
+    );
+    $("lensdefs").append(f);
+    el.style.backdropFilter = `url(#${id})`; el.style.webkitBackdropFilter = `url(#${id})`;
+    el.dataset.lensId = id;
+    if (old) document.getElementById(old)?.remove();
+  },
+  /* 角の丸い四角の縁（幅 bezel）で、内側へ向かうずれを作る。縁に近いほど強く曲がる（凸レンズの縁のように） */
+  map(w, h, r, bezel) {
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const ctx = c.getContext("2d"), img = ctx.createImageData(w, h), d = img.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const px = x + .5, py = y + .5, i = (y * w + x) * 4;
+      const cx = Math.min(Math.max(px, r), w - r), cy = Math.min(Math.max(py, r), h - r);
+      let vx = px - cx, vy = py - cy, len = Math.hypot(vx, vy), dist, nx, ny;
+      if (len > 0) { dist = r - len; nx = vx / len; ny = vy / len; }
+      else {
+        const e = [[px, -1, 0], [w - px, 1, 0], [py, 0, -1], [h - py, 0, 1]].sort((a, b) => a[0] - b[0])[0];
+        [dist, nx, ny] = e;
+      }
+      let dx = 0, dy = 0;
+      if (dist >= 0 && dist < bezel) { const t = 1 - dist / bezel, m = Math.pow(t, 2.2); dx = -nx * m; dy = -ny * m; }
+      d[i] = 128 + Math.round(dx * 127); d[i + 1] = 128 + Math.round(dy * 127); d[i + 2] = 128; d[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    return c.toDataURL();
+  },
+};
+
 let resizeTimer;   // 図は幅に合わせて描き直す
 window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (state.rows) render(); }, 150); });
 $("aigen").addEventListener("click", () => generateAI(!!state.insights[insightKey(state.sel)]));
@@ -851,9 +1028,14 @@ $("navtoggle").addEventListener("click", () => {
   const open = $("side").classList.toggle("open"); $("navtoggle").setAttribute("aria-expanded", String(open));
 });
 const glassSaved = Number(store.get("barnull-glass"));
-function applyGlass(v) { document.documentElement.style.setProperty("--glass-user", String(v)); }
+function applyGlass(v) {
+  document.documentElement.style.setProperty("--glass-user", String(v));
+  const r = $("glass"); r.style.setProperty("--val", `${(v - r.min) / (r.max - r.min) * 100}%`);
+}
 if (glassSaved >= 0.6 && glassSaved <= 1.3) { $("glass").value = String(glassSaved); applyGlass(glassSaved); }
 $("glass").addEventListener("input", (e) => { applyGlass(e.target.value); store.set("barnull-glass", e.target.value); });
+applyGlass($("glass").value);
+Lens.init();
 
 (async function start() {
   render();
