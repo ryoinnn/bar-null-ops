@@ -49,7 +49,7 @@ BUDGET_NAME = "barnull-sales-guard"
 REPO = "sales"
 QUEUE = CFG.tasks_queue
 GITHUB_CONNECTION = "github"          # Cloud Build の GitHub 接続名（コンソールで作る）
-GITHUB_REPO = "bar-null-ops"          # 接続にリンクしたリポジトリ名
+GITHUB_REPO = "ryoinnn-bar-null-ops"   # 接続にリンクしたリポジトリの名前（コンソールが「所有者-リポジトリ」で付ける）
 
 GCLOUD = os.environ.get("GCLOUD", str(Path(os.environ.get("LOCALAPPDATA", "")) / "Google" / "Cloud SDK"
                                       / "google-cloud-sdk" / "bin" / "gcloud.cmd"))
