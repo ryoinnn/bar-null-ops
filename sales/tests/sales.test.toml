@@ -1,0 +1,66 @@
+# テスト用の設定（本番の sales.toml とは別。ID はすべて架空）
+dry_run = true
+
+[gcp]
+project = "test-project"
+region = "us-central1"
+tasks_queue = "sales-events"
+tasks_max_attempts = 10
+invoker_sa = "invoker@test-project.iam.gserviceaccount.com"
+worker_url = "https://worker.example"
+
+[business]
+timezone = "Asia/Tokyo"
+day_start = "06:00"
+
+[line]
+bot_mention_name = "@null"
+allowed_group_ids = ["Cgroup"]
+reply_ack = false
+
+[slack]
+channel_prod = "CPROD"
+channel_test = "CTEST"
+alert_mention = "UALERT"
+report_channel_prod = "CREPORT"
+
+[asana]
+workspace = "1"
+team_name = "team"
+project_name_prod = "prod"
+project_name_test = "test"
+
+[square]
+merchant_id = "MERCHANT"
+location_id = "LOCATION"
+payment_grace_min = 60
+payment_retry_days = 3
+split_max = 5
+split_span_min = 30
+orphan_grace_hours = 6
+orphan_check_since = "2026-10-01T00:00:00+09:00"
+
+[mf]
+office_code = "0000-0000"
+bank_subaccount = "SUB"
+square_patterns = ["スクエア(カ", "ｽｸｴｱ(ｶ"]
+fetch_interval_hours = 3
+staff_bank_names = []
+
+[deposit]
+grace_bizdays = 3
+cash_window_days = 14
+
+[followup]
+unpaid_reminder_interval_days = 7
+correction_window_hours = 24
+event_retention_days = 30
+payer_match_confidence = 0.8
+
+[report]
+artifact_url = "https://claude.ai/artifact/test"
+
+[claude]
+model_primary = "claude-haiku-5-5"
+model_fallback = "claude-sonnet-5-5"
+effort = "low"

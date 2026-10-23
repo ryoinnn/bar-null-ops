@@ -1,0 +1,42 @@
+[project]
+name = "barnull-sales"
+version = "0.1.0"
+description = "Bar null 売上管理（LINE の伝票メッセージ → Square → 銀行入金の確認、Slack と Asana への反映）"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    "httpx>=0.28",
+    "anthropic>=1.0",
+    "google-cloud-firestore>=2.20",
+    "jpholiday>=0.1.10",
+    "tzdata>=2024.1",
+]
+
+[project.scripts]
+barnull-sales = "barnull_sales.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.7",
+    "keyring>=25",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/barnull_sales"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]

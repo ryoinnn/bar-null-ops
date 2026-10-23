@@ -1,0 +1,32 @@
+# secrets / local state
+.env
+*.db
+*.db-wal
+*.db-shm
+data/
+storage_state/
+screenshots/
+logs/
+credentials*.json
+token*.json
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# 売上管理: 伝票サンプル（顧客名を含むため git に入れない）
+sales/samples/
+
+# 鍵・秘密情報（誤ってコミットしないように）
+.env*
+*.pem
+*.key
+*service-account*.json
+
+# ゲストとのやり取り・暗証番号などを含むもの（PC にだけ置き、GitHub に送らない。2026-10-24 本人の判断）
+knowledge/past_replies/
+knowledge/faq_learned.md
+assets/*.pdf

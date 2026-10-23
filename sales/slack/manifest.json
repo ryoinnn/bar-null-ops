@@ -1,0 +1,23 @@
+{
+  "display_information": {
+    "name": "Bar null 売上管理",
+    "description": "LINE の伝票メッセージから、Square の決済と銀行入金の確認状況を伝票ごとに知らせる Bot（株式会社0x0）",
+    "background_color": "#111111"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "barnull_sales",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": ["chat:write", "channels:read"]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

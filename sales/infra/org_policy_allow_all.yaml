@@ -1,0 +1,7 @@
+# 組織ポリシー「ドメインで制限された共有」（iam.allowedPolicyMemberDomains）を、barnull-sales プロジェクトだけ一時的に解除する。
+# 予算の通知を Pub/Sub に接続するため（Google の予算通知用アカウントは社外のドメインなので、普段は権限を付けられない）。
+# 接続が終わったら、すぐに元に戻す（gcloud.cmd org-policies delete iam.allowedPolicyMemberDomains --project=barnull-sales）。
+name: projects/barnull-sales/policies/iam.allowedPolicyMemberDomains
+spec:
+  rules:
+  - allowAll: true

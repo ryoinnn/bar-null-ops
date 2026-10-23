@@ -1,0 +1,53 @@
+# Bar null 予約対応システムの設定（秘密情報はここに書かない。`barnull set-secret` で資格情報マネージャーへ）
+
+# true: Slack はテスト用チャンネルに投稿し、管理画面の最後のボタン（承認・送信・投稿）は押さない
+dry_run = false   # 2026-10-11 本番稼働開始（#notif_space-rent_null に通知、実際に承認・送信する）
+
+[slack]
+channel_prod = "C0C7T2ZDX7D"   # #notif_space-rent_null
+channel_test = "C0C81FQGM89"   # #test_space-rent_null
+# スタンプ・返信を受け付ける承認者（桝本、岡本）
+approvers = ["U0A51TDCCEN", "U08EHTUTLE8"]
+# 承認（送信）として扱うスタンプ。これ以外（👀 🤔 など）は承認にしない（「見た」の意味で押して送られないように）
+approve_reactions = ["white_check_mark", "heavy_check_mark", "ballot_box_with_check", "ok", "ok_hand", "+1",
+                     "thumbsup", "o", "accept", "approved", "sumi"]
+# 失敗時の画面のスクリーンショットを Slack に上げるか（暗証番号・電話番号が写るため既定は上げない。PC に保存する）
+upload_screenshots = false
+
+[schedule]
+poll_interval_sec = 300          # 管理画面ポーリングの間隔
+poll_jitter_sec = 60             # 間隔に加えるゆらぎ（±）
+remind_interval_minutes = 240    # 保留・未送信文案のリマインド間隔（4時間）
+completion_grace_minutes = 60    # 利用終了（IB は清掃終了）から利用完了とみなすまで
+deadman_refresh_minutes = 10     # 停止警告の予約投稿を入れ直す間隔
+deadman_fire_after_minutes = 30  # プロセスが止まってから警告が出るまで
+alert_dedup_minutes = 60         # 同じ警告を繰り返さない時間
+screenshot_retention_days = 30
+
+[platforms.sm]
+host_id = "of4x48usi2_b8kyu"
+host_share = 0.70                # 「あなたの収益」が取れない時の概算（合計 × 0.70）
+[platforms.ib]
+host_share = 0.65                # 「振込額合計」が取れない時の概算（合計 × 0.65）
+
+[llm]
+model = "claude-sonnet-5-5"        # 2026-10-10 本人指定（Sonnet・effort 中）
+effort_classify = "low"
+effort_draft = "medium"
+effort_thanks = "low"
+use_fallbacks = true             # 応答拒否時にサーバー側で別モデルに切り替える
+
+[review]
+stars = 5
+
+[template]
+manual_pdf = "assets/Bar_null_スペース利用マニュアル.pdf"
+# {SALUTATION} は「<名字>さま」＋空行（名字が分からない時は空）。{KEYBOX_CODE} は資格情報マネージャーの値
+reservation = """{SALUTATION}ご予約ありがとうございます！
+ご利用マニュアルを添付いたしますので、当日はこちらをご参照いただけますと幸いです。
+なお、当日のキーボックスの暗証番号は【{KEYBOX_CODE}】となっております。
+
+ご不明点等ございましたらお気軽にご連絡くださいませ。
+よろしくお願いいたします！"""
+# 「定型文を送信済み」の判定に使う文字列（ホストの発言にこれが含まれ、かつ PDF が添付されていること）
+sent_marker = "キーボックスの暗証番号"

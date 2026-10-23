@@ -1,0 +1,1513 @@
+<!doctype html><html><head><meta charset="utf-8"><title>予約｜インスタベース</title></head><body class="bg-secondary"><div id="hs-web-interactives-top-push-anchor" class="go3670563033"></div>
+<header class="sticky top-0 z-9999 bg-white shadow-2dp mdl:shadow-none mdl:border-b mdl:border-border " id="pageHeader" role="banner">
+<div class="flex items-center justify-center mdl:justify-between h-16 py-4 px-5">
+<a href="https://www.instabase.jp/partners/home"></a>
+<ul class="flex max-mdl:hidden items-center gap-2 m-0">
+<li class="ib-ui-select-box">
+<div class="w-24">
+<div id="ServiceTypeSelect-react-component-f56850e7-9129-49a1-9e30-ae4a9f520668"><div class="relative"><select class="bg-surface-primary w-full cursor-pointer appearance-none border py-2 pr-8 pl-2 text-base font-light focus:outline-hidden border-border-medium-emphasis focus:border-border-accent-primary bg-surface-primary text-text-high-emphasis" aria-errormessage=":r0:"><option value="" hidden=""></option><option value="user">利用者</option><option value="owner">掲載者</option></select><i class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2" aria-hidden="true"></i></div></div>
+
+</div>
+</li>
+<li class="navbar-nav"><div id="OwnerNotification-react-component-9d81ff1f-cf65-4a9e-9196-0ef83cb07691"><div class="relative"><button type="button" class="relative flex items-center justify-center p-2" aria-label="お知らせ" aria-haspopup="true" aria-expanded="false"><span class="absolute top-2 right-2 h-2 w-2 rounded-full bg-[#f5524E]" aria-hidden="true"></span></button></div></div>
+</li>
+<li><div id="PartnersHeaderMenu-react-component-7934b50b-0c4c-4712-89ca-8ef5938e8e59"><div class="relative"><button id="partners-header-setting-trigger" type="button" class="flex items-center justify-center p-2" aria-label="設定メニュー" aria-haspopup="true" aria-expanded="false"></button></div></div>
+</li>
+<li><div id="PartnersHeaderMenu-react-component-78fd8382-5a88-44ac-901c-2cae1d16c4cd"><div class="relative"><button id="partners-header-profile-trigger" type="button" class="flex items-center justify-center p-2" aria-label="アカウントメニュー" aria-haspopup="true" aria-expanded="false"></button></div></div>
+</li>
+</ul>
+</div>
+</header>
+
+<div class="flex bg-white">
+
+<div class="sticky border-r border-border bg-white overflow-y-auto shrink-0 w-[281px] top-header h-below-header">
+<nav aria-label="サイドメニュー" class="bg-white text-primary">
+<ul class="py-4 px-2 flex flex-col gap-2">
+<li>
+<a class="flex items-center gap-2 py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/home"><span class="text-primary">
+
+
+</span>
+ダッシュボード
+</a></li>
+<li>
+<span aria-controls="nav-acc-reservation" aria-expanded="true" class="flex items-center justify-between py-1 px-2 text-sm text-primary hover:rounded-md hover:bg-primary-light cursor-pointer js-acc -active font-semibold" role="button" tabindex="0">
+<span class="flex items-center gap-2">
+<span class="text-brand-primary">
+
+
+</span>
+予約管理
+</span>
+
+
+</span>
+<div class="js-accContent -active" id="nav-acc-reservation">
+<ul class="flex flex-col gap-1 ml-4 py-1 pl-2 border-l border-border">
+<li>
+<a class="flex items-center justify-between py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light rounded-md bg-primary-light font-semibold" aria-current="page" href="/partners/bookings">予約</a>
+</li>
+<li>
+<span aria-controls="nav-acc-calendar" aria-expanded="false" class="flex items-center justify-between py-1 px-2 text-sm text-primary hover:rounded-md hover:bg-primary-light cursor-pointer js-acc " role="button" tabindex="0">
+カレンダー
+
+
+</span>
+<div class="js-accContent" id="nav-acc-calendar">
+<ul class="flex flex-col gap-1 ml-4 py-1 pl-2 border-l border-border">
+<li>
+<a class="block py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/calendars">カレンダー詳細</a>
+</li>
+<li>
+<a class="block py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/unavailable_schedules">利用不可日時</a>
+</li>
+<li>
+<a class="block py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/scheduled_bookings">自社予約日時</a>
+</li>
+<li>
+<a class="block py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/gcals">Google カレンダー連携</a>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<a class="flex items-center justify-between py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/inbox"><span>メッセージ</span>
+</a></li>
+<li>
+<a class="flex items-center justify-between py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/visits"><span>見学リクエスト</span>
+</a></li>
+</ul>
+</div>
+</li>
+<li>
+<span aria-controls="nav-acc-space" aria-expanded="false" class="flex items-center justify-between py-1 px-2 text-sm text-primary hover:rounded-md hover:bg-primary-light cursor-pointer js-acc " role="button" tabindex="0">
+<span class="flex items-center gap-2">
+<span class="text-primary">
+
+
+</span>
+施設・スペース
+</span>
+
+
+</span>
+<div class="js-accContent" id="nav-acc-space">
+<ul class="flex flex-col gap-1 ml-4 py-1 pl-2 border-l border-border">
+<li>
+<a class="flex items-center justify-between py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/building_lists">施設一覧</a>
+</li>
+<li>
+<span aria-controls="nav-acc-space-list" aria-expanded="false" class="flex items-center justify-between py-1 px-2 text-sm text-primary hover:rounded-md hover:bg-primary-light cursor-pointer js-acc " role="button" tabindex="0">
+スペース一覧
+
+
+</span>
+<div class="js-accContent" id="nav-acc-space-list">
+<ul class="flex flex-col gap-1 ml-4 py-1 pl-2 border-l border-border">
+<li>
+<a class="block py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/space_lists">公開済みのスペース</a>
+</li>
+<li>
+<a class="block py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/pre_space_lists">公開前のスペース</a>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<a class="flex items-center justify-between py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/available_schedules">特別料金の設定</a>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<span aria-controls="nav-acc-data" aria-expanded="false" class="flex items-center justify-between py-1 px-2 text-sm text-primary hover:rounded-md hover:bg-primary-light cursor-pointer js-acc " role="button" tabindex="0">
+<span class="flex items-center gap-2">
+<span class="text-primary">
+
+
+</span>
+データ
+</span>
+
+
+</span>
+<div class="js-accContent" id="nav-acc-data">
+<ul class="flex flex-col gap-1 ml-4 py-1 pl-2 border-l border-border">
+<li>
+<a class="flex items-center justify-between py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/sales">売上実績</a>
+</li>
+<li>
+<a class="flex items-center justify-between py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/statements">収益支払明細書</a>
+</li>
+<li>
+<span aria-controls="nav-acc-review" aria-expanded="false" class="flex items-center justify-between py-1 px-2 text-sm text-primary hover:rounded-md hover:bg-primary-light cursor-pointer js-acc " role="button" tabindex="0">
+レビュー
+
+
+</span>
+<div class="js-accContent" id="nav-acc-review">
+<ul class="flex flex-col gap-1 ml-4 py-1 pl-2 border-l border-border">
+<li>
+<a class="block py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/bookings/user_review_creatables">投稿前のレビュー</a>
+</li>
+<li>
+<a class="block py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/bookings/has_user_reviews">投稿済みのレビュー</a>
+</li>
+<li>
+<a class="block py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/reviews">受け取ったレビュー</a>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<a class="flex items-center justify-between py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light" href="/partners/users">顧客管理</a>
+</li>
+</ul>
+</div>
+</li>
+<li data-ga4-event="clickHelpLink" data-ga4-on="click">
+<a target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 py-1 px-2 text-sm text-primary no-underline hover:rounded-md hover:bg-primary-light justify-between" href="https://support.instabase.jp/hc/ja/categories/360000044971"><span class="flex items-center gap-2">
+<span class="text-primary">
+
+
+</span>
+ヘルプ（よくある質問）
+<span class="sr-only">（新しいタブで開く）</span>
+</span>
+<span class="text-primary">
+
+
+</span>
+</a></li>
+</ul>
+</nav>
+</div>
+
+<div class="flex-1 pp-main-pane">
+<div class="partner-bookings">
+<div class="partner-bookings-header-container">
+<h1 class="partner-bookings-header-text">予約</h1>
+</div>
+<div class="partner-bookings-contents">
+
+<div class="partner-bookings-form">
+<form class="form" action="/partners/bookings" accept-charset="UTF-8" method="get"><!-- Powered by React on Rails (c) ShakaCode | Open Source -->
+
+<div id="SpaceFilter-react-component-a8a78465-febd-4366-bbe0-f4231bd60e94"><div><div class="form-group"><h6 class="partner-bookings-sub-title">施設で絞り込む</h6><select class="form-control" name="building_id"><option value="">指定なし</option><option value="275492">★9月限定キャンペーン中★ 代官山の会員制バー</option></select></div></div></div>
+
+<div class="partner-bookings-form-section">
+<h6 class="partner-bookings-sub-title">日時で絞り込む</h6>
+<select name="filter" id="filter" class="form-control"><option selected="selected" value="start_at">利用日時</option>
+<option value="created_at">予約日時</option></select>
+<div id="DayPicker-react-component-ceb913ab-d6ce-40cc-afe4-69aea87a8717"><div class="o-day-picker-input"><input type="text" class="form-control" value="2026/07/10"><input type="hidden" name="from[year]" value="2026"><input type="hidden" name="from[month]" value="7"><input type="hidden" name="from[day]" value="10"></div></div>
+
+<span class="partner-bookings-day-picker-range">
+〜
+</span>
+<div id="DayPicker-react-component-9fc1c4a0-b273-4f42-97b8-cbcf4102e3e6"><div class="o-day-picker-input"><button type="button" class="partner-day-picker-unselected form-control">指定なし</button></div></div>
+
+<div class="partner-bookings-form-sub-section">
+<p class="partner-bookings-filter-note">利用日が3ヶ月以上前の予約は表示されていません。必要に応じて日時を変更してください</p>
+<a class="partner-bookings-filter-reset-button" href="/partners/bookings">日時をリセット</a>
+</div>
+</div>
+
+<div class="partner-bookings-form-section">
+<h6 class="partner-bookings-sub-title">表示順</h6>
+<select name="order_column" id="order_column" class="form-control"><option selected="selected" value="start_at">利用日時</option>
+<option value="created_at">予約日時</option></select>
+<select name="order_direction" id="order_direction" class="form-control"><option selected="selected" value="desc">降順</option>
+<option value="asc">昇順</option></select>
+</div>
+
+<div id="PlanTypeFilter-react-component-381c0bdc-17c3-42a8-892c-144555034cde"><div class="partner-bookings-form-section"><h6 class="partner-bookings-sub-title">予約種別で絞り込み</h6><ul class="partner-bookings-check-boxes-items"><li><button type="button" class="partner-bookings-no-style"><label class="partner-bookings-check-box" for="plan_types[]"><input id="plan_types_" class="partner-bookings-check" type="checkbox" name="plan_types[]" value="hourly"><span class="partner-bookings-check-box-label">時間単位での予約</span></label></button></li><li><button type="button" class="partner-bookings-no-style"><label class="partner-bookings-check-box" for="plan_types[]"><input id="plan_types_" class="partner-bookings-check" type="checkbox" name="plan_types[]" value="daily"><span class="partner-bookings-check-box-label">1日単位での予約</span></label></button></li></ul></div></div>
+
+<div class="partner-bookings-form-status-filter">
+<h6 class="partner-bookings-sub-title">
+ステータスで絞り込み
+</h6>
+<div class="partner-bookings-check-boxes-items">
+<div class="partner-bookings-check-box-item">
+<div id="bookingStatuses">
+<label class="partner-bookings-check-box"><input type="checkbox" name="statuses[]" id="statuses_" value="0" class="partner-bookings-check">
+<div class="partner-bookings-check-box-label">
+予約リクエスト中
+</div>
+</label></div>
+</div>
+<div class="partner-bookings-check-box-item">
+<div id="bookingStatuses">
+<label class="partner-bookings-check-box"><input type="checkbox" name="statuses[]" id="statuses_" value="1" class="partner-bookings-check">
+<div class="partner-bookings-check-box-label">
+予約確定
+</div>
+</label></div>
+</div>
+<div class="partner-bookings-check-box-item">
+<div id="bookingStatuses">
+<label class="partner-bookings-check-box"><input type="checkbox" name="statuses[]" id="statuses_" value="2" class="partner-bookings-check">
+<div class="partner-bookings-check-box-label">
+予約リクエスト非承認
+</div>
+</label></div>
+</div>
+<div class="partner-bookings-check-box-item">
+<div id="bookingStatuses">
+<label class="partner-bookings-check-box"><input type="checkbox" name="statuses[]" id="statuses_" value="3" class="partner-bookings-check">
+<div class="partner-bookings-check-box-label">
+利用者キャンセル
+</div>
+</label></div>
+</div>
+<div class="partner-bookings-check-box-item">
+<div id="bookingStatuses">
+<label class="partner-bookings-check-box"><input type="checkbox" name="statuses[]" id="statuses_" value="4" class="partner-bookings-check">
+<div class="partner-bookings-check-box-label">
+特別キャンセル
+</div>
+</label></div>
+</div>
+<div class="partner-bookings-check-box-item">
+<div id="bookingStatuses">
+<label class="partner-bookings-check-box"><input type="checkbox" name="statuses[]" id="statuses_" value="5" class="partner-bookings-check">
+<div class="partner-bookings-check-box-label">
+予約リクエストキャンセル
+</div>
+</label></div>
+</div>
+<div class="partner-bookings-check-box-item">
+<div id="bookingStatuses">
+<label class="partner-bookings-check-box"><input type="checkbox" name="statuses[]" id="statuses_" value="7" class="partner-bookings-check">
+<div class="partner-bookings-check-box-label">
+予約未確定
+</div>
+</label></div>
+</div>
+</div>
+</div>
+
+<div class="partner-bookings-form-section">
+<h6 class="partner-bookings-sub-title">予約IDで絞り込む</h6>
+<input type="text" name="uid" id="uid" class="form-control" placeholder="例) ［電話番号］">
+</div>
+<input type="submit" name="commit" value="検索" class="partner-bookings-search-button" data-disable-with="検索">
+<a class="partner-bookings-reset-button" href="/partners/bookings">全てリセット</a>
+</form></div>
+<div class="partner-bookings-list">
+<div class="partner-bookings-list-titles">
+<h4>絞り込み結果：14件</h4>
+<div id="OwnerBookingCSVDownloader-react-component-60016efe-c788-47bc-9282-f72573d18ad7"><button type="button" class="partner-bookings-csv-download-button"><span class="partner-bookings-csv-download-button-text">CSVをダウンロード</span></button></div>
+
+</div>
+<div class="partner-bookings-table-wrapper">
+<table class="partner-bookings-table">
+<thead>
+<tr class="partner-bookings-table-headers">
+<th class="partner-bookings-table-booking-table-id">予約ID</th>
+<th class="partner-bookings-table-booking-table-space-name">スペース名</th>
+<th class="partner-bookings-table-booking-table-status">ステータス</th>
+<th class="partner-bookings-table-booking-table-user-name">予約者名</th>
+<th class="partner-bookings-table-booking-table-use-date">利用日時</th>
+<th class="partner-bookings-table-booking-table-booking-mount">予約金額（税込）</th>
+</tr>
+</thead>
+<tbody>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/7000288937">7000288937</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+<ul class="tx-small-x1 tx-gray-light">
+<li>ゴミ処理 x1個</li>
+<li>現地サービス x1個</li>
+</ul>
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-primary">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">予約確定
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+<a href="/partners/users/5000000001">高橋 美咲様</a>
+(20名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+</td>
+<td>
+<span class="booked-date">2026年12月28日(月)</span><br>11時00分〜18時00分
+</td>
+<td>
+23,100円
+<br>
+税：2,100円
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/8797784002">8797784002</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+<ul class="tx-small-x1 tx-gray-light">
+<li>ゴミ処理 x1個</li>
+</ul>
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-primary">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">予約確定
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+<a href="/partners/users/5000000001">渡辺 翔様</a>
+(7名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+<p class="review-stars"><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i></p>
+</td>
+<td>
+<span class="booked-date">2026年11月01日(日)</span><br>10時00分〜15時30分
+</td>
+<td>
+18,150円
+<br>
+税：1,650円
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/5752070359">5752070359</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+<ul class="tx-small-x1 tx-gray-light">
+<li>ゴミ処理 x1個</li>
+<li>現地サービス x1個</li>
+</ul>
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-primary">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">予約確定
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+<a href="/partners/users/5000000001">吉田 湊様</a>
+(8名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+<p class="review-stars"><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i></p>
+</td>
+<td>
+<span class="booked-date">2026年10月01日(木)</span><br>10時00分〜16時00分
+</td>
+<td>
+19,800円
+<br>
+税：1,800円
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/8969626646">8969626646</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+<ul class="tx-small-x1 tx-gray-light">
+<li>ゴミ処理 x1個</li>
+</ul>
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-default">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">利用者キャンセル
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p><div class="tx-gray-light m-top-5">
+利用日の0日前
+</div>
+<p></p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">PayPay</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+慶應義塾大学国際関係会clue
+<br>
+<a href="/partners/users/5000000001">木村 陽翔様</a>
+(7名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+</td>
+<td>
+<span class="booked-date">2026年09月21日(月)</span><br>12時00分〜17時00分
+</td>
+<td>
+16,500円
+<br>
+税：1,500円
+<br>
+(キャンセル料：16,500円)
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/1227516196">1227516196</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-primary">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">予約確定
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+<a href="/partners/users/5000000001">鈴木 一郎様</a>
+(3名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+</td>
+<td>
+<span class="booked-date">2026年09月11日(金)</span><br>10時30分〜16時30分
+</td>
+<td>
+19,800円
+<br>
+税：1,800円
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/1876407216">1876407216</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-default">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">利用者キャンセル
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p><div class="tx-gray-light m-top-5">
+利用日の15日前
+</div>
+<p></p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">返金済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+<a href="/partners/users/5000000001">鈴木 一郎様</a>
+(3名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+</td>
+<td>
+<span class="booked-date">2026年09月09日(水)</span><br>11時30分〜16時30分
+</td>
+<td>
+16,500円
+<br>
+税：1,500円
+<br>
+(キャンセル料：0円)
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/9012207002">9012207002</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+<ul class="tx-small-x1 tx-gray-light">
+<li>ゴミ処理 x1個</li>
+</ul>
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-primary">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">予約確定
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+<a href="/partners/users/5000000001">渡辺 翔様</a>
+(13名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+</td>
+<td>
+<span class="booked-date">2026年09月05日(土)</span><br>16時00分〜19時00分
+</td>
+<td>
+17,600円
+<br>
+税：1,600円
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/7660322227">7660322227</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-primary">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">予約確定
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+<a href="/partners/users/5000000001">吉田 湊様</a>
+(1名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+</td>
+<td>
+<span class="booked-date">2026年08月24日(月)</span><br>13時00分〜14時00分
+</td>
+<td>
+3,300円
+<br>
+税：300円
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/3740032689">3740032689</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+<ul class="tx-small-x1 tx-gray-light">
+<li>ゴミ処理 x1個</li>
+</ul>
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-primary">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">予約確定
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">PayPay</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+個人
+<br>
+<a href="/partners/users/5000000001">木村 陽翔様</a>
+(11名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+<p class="review-stars"><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i></p>
+</td>
+<td>
+<span class="booked-date">2026年08月23日(日)</span><br>12時00分〜18時00分
+</td>
+<td>
+19,800円
+<br>
+税：1,800円
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/7807683144">7807683144</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+<ul class="tx-small-x1 tx-gray-light">
+<li>ゴミ処理 x1個</li>
+<li>現地サービス x1個</li>
+</ul>
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-primary">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">予約確定
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+<a href="/partners/users/5000000001">佐藤 花子様</a>
+(5名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+<p class="review-stars"><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i></p>
+</td>
+<td>
+<span class="booked-date">2026年08月21日(金)</span><br>15時00分〜20時00分
+</td>
+<td>
+20,900円
+<br>
+税：1,900円
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/2834402299">2834402299</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+<ul class="tx-small-x1 tx-gray-light">
+<li>ゴミ処理 x1個</li>
+</ul>
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-primary">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">予約確定
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+<a href="/partners/users/5000000001">伊藤 愛様</a>
+(12名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+</td>
+<td>
+<span class="booked-date">2026年08月14日(金)</span><br>19時00分〜23時00分
+</td>
+<td>
+44,000円
+<br>
+税：4,000円
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/8880946277">8880946277</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+<ul class="tx-small-x1 tx-gray-light">
+<li>ゴミ処理 x1個</li>
+<li>現地サービス x1個</li>
+</ul>
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-default">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">利用者キャンセル
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p><div class="tx-gray-light m-top-5">
+利用日の8日前
+</div>
+<p></p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">返金済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+<a href="/partners/users/5000000001">小林 蓮様</a>
+(15名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+<p class="review-stars"><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i></p>
+</td>
+<td>
+<span class="booked-date">2026年08月02日(日)</span><br>13時30分〜15時30分
+</td>
+<td>
+6,600円
+<br>
+税：600円
+<br>
+(キャンセル料：0円)
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/6570723001">6570723001</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+<ul class="tx-small-x1 tx-gray-light">
+<li>ゴミ処理 x1個</li>
+</ul>
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-primary">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">予約確定
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+<a href="/partners/users/5000000001">松本 大和様</a>
+(14名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+<p class="review-stars"><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i></p>
+</td>
+<td>
+<span class="booked-date">2026年07月18日(土)</span><br>12時00分〜17時00分
+</td>
+<td>
+16,500円
+<br>
+税：1,500円
+
+</td>
+</tr>
+<tr class="partner-bookings-table-body-row">
+<td><a href="/partners/bookings/9478882707">9478882707</a></td>
+<td>
+★9月限定キャンペーン中★ 代官山の会員制バー
+<div>
+<i class="fa fa-caret-right"></i>
+【恵比寿/代官山】完全会員制/紹介制バー
+
+</div>
+</td>
+<td>
+<p class="fit-bottom">
+<label class="label label-primary">
+<a data-bs-toggle="modal" data-bs-target="#bookingStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">予約確定
+</a><i class="fa fa-info-circle tx-white"></i>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<span class="text-xxs">クレジットカード</span>
+</label>
+
+</p>
+<p class="fit-bottom">
+<label class="label label-success">
+<a data-bs-toggle="modal" data-bs-target="#paymentStatusModal" class="tx-none tx-white hv-white fc-white text-xxs" href="#">支払い済み
+<i class="fa fa-info-circle tx-white"></i>
+</a></label>
+
+</p>
+</td>
+<td>
+合同会社Thunderbolt
+<br>
+<a href="/partners/users/5000000001">山田 太郎様</a>
+(4名)
+<p>
+<span class="tx-blue">
+<i class="fa fa-check-circle"></i>
+</span>
+電話番号認証済み
+
+</p>
+<p class="review-stars"><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i></p>
+</td>
+<td>
+<span class="booked-date">2026年07月17日(金)</span><br>15時00分〜17時00分
+</td>
+<td>
+6,600円
+<br>
+税：600円
+
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="modal fade content-modal" id="bookingStatusModal">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<button class="close" data-bs-dismiss="modal" type="button">
+<span aria-hidden="true">×</span>
+<span class="sr-only">閉じる</span>
+</button>
+<h4 class="modal-title text-lg">
+予約状況について
+</h4>
+</div>
+<div class="modal-body">
+<p class="text-sm">
+<span class="label label-primary">
+予約確定
+</span>
+<br>
+予約が確定した状態です。予約確定時に送付されるメールの内容を確認してください。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-warning">
+予約リクエスト中
+</span>
+<br>
+スペース掲載者の回答待ちの状態です。原則24時間以内に回答が行われます。
+<br>
+キャンセルをご希望の場合は、キャンセル手続きを行ってください。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-default">
+予約リクエスト非承認
+</span>
+<br>
+送信した予約リクエストがスペース掲載者により非承認され、予約が確定とならなかった状態です。
+<br>
+スペース掲載者の回答時に送信されたメールの内容を確認してください。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-default">
+利用者キャンセル
+</span>
+<br>
+キャンセル手続きが完了し、予約がキャンセルとなった状態です。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-default">
+特別キャンセル
+</span>
+<br>
+システムまたはスペース掲載者により予約がキャンセルとなった状態です。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-default">
+予約リクエストキャンセル
+</span>
+<br>
+送信した予約リクエストのキャンセル手続きが完了し、予約リクエストがキャンセルとなった状態です。
+<br>
+クレジットカード決済を選択頂いていた場合、確保されていた与信枠が削除されています。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-warning">
+予約未確定
+</span>
+<br>
+お支払がお済みでないなどの理由で、予約手続きが完了していない状態です。
+<br>
+手続きが完了すると予約が確定します。
+</p>
+</div>
+</div>
+</div>
+</div>
+<div class="modal fade content-modal" id="paymentStatusModal">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<button class="close" data-bs-dismiss="modal" type="button">
+<span aria-hidden="true">×</span>
+<span class="sr-only">閉じる</span>
+</button>
+<h4 class="modal-title">
+決済状況について
+</h4>
+</div>
+<div class="modal-body">
+<h6 class="font-bold">クレジットカード</h6>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-warning">
+請求中
+</span>
+<br>
+決済予約（与信枠の確保）が行われた状態です。
+<br>
+決済状況欄が「支払済み」となった場合のみ、決済処理が完了します。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-success">
+支払済み
+</span>
+<br>
+決済処理が完了した状態です。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-success">
+返金済み
+</span>
+<br>
+返金処理が完了している状態です。
+<br>
+キャンセル料金が発生している場合には、利用金額からキャンセル料金が差し引かれた金額が返金されます。
+</p>
+<hr class="my-4">
+<h6>ペイジー・コンビニ</h6>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-warning">
+支払い前
+</span>
+<br>
+お支払待ちの状態です。
+<br>
+ご案内した記号/番号、手順をご確認の上、お支払ください。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-success">
+支払い済み
+</span>
+<br>
+お支払が完了した状態です。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-success">
+返金済み
+</span>
+<br>
+返金が完了している状態です。
+<br>
+キャンセル料金が発生している場合には、利用金額からキャンセル料金が差し引かれた金額が返金されます。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-default">
+期限切れ
+</span>
+<br>
+期限までにお支払が確認できなかったため、自動キャンセルとなった状態です。
+<br>
+スペースの利用を希望される場合には、新たに予約してください。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-default">
+支払い不要
+</span>
+<br>
+予約キャンセルなどの理由で、ご請求を停止した状態です。
+<br>
+ご案内した番号はお使いいただけません。
+</p>
+
+<hr class="my-4">
+<h6 class="font-bold">請求書払い(Paid)</h6>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-warning">
+未請求
+</span>
+<br>
+未請求の状態です。スペース利用日など料金発生時に請求済みに変化します。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-success">
+請求済み
+</span>
+<br>
+利用料金が請求された状態です。翌月月初に請求書が発送されます。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-default">
+決済失敗
+</span>
+<br>
+与信枠不足などの理由で、決済処理ができなかったため、自動キャンセルとなった状態です。
+</p>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-default">
+支払い不要
+</span>
+<br>
+予約キャンセルなどの理由で、ご請求を停止した状態です。
+</p>
+<hr class="my-4">
+<h6 class="font-bold">クーポン/ポイント</h6>
+<hr class="my-4">
+<p class="text-sm">
+<span class="label label-success">
+クーポン/ポイント利用
+</span>
+<br>
+クーポン/ポイントを利用して、全額支払いした状態です。
+</p>
+<hr class="my-4">
+</div>
+</div>
+</div>
+</div>
+
+<div class="modal fade content-modal" id="bankPaymentModal">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<button class="close" data-bs-dismiss="modal" type="button">
+<span aria-hidden="true">×</span>
+<span class="sr-only">閉じる</span>
+</button>
+<h4 class="modal-title">
+銀行振込（請求書払い）のお支払いについて
+</h4>
+</div>
+<div class="modal-body">
+<p>
+銀行振込（請求書払い）は法人利用のお客様のみご案内しております。銀行振込の振込期限は「支払期限は利用月の翌月末まで」となります。
+</p>
+<p>
+振込み先は予約確定時に送付されるメールに記載し案内しております。
+</p>
+</div>
+</div>
+</div>
+</div>
+
+<div class="modal fade content-modal" id="bookingStatusModal">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<button class="close" data-bs-dismiss="modal" type="button">
+<span aria-hidden="true">×</span>
+<span class="sr-only">閉じる</span>
+</button>
+<h4 class="modal-title">
+予約状況について
+</h4>
+</div>
+<div class="modal-body">
+<p>
+<span class="label label-warning">
+予約リクエスト中
+</span>
+<br>
+予約リクエストの回答待ちの状態です。原則24時間以内の回答をお願いします。
+</p>
+<p>
+<span class="label label-primary">
+予約確定
+</span>
+<br>
+予約が確定した状態です。
+</p>
+<p>
+<span class="label label-default">
+予約リクエスト非承認
+</span>
+<br>
+予約リクエストが非承認され、予約が不成立となった状態です。
+</p>
+<p>
+<span class="label label-default">
+利用者キャンセル
+</span>
+<br>
+予約のキャンセル手続きが完了し、予約がキャンセルとなった状態です。
+</p>
+<p>
+<span class="label label-default">
+予約リクエストキャンセル
+</span>
+<br>
+予約リクエストのキャンセル手続きが完了し、予約リクエストがキャンセルとなった状態です。&lt;/br&gt;クレジットカード決済を選択頂いていた場合、確保されていた与信枠が削除されるため、決済処理は行われません。
+</p>
+<p>
+<span class="label label-info">
+手続き未完了
+</span>
+<br>
+特別キャンセルやその他の予約状況により決済が完了していない状態です。
+</p>
+<p>
+<span class="label label-warning">
+予約未確定
+</span>
+<br>
+支払い（決済）前の状態です。予約が確定し、決済状況欄が「支払い済み」となった場合のみ、決済処理が完了します。
+</p>
+<p>
+<span class="label label-info">
+予約変更によるキャンセル
+</span>
+<br>
+<span class="translation_missing" title="translation missing: ja.descriptions.booking.status.changing_cancel">Changing Cancel</span>
+</p>
+<p>
+<span class="label label-info">
+予約変更リクエスト
+</span>
+<br>
+<span class="translation_missing" title="translation missing: ja.descriptions.booking.status.change_request">Change Request</span>
+</p>
+<p>
+<span class="label label-info">
+予約変更リクエスト非承認
+</span>
+<br>
+<span class="translation_missing" title="translation missing: ja.descriptions.booking.status.decline_change_request">Decline Change Request</span>
+</p>
+<p>
+<span class="label label-info">
+特別キャンセル
+</span>
+<br>
+インスタベース運営事務局により予約がキャンセルされた状態です。
+</p>
+<p>
+<span class="label label-info">
+スペース掲載者キャンセル
+</span>
+<br>
+スペース掲載者により予約がキャンセルされた状態です。
+</p>
+</div>
+</div>
+</div>
+</div>
+
+
+
+</div>
+</div>
+</div>
+
+<footer class="my-8 text-center">
+<p class="text-sm text-[#a1aab2]">
+<a class="text-sm text-[#a1aab2]" href="/partners/home">ダッシュボード</a>
+|
+<a class="text-sm text-[#a1aab2]" href="/">サービスページ</a>
+</p>
+<p class="text-sm text-[#a1aab2]">
+© 2026 株式会社Rebase
+</p>
+</footer>
+
+</div>
+</div>
+
+
+
+
+
+
+
+<div id="batBeacon495473250665"></div>
+
+
+<div class="go2933276541 go2369186930" id="hs-web-interactives-top-anchor"><div id="hs-interactives-modal-overlay" class="go1632949049"></div></div>
+<div class="go2933276541 go1348078617" id="hs-web-interactives-bottom-anchor"></div>
+<div id="hs-web-interactives-floating-container">
+  <div id="hs-web-interactives-floating-top-left-anchor" class="go2417249464 go613305155">
+  </div>
+  <div id="hs-web-interactives-floating-top-right-anchor" class="go2417249464 go471583506">
+  </div>
+  <div id="hs-web-interactives-floating-bottom-left-anchor" class="go2417249464 go3921366393">
+  </div>
+  <div id="hs-web-interactives-floating-bottom-right-anchor" class="go2417249464 go3967842156">
+  </div>
+</div>
+</body></html>

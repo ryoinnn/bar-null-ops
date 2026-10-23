@@ -1,0 +1,36 @@
+# Slack App マニフェスト（https://api.slack.com/apps → Create New App → From an app manifest に貼り付け）
+# 作成後に必要な手作業:
+#   1. Basic Information → App-Level Tokens → Generate（スコープ connections:write）→ xapp- トークン = SLACK_APP_TOKEN
+#   2. Install App → ワークスペースにインストール → Bot User OAuth Token（xoxb-）= SLACK_BOT_TOKEN
+#   3. #notif_space-rent_null と #test_space-rent_null で `/invite @barnull` を実行
+display_information:
+  name: Bar null 予約対応
+  description: スペースマーケット／インスタベースの予約通知・承認・返信文案・レビューを扱う Bot（株式会社0x0）
+  background_color: "#111111"
+features:
+  bot_user:
+    display_name: barnull
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - chat:write          # 投稿・更新・デッドマンスイッチ用の予約投稿
+      - channels:history    # スレッド返信の読み取り
+      - channels:read
+      - groups:history      # 通知チャンネルが非公開の場合に備える
+      - groups:read
+      - reactions:read      # 承認スタンプ
+      - reactions:write     # 受付済みの印（👀）を付ける
+      - users:read          # 承認者の表示名
+      - files:write         # 失敗時のスクリーンショット
+settings:
+  event_subscriptions:
+    bot_events:
+      - reaction_added
+      - message.channels
+      - message.groups
+  interactivity:
+    is_enabled: false
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false

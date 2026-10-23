@@ -1,0 +1,64 @@
+# 売上管理のデプロイ。GitHub の main に sales/ の変更を push すると、トリガー sales-deploy がこれを動かす。
+# テスト → イメージの作成 → sales-worker → sales-webhook の順。テストが落ちたらデプロイしない。
+# 手で動かすとき（GitHub を使えないとき）: uv run python sales/infra/setup.py deploy
+steps:
+  - id: test
+    name: python:3.12-slim
+    dir: ${_DIR}
+    entrypoint: bash
+    # 依存関係はハッシュ付きで固定（requirements-dev.txt。uv export --no-emit-project --group dev で作る）
+    args: ["-c", "pip install -q --no-cache-dir --require-hashes -r requirements-dev.txt && PYTHONPATH=src python -m pytest -q"]
+
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    dir: ${_DIR}
+    args: ["build", "-t", "${_IMAGE}:${_TAG}", "."]
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: ["push", "${_IMAGE}:${_TAG}"]
+
+  - id: deploy-worker
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - sales-worker
+      - --image=${_IMAGE}:${_TAG}
+      - --region=${_REGION}
+      - --service-account=sales-worker@${PROJECT_ID}.iam.gserviceaccount.com
+      - --no-allow-unauthenticated
+      - --max-instances=1
+      - --concurrency=1          # 1件ずつ処理する（伝票の同時更新を起こさない）
+      - --memory=512Mi
+      - --timeout=600
+      - --set-secrets=SALES_CONFIG=sales-config:latest
+      - --set-env-vars=ROLE=worker
+
+  - id: deploy-webhook
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - sales-webhook
+      - --image=${_IMAGE}:${_TAG}
+      - --region=${_REGION}
+      - --service-account=sales-webhook@${PROJECT_ID}.iam.gserviceaccount.com
+      - --no-invoker-iam-check   # LINE から呼ばれるので認証なし（署名検証で守る）
+      - --max-instances=1
+      - --memory=512Mi
+      - --cpu-boost
+      - --set-secrets=SALES_CONFIG=sales-webhook-config:latest
+      - --set-env-vars=ROLE=webhook
+
+substitutions:
+  _DIR: sales                    # リポジトリの中の sales/（手で sales/ だけを送るときは "."）
+  _REGION: us-central1
+  _IMAGE: us-central1-docker.pkg.dev/${PROJECT_ID}/sales/sales
+  _TAG: ${SHORT_SHA}             # GitHub からのビルドではコミットの短い ID
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true

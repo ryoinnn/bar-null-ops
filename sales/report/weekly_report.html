@@ -1,0 +1,876 @@
+<title>Bar null 売上レポート</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Bar null 売上レポート — Apple 風のすりガラス（frosted glass）。アクセントは赤ピンク。
+   レイアウト: 左にガラスのサイドバー（年 → 月の囲み → 週）、右に選んだ期間の紙面。上部に追従するガラスのツールバー。
+   本文のカードはガラスにせず、厚い素材（ほぼ不透明）にする（文字と表を読みやすくするため）。 */
+:root{
+  --accent:#FF2D6F; --accent-fill:#D6124F; --accent-text:#C4104A; --on-accent:#fff;
+  --accent-soft:color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-ring:color-mix(in srgb, var(--accent) 60%, transparent);
+  --label:rgba(0,0,0,.88); --label-2:rgba(60,60,67,.70); --label-3:rgba(60,60,67,.46);
+  --separator:rgba(60,60,67,.16); --fill:rgba(120,120,128,.10); --fill-2:rgba(120,120,128,.16);
+  --bg-base:#F2F2F7; --card:rgba(255,255,255,.86); --card-solid:#fff;
+  --green:#248A3D; --red:#D70015; --orange:#C93400;
+  --bar:rgba(120,120,128,.30); --bar-cur:color-mix(in srgb, var(--accent) 34%, transparent);
+  --glass-user:1; --glass-tint:250,250,252;
+  --glass-bg:rgba(var(--glass-tint), min(.92, calc(.64 * var(--glass-user))));
+  --glass-bg-thick:rgba(var(--glass-tint), min(.92, calc(.80 * var(--glass-user))));
+  --glass-blur:blur(20px) saturate(180%);
+  --glass-border:1px solid rgba(255,255,255,.55);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.75), inset 0 -1px 0 rgba(255,255,255,.14);
+  --glass-shadow:0 10px 30px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+  --card-shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05);
+  --r-control:10px; --r-card:20px; --r-sheet:28px;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable Text","Segoe UI","Hiragino Sans","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+  --ease:cubic-bezier(.4,0,.6,1); --ease-spring:cubic-bezier(.2,.8,.2,1);
+  --blob-a:color-mix(in srgb, var(--accent) 34%, transparent); --blob-b:rgba(255,159,196,.32); --blob-c:rgba(142,197,255,.30);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --accent:#FF5C8A; --accent-fill:#E5195A; --accent-text:#FF7FA3; --on-accent:#fff;
+  --label:rgba(255,255,255,.92); --label-2:rgba(235,235,245,.66); --label-3:rgba(235,235,245,.40);
+  --separator:rgba(84,84,88,.55); --fill:rgba(120,120,128,.20); --fill-2:rgba(120,120,128,.30);
+  --bg-base:#000; --card:rgba(28,28,30,.86); --card-solid:#1C1C1E;
+  --green:#30D158; --red:#FF453A; --orange:#FF9F0A;
+  --bar:rgba(235,235,245,.22);
+  --glass-tint:22,22,23; --glass-border:1px solid rgba(255,255,255,.12);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.04);
+  --glass-shadow:0 12px 36px rgba(0,0,0,.50), 0 1px 2px rgba(0,0,0,.35);
+  --card-shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  --blob-a:color-mix(in srgb, var(--accent) 30%, transparent); --blob-b:rgba(175,82,222,.22); --blob-c:rgba(10,132,255,.20);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --accent:#FF5C8A; --accent-fill:#E5195A; --accent-text:#FF7FA3; --on-accent:#fff;
+  --label:rgba(255,255,255,.92); --label-2:rgba(235,235,245,.66); --label-3:rgba(235,235,245,.40);
+  --separator:rgba(84,84,88,.55); --fill:rgba(120,120,128,.20); --fill-2:rgba(120,120,128,.30);
+  --bg-base:#000; --card:rgba(28,28,30,.86); --card-solid:#1C1C1E;
+  --green:#30D158; --red:#FF453A; --orange:#FF9F0A;
+  --bar:rgba(235,235,245,.22);
+  --glass-tint:22,22,23; --glass-border:1px solid rgba(255,255,255,.12);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.04);
+  --glass-shadow:0 12px 36px rgba(0,0,0,.50), 0 1px 2px rgba(0,0,0,.35);
+  --card-shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  --blob-a:color-mix(in srgb, var(--accent) 30%, transparent); --blob-b:rgba(175,82,222,.22); --blob-c:rgba(10,132,255,.20);
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+body{
+  background:
+    radial-gradient(55% 45% at 8% 6%, var(--blob-a) 0, transparent 62%),
+    radial-gradient(45% 45% at 92% 14%, var(--blob-b) 0, transparent 60%),
+    radial-gradient(60% 55% at 70% 96%, var(--blob-c) 0, transparent 62%),
+    var(--bg-base);
+  background-attachment:fixed;
+  color:var(--label); font-family:var(--font); font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent-ring);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+.glass{
+  background:var(--glass-bg);
+  -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+  border:var(--glass-border); box-shadow:var(--glass-highlight), var(--glass-shadow);
+}
+.glass--thick{background:var(--glass-bg-thick)}
+
+/* ---------- 全体の配置 ---------- */
+.app{display:grid;grid-template-columns:288px minmax(0,1fr);gap:16px;min-height:100vh;
+  padding-block:12px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* ---------- サイドバー ---------- */
+.side{position:sticky;top:calc(12px + env(safe-area-inset-top,0px));height:calc(100vh - 24px);border-radius:var(--r-card);
+  display:flex;flex-direction:column;overflow:hidden}
+.side-head{padding:18px 18px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.brand{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
+.brand small{display:block;font-size:12px;font-weight:500;color:var(--label-2);letter-spacing:0}
+.navtoggle{display:none}
+.nav{flex:1;overflow:auto;padding:4px 10px 16px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin}
+.year{display:flex;flex-direction:column;gap:8px}
+.year-btn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;border:0;background:none;cursor:pointer;
+  padding:6px 8px;border-radius:var(--r-control);text-align:left}
+.year-btn .yl{font-size:13px;font-weight:700;color:var(--label-2);letter-spacing:.02em;display:flex;align-items:center;gap:6px}
+.year-btn .chev{width:14px;height:14px;transition:transform var(--dur,320ms) var(--ease)}
+.year[data-open="false"] .chev{transform:rotate(-90deg)}
+.year[data-open="false"] .months{display:none}
+.year-btn .yv{font-size:12px;color:var(--label-3)}
+.year-btn:hover{background:var(--fill)}
+.year-btn[aria-current="true"]{background:var(--accent-soft)}
+.year-btn[aria-current="true"] .yl,.year-btn[aria-current="true"] .yv{color:var(--accent-text)}
+.months{display:flex;flex-direction:column;gap:10px}
+.month{background:var(--fill);border-radius:16px;padding:6px;display:flex;flex-direction:column;gap:2px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;min-height:36px;border:0;background:none;
+  cursor:pointer;text-align:left;padding:6px 10px;border-radius:var(--r-control);transition:background-color 160ms var(--ease), transform 160ms var(--ease-spring)}
+.row:hover{background:var(--fill-2)}
+.row:active{transform:scale(.98)}
+.row .t{display:flex;flex-direction:column;min-width:0}
+.row .t b{font-weight:600;font-size:14px}
+.row .t span{font-size:12px;color:var(--label-2)}
+.row .v{font-size:13px;color:var(--label-2)}
+.row.month-row{min-height:44px}
+.row.month-row .t b{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.row.month-row .v{font-size:14px;font-weight:600;color:var(--label)}
+.row[aria-current="true"]{background:var(--accent-fill);color:var(--on-accent);box-shadow:0 6px 18px color-mix(in srgb, var(--accent) 30%, transparent)}
+.row[aria-current="true"] .t span,.row[aria-current="true"] .v{color:color-mix(in srgb, var(--on-accent) 82%, transparent)}
+.weeks{display:flex;flex-direction:column;gap:2px;padding-top:2px;border-top:1px solid var(--separator);margin:2px 6px 0}
+.weeks .row{padding-inline:8px}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text);margin-left:6px;vertical-align:1px}
+.row[aria-current="true"] .tag{background:rgba(255,255,255,.22);color:var(--on-accent)}
+.side-foot{padding:10px 16px 14px;border-top:1px solid var(--separator);display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--label-2)}
+.field{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.field select{background:var(--fill);border:0;border-radius:8px;padding:4px 8px}
+.field input[type=range]{width:120px;accent-color:var(--accent-fill)}
+
+/* ---------- 本文 ---------- */
+main{min-width:0;display:flex;flex-direction:column;gap:16px;padding-bottom:40px}
+.toolbar{position:sticky;top:calc(12px + env(safe-area-inset-top,0px));z-index:5;border-radius:var(--r-card);
+  padding:12px 18px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.toolbar h1{margin:0;font-size:clamp(20px,2.6vw,28px);font-weight:700;letter-spacing:-.02em;line-height:1.25;text-wrap:balance}
+.toolbar .sub{font-size:13px;color:var(--label-2)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--fill);color:var(--label-2);white-space:nowrap}
+.chip.live{background:var(--accent-soft);color:var(--accent-text)}
+.chip.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)}
+.content{display:flex;flex-direction:column;gap:16px;max-width:1080px;width:100%}
+.card{background:var(--card);border-radius:var(--r-card);box-shadow:var(--card-shadow);padding:20px;min-width:0}
+.card h2{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.card .cap{margin:2px 0 14px;font-size:13px;color:var(--label-2)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{background:var(--card);border-radius:var(--r-card);box-shadow:var(--card-shadow);padding:16px 18px;display:flex;flex-direction:column;gap:2px;min-width:0;container-type:inline-size}
+.kpi .lb{font-size:13px;color:var(--label-2);font-weight:500}
+.kpi .v{font-size:clamp(18px,14cqi,30px);font-weight:700;letter-spacing:-.02em;white-space:nowrap}
+.kpi .d{font-size:12px;color:var(--label-2)}
+.kpi:first-child .v{color:var(--accent-text)}
+.up{color:var(--green);font-weight:600} .down{color:var(--red);font-weight:600}
+.grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart text{fill:var(--label-2);font-family:var(--font);font-size:11px}
+.chart .gl{stroke:var(--separator);stroke-width:1}
+.chart .b{fill:var(--bar)} .chart .b.sel{fill:var(--accent-fill)} .chart .b.cur{fill:var(--bar-cur)}
+.chart .vl{fill:var(--label);font-weight:600}
+.chart rect.b{transition:opacity 160ms var(--ease)} .chart rect.b:hover{opacity:.8}
+.facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.fact{background:var(--fill);border-radius:14px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.fact .k{font-size:12px;color:var(--label-2)}
+.fact .v{font-size:16px;font-weight:600;overflow-wrap:anywhere}
+.tablewrap{overflow:auto;max-height:440px;margin-inline:-6px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:560px}
+th,td{padding:9px 6px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--separator)}
+th{font-size:12px;color:var(--label-2);font-weight:600;position:sticky;top:0;background:var(--card-solid)}
+td.n{text-align:right}
+td a{color:var(--accent-text);text-decoration:none;font-weight:600}
+td a:hover{text-decoration:underline}
+.pill{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--fill);color:var(--label-2)}
+.pill.rv{background:color-mix(in srgb, var(--red) 14%, transparent);color:var(--red)}
+.pill.ok{background:color-mix(in srgb, var(--green) 14%, transparent);color:var(--green)}
+.notice{border-radius:16px;padding:14px 16px;background:var(--accent-soft);font-size:14px}
+.notice strong{display:block;font-size:15px;margin-bottom:2px}
+.empty{color:var(--label-2);font-size:14px;padding:6px 0}
+.foot{font-size:12px;color:var(--label-2);padding:0 4px}
+
+/* ---------- AI の示唆 ---------- */
+.ai{position:relative;overflow:hidden}
+.ai::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 70%, transparent), transparent 40%, transparent 60%, color-mix(in srgb, var(--accent) 40%, transparent));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.ai-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px}
+.ai-head h2{display:flex;align-items:center;gap:8px}
+.spark{width:20px;height:20px;color:var(--accent)}
+.ai-actions{display:flex;gap:8px;align-items:center}
+.btn{border:0;border-radius:999px;padding:8px 16px;min-height:36px;font-weight:600;font-size:14px;cursor:pointer;
+  transition:transform 160ms var(--ease-spring), box-shadow 160ms var(--ease), background-color 160ms var(--ease)}
+.btn:active{transform:scale(.97)}
+.btn.filled{background:var(--accent-fill);color:var(--on-accent);box-shadow:0 6px 20px color-mix(in srgb, var(--accent) 32%, transparent)}
+.btn.filled:hover{box-shadow:0 8px 26px color-mix(in srgb, var(--accent) 42%, transparent)}
+.btn.tinted{background:var(--accent-soft);color:var(--accent-text)}
+.btn.plain{background:none;color:var(--label-2)}
+.btn[disabled]{opacity:.5;cursor:default;transform:none}
+.ai-body{margin-top:14px;display:flex;flex-direction:column;gap:16px}
+.ai-headline{font-size:clamp(17px,2vw,21px);font-weight:700;letter-spacing:-.01em;line-height:1.45;text-wrap:balance}
+.ai-meta{font-size:12px;color:var(--label-2)}
+.ai-sec h3{margin:0 0 8px;font-size:13px;font-weight:700;color:var(--label-2);letter-spacing:.02em}
+.ai-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.ai-item{background:var(--fill);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.ai-item b{font-size:15px;font-weight:650}
+.ai-item p{margin:0;font-size:14px;line-height:1.65}
+.ai-item small{font-size:12px;color:var(--label-2)}
+.ai-item .prio{align-self:flex-start;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--fill-2);color:var(--label-2)}
+.ai-item .prio.high{background:var(--accent-fill);color:var(--on-accent)}
+.ai-out{background:var(--accent-soft);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.7}
+.ai-out .range{display:block;margin-top:6px;font-weight:700;color:var(--accent-text)}
+.ai-caveats{margin:0;padding-left:18px;font-size:13px;color:var(--label-2)}
+.thinking{display:flex;align-items:center;gap:10px;color:var(--label-2);font-size:14px}
+.dots{display:inline-flex;gap:4px}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:.3;animation:pulse 1.2s infinite var(--ease)}
+.dots i:nth-child(2){animation-delay:.2s} .dots i:nth-child(3){animation-delay:.4s}
+@keyframes pulse{50%{opacity:1}}
+
+/* ---------- 狭い画面: サイドバーを上部の折りたたみに ---------- */
+@media (max-width: 860px){
+  .app{grid-template-columns:minmax(0,1fr);padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+  .side{position:relative;top:0;height:auto;max-height:none}
+  .navtoggle{display:inline-flex}
+  .side:not(.open) .nav,.side:not(.open) .side-foot{display:none}
+  .side.open .nav{max-height:62vh}
+  .toolbar{top:env(safe-area-inset-top,0px)}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width: 420px){ .kpi{padding:14px} .card{padding:16px} }
+
+/* ---------- アクセシビリティとフォールバック ---------- */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))){
+  .glass{background:rgba(var(--glass-tint),.92)}
+}
+@media (prefers-reduced-transparency: reduce){
+  .glass{background:rgba(var(--glass-tint),.96);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
+@media (prefers-contrast: more){
+  .glass{background:var(--bg-base);border:1px solid var(--label-2);-webkit-backdrop-filter:none;backdrop-filter:none}
+  .card,.kpi{background:var(--card-solid);border:1px solid var(--label-2)}
+}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+
+<div class="app">
+  <aside class="side glass" id="side" aria-label="期間">
+    <div class="side-head">
+      <p class="brand">Bar null<small>売上レポート</small></p>
+      <button type="button" class="btn tinted navtoggle" id="navtoggle" aria-expanded="false" aria-controls="nav">期間を選ぶ</button>
+    </div>
+    <nav class="nav" id="nav"><p class="empty">読み込んでいます…</p></nav>
+    <div class="side-foot">
+      <label class="field">データ<select id="env"><option value="prod">本番</option><option value="test">テスト</option></select></label>
+      <label class="field">ガラスの透明度<input type="range" id="glass" min="0.6" max="1.3" step="0.05" value="1"></label>
+    </div>
+  </aside>
+
+  <main>
+    <header class="toolbar glass" id="toolbar">
+      <div>
+        <h1 id="title">売上レポート</h1>
+        <div class="sub num" id="subtitle">Asana の伝票データを読み込んでいます</div>
+      </div>
+      <span class="chip" id="state">準備中</span>
+    </header>
+
+    <div class="content">
+      <div id="notice"></div>
+
+      <section class="kpis" id="kpis" aria-label="主要な数字">
+        <div class="kpi"><span class="lb">売上</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi"><span class="lb">予約数</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi"><span class="lb">客単価（1組）</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi"><span class="lb">1日あたり</span><span class="v num">—</span><span class="d">　</span></div>
+      </section>
+
+      <section class="card ai" id="ai" aria-live="polite">
+        <div class="ai-head">
+          <div>
+            <h2><svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9.5l-4.7 1.9L12 16l-1.8-4.6L5.5 9.5l4.7-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>AI の示唆</h2>
+            <p class="cap" id="aicap">この期間までの売上の流れから、傾向・今後の見通し・打ち手を Claude がまとめます。</p>
+          </div>
+          <div class="ai-actions">
+            <button type="button" class="btn plain" id="aistop" hidden>止める</button>
+            <button type="button" class="btn filled" id="aigen">示唆を作成</button>
+          </div>
+        </div>
+        <div class="ai-body" id="aibody"></div>
+      </section>
+
+      <section class="card chart"><h2 id="c1t">日ごとの売上</h2><p class="cap" id="c1c">営業日（6:00〜翌6:00）</p><div id="c1"></div></section>
+      <div class="grid2">
+        <section class="card chart"><h2 id="c2t">推移</h2><p class="cap" id="c2c"></p><div id="c2"></div></section>
+        <section class="card chart"><h2>曜日ごとの平均</h2><p class="cap" id="c3c">伝票のあった日の平均</p><div id="c3"></div></section>
+      </div>
+      <section class="card"><h2>内訳</h2><p class="cap" id="factscap">この期間</p><div class="facts num" id="facts"></div></section>
+      <section class="card" id="slipcard"><h2>伝票</h2><p class="cap">伝票 ID から Asana のタスクを開けます</p><div class="tablewrap" id="slips"></div></section>
+      <p class="foot" id="fresh">定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る</p>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ======================= 設定 ======================= */
+const SERVER = "Asana", TOOL = "get_tasks";
+const PROJECTS = { prod: "1219600211224482", test: "1219599891506891" };
+const OPT = "name,permalink_url,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
+const WD = ["月", "火", "水", "木", "金", "土", "日"];
+const DAY_GCTIME = 24 * 3600e3;
+const $ = (id) => document.getElementById(id);
+const use = (name) => (window.claude && window.claude.use) ? window.claude.use(name) : Promise.resolve(null);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} },
+};
+const state = { env: "prod", rows: null, snaps: {}, insights: {}, sel: null, db: null, canWrite: false, error: null,
+                sample: undefined, aiRun: null, openYears: {} };
+if (PROJECTS[store.get("barnull-env")]) state.env = store.get("barnull-env");
+$("env").value = state.env;
+
+/* ======================= 日付（YYYY-MM-DD の文字列で扱う） ======================= */
+const toD = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+const toS = (d) => d.toISOString().slice(0, 10);
+const add = (s, n) => { const d = toD(s); d.setUTCDate(d.getUTCDate() + n); return toS(d); };
+const diff = (a, b) => Math.round((toD(b) - toD(a)) / 864e5);
+const wdi = (s) => (toD(s).getUTCDay() + 6) % 7;       // 月=0 … 日=6
+const monday = (s) => add(s, -wdi(s));
+const md = (s) => { const d = toD(s); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; };
+const ym = (s) => s.slice(0, 7);
+const monthStart = (s) => s.slice(0, 8) + "01";
+const monthEnd = (s) => { const d = toD(monthStart(s)); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); return toS(d); };
+const addMonths = (s, n) => { const d = toD(monthStart(s)); d.setUTCMonth(d.getUTCMonth() + n); return toS(d); };
+const min = (a, b) => a < b ? a : b;
+function todayBiz() {   // 日本時間で 6:00 より前は前日の営業日
+  const jst = new Date(Date.now() + 9 * 3600e3);
+  if (jst.getUTCHours() < 6) jst.setUTCDate(jst.getUTCDate() - 1);
+  return toS(jst);
+}
+const yen = (v) => v == null ? "—" : "¥" + Math.round(v).toLocaleString("ja-JP");
+const short = (v) => v >= 10000 ? (v / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 1 }) + "万" : Math.round(v).toLocaleString("ja-JP");
+const pct = (a, b) => !b ? null : (a - b) / b * 100;
+
+/* ======================= 期間（年・月・週） =======================
+   週は月曜〜日曜。月をまたぐ週は月で区切る（月の最初と最後の週は短いことがある）。 */
+function weeksOf(month) {     // month = "YYYY-MM"
+  const ms = month + "-01", me = monthEnd(ms), out = [];
+  for (let s = ms, n = 1; s <= me; n++) {
+    const e = min(add(monday(s), 6), me);
+    out.push({ kind: "week", key: `w:${s}`, start: s, end: e, n, month });
+    s = add(e, 1);
+  }
+  return out;
+}
+const monthP = (month) => ({ kind: "month", key: `m:${month}`, start: month + "-01", end: monthEnd(month + "-01"), month });
+const yearP = (y) => ({ kind: "year", key: `y:${y}`, start: `${y}-01-01`, end: `${y}-12-31`, year: y });
+function periodByKey(key) {
+  const [k, v] = [key.slice(0, 1), key.slice(2)];
+  if (k === "y") return yearP(v);
+  if (k === "m") return monthP(v);
+  return weeksOf(ym(v)).find((w) => w.start === v) || null;
+}
+function label(p) {
+  if (p.kind === "year") return `${p.year}年`;
+  const [y, m] = p.month.split("-").map(Number);
+  if (p.kind === "month") return `${y}年${m}月`;
+  return `${y}年${m}月 第${p.n}週`;
+}
+function prevOf(p) {
+  if (p.kind === "year") return yearP(String(Number(p.year) - 1));
+  if (p.kind === "month") return monthP(ym(addMonths(p.start, -1)));
+  const d = add(p.start, -1); return weeksOf(ym(d)).find((w) => w.start <= d && d <= w.end);
+}
+const days = (p, today) => diff(p.start, min(p.end, today)) + 1;
+const inProgress = (p, today) => p.start <= today && today <= p.end;
+
+/* ======================= Asana の読み込み ======================= */
+function parseTask(t) {
+  const f = {}; (t.custom_fields || []).forEach((c) => { f[c.name] = c; });
+  const date = f["営業日"]?.date_value?.date?.slice(0, 10);
+  const amount = f["伝票金額"]?.number_value;
+  const status = f["伝票ステータス"]?.enum_value?.name || "";
+  if (!date || amount == null || status === "対象外") return null;
+  return { date, amount, status, unpaid: f["未収残高"]?.number_value || 0,
+           unpaidStatus: f["未収ステータス"]?.enum_value?.name || "なし",
+           fee: f["決済手数料"]?.number_value || 0, square: f["Square決済額"]?.number_value || 0,
+           customer: (f["顧客名"]?.text_value || "").trim(), slipId: f["伝票ID"]?.text_value || "", url: t.permalink_url || "" };
+}
+function payloadOf(res) {
+  if (res && res.payload) return res.payload;
+  const txt = (res?.content || []).find((c) => c.type === "text")?.text;
+  try { return txt ? JSON.parse(txt) : {}; } catch (_) { return {}; }
+}
+async function loadAsana(mcp) {
+  const rows = []; let offset = null;
+  for (let i = 0; i < 60; i++) {
+    const input = { project: PROJECTS[state.env], limit: 100, opt_fields: OPT };
+    if (offset) input.offset = offset;
+    const p = payloadOf(await mcp.callTool(SERVER, TOOL, input, { cache: { staleTime: 60000 } }));
+    (p.data || []).forEach((t) => { const r = parseTask(t); if (r) rows.push(r); });
+    offset = p.next_page?.offset;
+    if (!offset) break;
+  }
+  return rows;
+}
+
+/* ======================= 集計 ======================= */
+function sum(a, b) {
+  const rows = (state.rows || []).filter((r) => r.date >= a && r.date <= b);
+  const sales = rows.reduce((x, r) => x + r.amount, 0);
+  return { sales, count: rows.length, rows, unit: rows.length ? sales / rows.length : null };
+}
+function periodStats(p, today) {
+  const end = min(p.end, today), n = days(p, today), s = sum(p.start, end);
+  return { ...s, end, days: n, perDay: n > 0 ? s.sales / n : null, openDays: new Set(s.rows.map((r) => r.date)).size };
+}
+/* 比べる相手: 進行中の月・年は前の期間の同じ日数まで。週は日数が違えば1日あたりで比べる */
+function compare(p, today) {
+  const cur = periodStats(p, today), q = prevOf(p);
+  let qEnd = q.end;
+  if ((p.kind !== "week") && inProgress(p, today)) qEnd = min(q.end, add(q.start, cur.days - 1));
+  const s = sum(q.start, qEnd), n = diff(q.start, qEnd) + 1;
+  return { cur, prev: { ...s, days: n, perDay: s.sales / n, start: q.start, end: qEnd, period: q },
+           perDayBasis: p.kind === "week" && n !== cur.days };
+}
+function weekdayAvg(a, b) {     // 伝票のあった日の、曜日ごとの平均売上
+  const byDay = {}; sum(a, b).rows.forEach((r) => { byDay[r.date] = (byDay[r.date] || 0) + r.amount; });
+  const acc = WD.map(() => ({ s: 0, n: 0 }));
+  Object.entries(byDay).forEach(([d, v]) => { const i = wdi(d); acc[i].s += v; acc[i].n++; });
+  return acc.map((x) => ({ avg: x.n ? x.s / x.n : 0, n: x.n }));
+}
+function dataStart(today) {
+  let first = today;
+  (state.rows || []).forEach((r) => { if (r.date < first) first = r.date; });
+  Object.values(state.snaps).forEach((s) => { if (s.start < first) first = s.start; });
+  return first;
+}
+
+/* ======================= サイドバー ======================= */
+function renderNav(today) {
+  const nav = $("nav"); nav.textContent = "";
+  const first = dataStart(today), sel = state.sel;
+  const months = []; for (let m = monthStart(today); m >= monthStart(first); m = addMonths(m, -1)) months.push(ym(m));
+  const years = [...new Set(months.map((m) => m.slice(0, 4)))];
+  years.forEach((y) => {
+    const yp = yearP(y);
+    const open = state.openYears[y] ?? (y === today.slice(0, 4) || sel.start.slice(0, 4) === y);
+    const box = el("div", "year"); box.dataset.open = String(open);
+    const yb = el("button", "year-btn"); yb.type = "button"; yb.setAttribute("aria-current", String(sel.key === yp.key));
+    yb.setAttribute("aria-expanded", String(open));
+    const yl = el("span", "yl"); yl.innerHTML = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>`;
+    yl.append(`${y}年`);
+    const yv = el("span", "yv num"); yv.textContent = state.rows ? yen(sum(yp.start, min(yp.end, today)).sales) : "";
+    yb.append(yl, yv);
+    yb.addEventListener("click", () => {      // 年の見出し: 開閉し、その年の集計を表示する
+      state.openYears[y] = sel.key === yp.key ? !open : true;
+      select(yp);
+    });
+    const list = el("div", "months");
+    months.filter((m) => m.startsWith(y)).forEach((m) => list.append(monthBox(m, today)));
+    box.append(yb, list); nav.append(box);
+  });
+}
+function monthBox(m, today) {
+  const mp = monthP(m), box = el("div", "month");
+  const head = rowBtn(mp, `${Number(m.slice(5))}月`, "月の集計", state.rows ? yen(sum(mp.start, min(mp.end, today)).sales) : "", today);
+  head.classList.add("month-row");
+  const weeks = el("div", "weeks");
+  weeksOf(m).filter((w) => w.start <= today).forEach((w) => {
+    const n = diff(w.start, w.end) + 1;
+    const sub = `${md(w.start)}〜${md(w.end)}` + (n < 7 ? `（${n}日）` : "");
+    const v = state.rows ? yen(sum(w.start, min(w.end, today)).sales) : (state.snaps[w.start]?.sales != null && n === 7 ? yen(state.snaps[w.start].sales) : "");
+    weeks.append(rowBtn(w, `第${w.n}週`, sub, v, today));
+  });
+  box.append(head, weeks);
+  return box;
+}
+function rowBtn(p, title, sub, value, today) {
+  const b = el("button", "row"); b.type = "button"; b.setAttribute("aria-current", String(state.sel.key === p.key));
+  const t = el("span", "t"), tb = el("b"); tb.textContent = title;
+  if (inProgress(p, today)) { const tag = el("span", "tag"); tag.textContent = "集計中"; tb.append(tag); }
+  const ts = el("span"); ts.textContent = sub; t.append(tb, ts);
+  const v = el("span", "v num"); v.textContent = value;
+  b.append(t, v); b.addEventListener("click", () => select(p));
+  return b;
+}
+function el(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
+function select(p) {
+  state.sel = p; store.set("barnull-sel", p.key);
+  stopAI(); state.aiError = null;
+  $("side").classList.remove("open"); $("navtoggle").setAttribute("aria-expanded", "false");
+  render();
+}
+
+/* ======================= 図 ======================= */
+function niceStep(max) { const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))); const n = raw / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p; }
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function bars(target, items, opts) {     // items: [{label, sub, value, cls, title}]
+  if (!items.length) { target.innerHTML = `<p class="empty">データがありません。</p>`; return; }
+  const W = Math.max(280, Math.round(target.clientWidth || 600)), H = opts.h || 220, L = 44, R = 6, T = 18, B = items.some((i) => i.sub) ? 38 : 24;
+  const max = Math.max(1000, ...items.map((i) => i.value)), step = niceStep(max), top = Math.ceil(max / step) * step;
+  const bw = (W - L - R) / items.length, y = (v) => T + (H - T - B) * (1 - v / top);
+  const every = Math.ceil(items.length / Math.max(4, Math.floor((W - L) / 38)));   // ラベルが重ならないように間引く
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(opts.label)}">`;
+  for (let v = 0; v <= top + 1e-9; v += step) svg += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${short(v)}</text>`;
+  items.forEach((it, i) => {
+    const w = Math.min(36, bw * 0.62), x = L + i * bw + (bw - w) / 2, h = Math.max(0, y(0) - y(it.value));
+    const r = Math.min(6, w / 2, h);
+    svg += `<rect class="b ${it.cls || ""}" x="${x}" y="${y(it.value)}" width="${w}" height="${h}" rx="${r}"><title>${esc(it.title || `${it.label} ${yen(it.value)}`)}</title></rect>`;
+    if (it.cls === "sel" && it.value && opts.valueOnSel) svg += `<text class="vl" x="${x + w / 2}" y="${y(it.value) - 6}" text-anchor="middle">${short(it.value)}</text>`;
+    if (i % every === 0 || it.cls === "sel") {
+      svg += `<text x="${x + w / 2}" y="${H - B + 16}" text-anchor="middle">${esc(it.label)}</text>`;
+      if (it.sub) svg += `<text x="${x + w / 2}" y="${H - B + 30}" text-anchor="middle">${esc(it.sub)}</text>`;
+    }
+  });
+  target.innerHTML = svg + "</svg>";
+}
+
+/* ======================= 紙面 ======================= */
+function setKpi(i, value, detailNodes) {
+  const k = $("kpis").children[i]; k.querySelector(".v").textContent = value;
+  const d = k.querySelector(".d"); d.textContent = ""; d.append(...detailNodes);
+}
+function deltaNode(cur, prev) {
+  const p = pct(cur, prev); const s = el("span", p == null ? "" : p >= 0 ? "up" : "down");
+  s.textContent = p == null ? "—" : `${p >= 0 ? "+" : ""}${p.toFixed(0)}%`; return s;
+}
+const noun = { week: "前の週", month: "前月", year: "前年" };
+
+function render() {
+  const today = todayBiz();
+  if (!state.sel) {
+    const saved = store.get("barnull-sel"), p = saved && periodByKey(saved);
+    // 既定は「先週」（日曜日を含む週）。月をまたぐ週なら、その週の後半（月の最初の週）
+    const lastSun = add(monday(today), -1);
+    state.sel = (p && p.start <= today) ? p : weeksOf(ym(lastSun)).find((w) => w.start <= lastSun && lastSun <= w.end);
+  }
+  const p = state.sel, live = inProgress(p, today);
+  renderNav(today);
+  $("title").textContent = label(p);
+  const n = diff(p.start, p.end) + 1;
+  $("subtitle").textContent = `${md(p.start)}〜${md(p.end)}` + (p.kind === "week" && n < 7 ? `（月で区切った${n}日間）` : "") +
+    (live ? `　${md(today)} までの集計` : "");
+  const st = $("state"); st.className = "chip" + (live ? " live" : ""); st.textContent = live ? "集計中" : "確定";
+  const notice = $("notice"); notice.textContent = "";
+  $("slipcard").hidden = p.kind === "year";
+
+  if (!state.rows) { renderOffline(p); renderAI(); return; }
+  if (!state.rows.length) notice.append(noticeBox("まだ伝票がありません", "LINE のグループ「Bar null」で @null から始まる伝票メッセージが届くと、ここに集計されます。"));
+
+  const C = compare(p, today), cur = C.cur, prev = C.prev, pn = noun[p.kind];
+  const basis = C.perDayBasis ? "（1日あたり）" : "";
+  setKpi(0, yen(cur.sales), [`${pn}比${basis} `, C.perDayBasis ? deltaNode(cur.perDay, prev.perDay) : deltaNode(cur.sales, prev.sales)]);
+  setKpi(1, `${cur.count}組`, [`${pn} ${prev.count}組`]);
+  setKpi(2, yen(cur.unit), [`${pn} ${yen(prev.unit)}`]);
+  setKpi(3, yen(cur.perDay), [`${cur.days}日間・${pn} ${yen(prev.perDay)}`]);
+
+  renderCharts(p, today, cur);
+  renderFacts(p, today, cur, prev);
+  renderSlips(cur);
+  renderAI();
+}
+function renderOffline(p) {
+  const notice = $("notice");
+  if (state.error) notice.append(noticeBox(state.error.title, state.error.body));
+  else notice.append(noticeBox("Asana の伝票データを読み込んでいます", "数秒かかることがあります。"));
+  const snap = p.kind === "week" ? state.snaps[p.start] : null;
+  [0, 1, 2, 3].forEach((i) => setKpi(i, "—", ["　"]));
+  if (snap && diff(p.start, p.end) === 6) {
+    setKpi(0, yen(snap.sales), ["記録済みの数字"]); setKpi(1, `${snap.count}組`, ["　"]); setKpi(2, yen(snap.unit), ["　"]);
+  }
+  ["c1", "c2", "c3"].forEach((id) => { $(id).innerHTML = `<p class="empty">Asana につながると表示されます。</p>`; });
+  $("facts").textContent = ""; $("slips").textContent = "";
+}
+function renderCharts(p, today, cur) {
+  const end = min(p.end, today);
+  // 1) 期間の中の動き: 週・月は日ごと、年は月ごと
+  if (p.kind === "year") {
+    $("c1t").textContent = "月ごとの売上"; $("c1c").textContent = `${p.year}年`;
+    const items = []; for (let m = p.start; m <= p.end; m = addMonths(m, 1)) {
+      const v = sum(m, monthEnd(m)); items.push({ label: `${Number(m.slice(5, 7))}月`, value: v.sales, cls: m <= today ? (inProgress(monthP(ym(m)), today) ? "cur" : "sel") : "", title: `${Number(m.slice(5, 7))}月 ${yen(v.sales)}・${v.count}組` });
+    }
+    bars($("c1"), items, { label: "月ごとの売上", h: 220 });
+  } else {
+    $("c1t").textContent = "日ごとの売上"; $("c1c").textContent = "営業日（6:00〜翌6:00）";
+    const items = []; for (let d = p.start; d <= p.end; d = add(d, 1)) {
+      const v = sum(d, d); items.push({ label: p.kind === "week" ? md(d) : String(toD(d).getUTCDate()), sub: p.kind === "week" ? WD[wdi(d)] : "",
+        value: v.sales, cls: v.sales ? "sel" : "", title: `${md(d)}（${WD[wdi(d)]}）${yen(v.sales)}・${v.count}組` });
+    }
+    bars($("c1"), items, { label: "日ごとの売上", h: 220, valueOnSel: p.kind === "week" });
+  }
+  // 2) 推移: 週は直近12週（月曜〜日曜）、月は直近12か月、年は年ごと
+  if (p.kind === "week") {
+    $("c2t").textContent = "週ごとの推移"; $("c2c").textContent = "直近12週（月曜〜日曜）・この週を強調";
+    const items = [], m0 = monday(p.start);
+    for (let i = 11; i >= 0; i--) { const ws = add(m0, -7 * i), v = sum(ws, add(ws, 6));
+      items.push({ label: md(ws), value: v.sales, cls: ws === m0 ? "sel" : (inProgress({ start: ws, end: add(ws, 6) }, today) ? "cur" : ""), title: `${md(ws)}〜${md(add(ws, 6))} ${yen(v.sales)}・${v.count}組` }); }
+    bars($("c2"), items, { label: "週ごとの推移", h: 200 });
+  } else if (p.kind === "month") {
+    $("c2t").textContent = "月ごとの推移"; $("c2c").textContent = "直近12か月・この月を強調";
+    const items = []; for (let i = 11; i >= 0; i--) { const m = addMonths(p.start, -i), v = sum(m, min(monthEnd(m), today));
+      items.push({ label: `${Number(m.slice(5, 7))}月`, value: v.sales, cls: i === 0 ? "sel" : "", title: `${m.slice(0, 7)} ${yen(v.sales)}・${v.count}組` }); }
+    bars($("c2"), items, { label: "月ごとの推移", h: 200 });
+  } else {
+    $("c2t").textContent = "年ごとの推移"; $("c2c").textContent = "伝票のある年";
+    const items = []; const fy = Number(dataStart(today).slice(0, 4));
+    for (let y = fy; y <= Number(today.slice(0, 4)); y++) { const v = sum(`${y}-01-01`, `${y}-12-31`);
+      items.push({ label: `${y}年`, value: v.sales, cls: String(y) === p.year ? "sel" : "", title: `${y}年 ${yen(v.sales)}・${v.count}組` }); }
+    bars($("c2"), items, { label: "年ごとの推移", h: 200 });
+  }
+  // 3) 曜日ごとの平均（週は直近8週、月・年はその期間）
+  const a = p.kind === "week" ? add(monday(p.start), -49) : p.start;
+  $("c3c").textContent = p.kind === "week" ? "直近8週・伝票のあった日の平均" : "この期間・伝票のあった日の平均";
+  const avg = weekdayAvg(a, end);
+  const best = Math.max(...avg.map((x) => x.avg));
+  bars($("c3"), avg.map((x, i) => ({ label: WD[i], value: x.avg, cls: x.avg && x.avg === best ? "sel" : "", title: `${WD[i]}曜 平均 ${yen(x.avg)}（${x.n}日）` })),
+    { label: "曜日ごとの平均", h: 200 });
+}
+function renderFacts(p, today, cur, prev) {
+  const by = {}; cur.rows.forEach((r) => { by[r.status] = (by[r.status] || 0) + 1; });
+  const unpaidIn = cur.rows.filter((r) => r.unpaid > 0);
+  const daysMap = {}; cur.rows.forEach((r) => { daysMap[r.date] = (daysMap[r.date] || 0) + r.amount; });
+  const bestDay = Object.entries(daysMap).sort((a, b) => b[1] - a[1])[0];
+  const sq = cur.rows.reduce((x, r) => x + r.square, 0), fee = cur.rows.reduce((x, r) => x + r.fee, 0);
+  const rep = repeatStats(cur.rows, p.start);
+  const facts = [
+    ["売上", yen(cur.sales)], ["予約数", `${cur.count}組`], ["客単価", yen(cur.unit)],
+    ["伝票のあった日", `${cur.openDays}日 / ${cur.days}日`],
+    ["いちばん売上の高い日", bestDay ? `${md(bestDay[0])}（${WD[wdi(bestDay[0])]}）${yen(bestDay[1])}` : "—"],
+    ["リピートのお客様", cur.count ? `${rep.repeatSlips}組（${Math.round(rep.repeatSlips / cur.count * 100)}%）` : "—"],
+    ["決済手数料", sq ? `${yen(fee)}（${(fee / sq * 100).toFixed(1)}%）` : "—"],
+    ["未収（この期間の伝票）", unpaidIn.length ? `${yen(unpaidIn.reduce((x, r) => x + r.unpaid, 0))}（${unpaidIn.length}件）` : "なし"],
+    ["入金確認完了 / 決済確認済み", `${by["入金確認完了"] || 0}件 / ${by["決済確認済み"] || 0}件`],
+    ["起票済み / 要確認", `${by["起票済み"] || 0}件 / ${by["要確認"] || 0}件`],
+  ];
+  $("factscap").textContent = `${md(p.start)}〜${md(cur.end)}`;
+  const box = $("facts"); box.textContent = "";
+  facts.forEach(([k, v]) => { const f = el("div", "fact"), a = el("span", "k"), b = el("span", "v"); a.textContent = k; b.textContent = v; f.append(a, b); box.append(f); });
+}
+/* この期間の伝票のうち、それより前にも来店のあるお客様の組数（顧客名で判定。名前はページの外に出さない） */
+function repeatStats(rows, start) {
+  const before = new Set((state.rows || []).filter((r) => r.date < start && r.customer).map((r) => r.customer));
+  const seen = new Set(before); let repeatSlips = 0;
+  [...rows].sort((a, b) => a.date.localeCompare(b.date)).forEach((r) => {
+    if (!r.customer) return; if (seen.has(r.customer)) repeatSlips++; seen.add(r.customer);
+  });
+  return { repeatSlips, distinct: new Set(rows.filter((r) => r.customer).map((r) => r.customer)).size };
+}
+function renderSlips(cur) {
+  const box = $("slips"); box.textContent = "";
+  const list = [...cur.rows].sort((a, b) => b.date.localeCompare(a.date) || b.slipId.localeCompare(a.slipId));
+  if (!list.length) { box.innerHTML = `<p class="empty">この期間の伝票はありません。</p>`; return; }
+  const t = el("table"); t.innerHTML = "<thead><tr><th>営業日</th><th>伝票ID</th><th>顧客名</th><th>金額</th><th>状態</th><th>未収</th></tr></thead>";
+  const tb = el("tbody");
+  list.forEach((r) => {
+    const tr = el("tr"), c = (txt, cls) => { const td = el("td", cls); td.textContent = txt; tr.append(td); return td; };
+    c(`${md(r.date)}（${WD[wdi(r.date)]}）`);
+    const idc = c(""); if (r.url) { const a = el("a"); a.href = r.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = r.slipId || "開く"; idc.append(a); } else idc.textContent = r.slipId;
+    c(r.customer ? `${r.customer}様` : "—"); c(yen(r.amount), "n num");
+    const sc = c(""), pl = el("span", "pill" + (r.status === "要確認" ? " rv" : r.status === "入金確認完了" ? " ok" : "")); pl.textContent = r.status; sc.append(pl);
+    c(r.unpaid ? yen(r.unpaid) : "", "n num");
+    tb.append(tr);
+  });
+  t.append(tb); box.append(t);
+}
+function noticeBox(title, body) { const d = el("div", "notice"), s = el("strong"); s.textContent = title; d.append(s, body); return d; }
+
+/* ======================= AI の示唆 =======================
+   Claude に渡すのは集計した数字だけ（顧客名・伝票 ID は渡さない）。結果は共有のデータベースに残し、
+   次に開いた人は Claude を使わずに読める。データが変わったら「作り直す」を出す。 */
+function insightKey(p) { return `${state.env}_${p.key.replace(":", "_")}`; }
+function basisOf(p) {
+  const today = todayBiz(), c = periodStats(p, today);
+  const last = (state.rows || []).reduce((a, r) => r.date > a ? r.date : a, "");
+  return { sales: c.sales, count: c.count, end: c.end, last };
+}
+function insightData(p) {
+  const today = todayBiz(), end = min(p.end, today), C = compare(p, today);
+  const r = (o) => ({ sales: Math.round(o.sales), count: o.count, unit: o.unit == null ? null : Math.round(o.unit),
+                      per_day: o.perDay == null ? null : Math.round(o.perDay), days: o.days });
+  const daily = []; for (let d = add(end, -55); d <= end; d = add(d, 1)) { const v = sum(d, d); daily.push([d, WD[wdi(d)], v.sales, v.count]); }
+  const weekly = []; for (let i = 15; i >= 0; i--) { const ws = add(monday(end), -7 * i), v = sum(ws, min(add(ws, 6), today)); weekly.push([ws, v.sales, v.count, v.unit == null ? null : Math.round(v.unit), ws <= today && today <= add(ws, 6) ? "集計中" : ""]); }
+  const monthly = []; for (let i = 11; i >= 0; i--) { const m = addMonths(end, -i), me = min(monthEnd(m), today), v = sum(m, me); monthly.push([m.slice(0, 7), v.sales, v.count, v.unit == null ? null : Math.round(v.unit), diff(m, me) + 1]); }
+  const wd = weekdayAvg(add(end, -83), end).map((x, i) => [WD[i], Math.round(x.avg), x.n]);
+  const hist = (state.rows || []).filter((x) => x.date <= end);
+  const last90 = hist.filter((x) => x.date > add(end, -90));
+  const byCust = {}; last90.forEach((x) => { if (x.customer) byCust[x.customer] = (byCust[x.customer] || 0) + x.amount; });
+  const custVals = Object.values(byCust).sort((a, b) => b - a), top = custVals.slice(0, Math.max(1, Math.ceil(custVals.length * 0.2)));
+  const rep = repeatStats(C.cur.rows, p.start);
+  const sq = last90.reduce((x, y) => x + y.square, 0), fee = last90.reduce((x, y) => x + y.fee, 0);
+  const open = (state.rows || []).filter((x) => x.unpaid > 0 && x.unpaidStatus !== "回収入金確認済み");
+  return {
+    period: { name: label(p), kind: p.kind, start: p.start, end: p.end, counted_until: end, in_progress: inProgress(p, today), days_counted: C.cur.days },
+    this_period: r(C.cur), comparison: { name: noun[p.kind], start: C.prev.start, end: C.prev.end, ...r(C.prev), per_day_basis: C.perDayBasis },
+    daily_last_8_weeks: { columns: ["date", "weekday", "sales", "count"], rows: daily },
+    weekly_last_16: { columns: ["monday", "sales", "count", "unit", "note"], rows: weekly },
+    monthly_last_12: { columns: ["month", "sales", "count", "unit", "days_counted"], rows: monthly },
+    weekday_average_last_12_weeks: { columns: ["weekday", "avg_sales_on_open_days", "open_days"], rows: wd },
+    customers: { repeat_slips_in_period: rep.repeatSlips, slips_in_period: C.cur.count,
+                 distinct_customers_last_90d: custVals.length, top20pct_share_of_sales_last_90d: custVals.length ? Math.round(top.reduce((a, b) => a + b, 0) / custVals.reduce((a, b) => a + b, 0) * 100) : null },
+    payments: { square_fee_rate_last_90d_pct: sq ? +(fee / sq * 100).toFixed(2) : null },
+    unpaid_now: { outstanding: Math.round(open.reduce((x, y) => x + y.unpaid, 0)), slips: open.length },
+    data_coverage: { first_slip_date: dataStart(today), total_slips_until_end: hist.length,
+                     note: "伝票の自動記録は 2026-10-17 に始まった。それより前の期間は伝票が無い・少ないことがある" },
+  };
+}
+function insightPrompt(p) {
+  return `あなたは予約制のバー「Bar null」（1伝票＝1組の会計）の売上を読む経営アナリストです。
+次の集計データ（JSON）だけを根拠に、「${label(p)}」について分析し、オーナーが次に何をすべきかを日本語で示してください。
+
+ルール:
+- データに無いこと（天気、イベント、競合、季節要因など）を事実として書かない。仮説なら「〜の可能性」と明記する。
+- 数字はデータの値を使う（金額は「¥12,345」、割合は「%」）。計算した値なら計算元が分かるように書く。
+- 期間が短い、件数が少ない、比べる相手が0件などで言い切れないときは、そのことを caveats に書き、断定しない。
+- 個人を特定する情報は扱わない（データにも含めていない）。
+- 用語: 売上＝伝票金額の合計（未収を含み、取消を除く）。営業日は 6:00〜翌6:00。予約数＝伝票の件数（1組）。客単価＝売上÷予約数。
+- in_progress が true の期間は途中までの集計。
+
+出力は次の形の JSON オブジェクトだけ（ほかの文章は書かない）:
+{"headline": "全体を1文で（60字以内）",
+ "findings": [{"title": "傾向の見出し（20字以内）", "detail": "説明（120字以内）", "evidence": "根拠の数字（60字以内）"}],
+ "outlook": {"summary": "今後の見通し（150字以内）", "next": {"label": "次の期間の名前（例: 来週）", "low": 数値, "high": 数値} または null},
+ "actions": [{"title": "打ち手（20字以内）", "detail": "具体的な進め方（120字以内）", "priority": "高" または "中" または "低"}],
+ "caveats": ["注意点（60字以内）"]}
+findings と actions は3〜5件、caveats は0〜3件。next はデータから幅を持って見積もれるときだけ（無理なら null）。
+
+データ:
+${JSON.stringify(insightData(p))}`;
+}
+function stopAI() { if (state.aiRun) { state.aiRun.ctl.abort(); state.aiRun = null; } }
+async function generateAI(refresh) {
+  const p = state.sel, sample = state.sample;
+  if (!sample || !state.rows || state.aiRun) return;
+  const ctl = new AbortController(), run = { ctl, key: p.key, started: Date.now() };
+  state.aiRun = run; renderAI();
+  const tick = setInterval(() => { if (state.aiRun === run) renderAI(); else clearInterval(tick); }, 1000);
+  try {
+    const result = await sample.json(insightPrompt(p), { signal: ctl.signal, modelTier: "default",
+      cache: refresh ? { gcTime: DAY_GCTIME, refresh: true } : { gcTime: DAY_GCTIME } });
+    if (!result || typeof result !== "object" || !result.headline) throw { code: "invalid_json" };
+    const doc = { env: state.env, key: p.key, label: label(p), result, basis: basisOf(p), generated_at: new Date().toISOString() };
+    state.insights[insightKey(p)] = doc;
+    if (state.db && state.canWrite) state.db.doc(`insights/${insightKey(p)}`).set(doc).catch(() => {});
+    state.aiError = null;
+  } catch (e) {
+    state.aiError = e?.code === "cancelled" ? null : (e?.code || "upstream_error");
+    if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].includes(e?.code)) state.sample = null;
+  } finally {
+    clearInterval(tick);
+    if (state.aiRun === run) state.aiRun = null;
+    renderAI();
+  }
+}
+const AI_ERR = {
+  rate_limited: "Claude の利用が混み合っているか、利用枠に達しました。時間をおいて、もう一度お試しください。",
+  session_expired: "claude.ai にもう一度サインインしてください。",
+  invalid_json: "示唆をうまくまとめられませんでした。もう一度お試しください。",
+  refused: "この内容では示唆を作れませんでした。",
+  empty_completion: "示唆が空でした。もう一度お試しください。",
+  prompt_too_large: "データが多すぎました。期間を短くしてお試しください。",
+};
+function renderAI() {
+  const body = $("aibody"), gen = $("aigen"), stop = $("aistop"), p = state.sel;
+  body.textContent = "";
+  const doc = state.insights[insightKey(p)], running = state.aiRun && state.aiRun.key === p.key;
+  stop.hidden = !running;
+  if (state.sample === null) {
+    gen.hidden = true;
+    if (!doc) { const e = el("p", "empty"); e.textContent = "このページでは Claude を使えないため、示唆は作れません（保存済みの示唆があれば表示します）。"; body.append(e); return; }
+  } else {
+    gen.hidden = false;
+    gen.disabled = !state.rows || !!state.aiRun || state.sample === undefined;
+    gen.textContent = doc ? "最新のデータで作り直す" : "示唆を作成";
+  }
+  if (running) {
+    const t = el("div", "thinking"); t.innerHTML = `<span class="dots"><i></i><i></i><i></i></span>`;
+    t.append(`Claude が分析しています…（${Math.round((Date.now() - state.aiRun.started) / 1000)}秒）`);
+    body.append(t); return;
+  }
+  if (state.aiError) body.append(noticeBox("示唆を作れませんでした", AI_ERR[state.aiError] || "通信に失敗しました。もう一度お試しください。"));
+  if (!doc) {
+    if (!state.aiError) { const e = el("p", "empty"); e.textContent = state.rows ? "「示唆を作成」を押すと、この期間までの数字から分析します（1分ほどかかります。あなたの Claude の利用枠を使います）。" : "Asana のデータを読み込むと作れます。"; body.append(e); }
+    return;
+  }
+  renderInsight(body, doc, p);
+}
+function renderInsight(body, doc, p) {
+  const r = doc.result || {}, txt = (v, n) => String(v ?? "").slice(0, n);
+  const h = el("div", "ai-headline"); h.textContent = txt(r.headline, 200); body.append(h);
+  const meta = el("div", "ai-meta");
+  const now = basisOf(p), b = doc.basis || {};
+  const stale = state.rows && (b.sales !== now.sales || b.count !== now.count || b.last !== now.last);
+  meta.textContent = `${new Date(doc.generated_at).toLocaleString("ja-JP", { hour12: false, dateStyle: "medium", timeStyle: "short" })} に作成` +
+    (stale ? "　・作成後にデータが更新されています" : "");
+  body.append(meta);
+  const section = (title, node) => { const s = el("div", "ai-sec"), t = el("h3"); t.textContent = title; s.append(t, node); body.append(s); };
+  const items = (list, make) => { const g = el("div", "ai-grid"); (Array.isArray(list) ? list : []).slice(0, 6).forEach((x) => g.append(make(x || {}))); return g; };
+  section("見えている傾向", items(r.findings, (f) => {
+    const c = el("div", "ai-item"), b1 = el("b"), d = el("p"), s = el("small");
+    b1.textContent = txt(f.title, 60); d.textContent = txt(f.detail, 400); s.textContent = f.evidence ? "根拠：" + txt(f.evidence, 200) : "";
+    c.append(b1, d, s); return c;
+  }));
+  if (r.outlook && r.outlook.summary) {
+    const o = el("div", "ai-out"); o.append(txt(r.outlook.summary, 600));
+    const nx = r.outlook.next;
+    if (nx && Number.isFinite(Number(nx.low)) && Number.isFinite(Number(nx.high))) {
+      const rg = el("span", "range num"); rg.textContent = `${txt(nx.label || "次の期間", 30)}の見込み：${yen(Number(nx.low))} 〜 ${yen(Number(nx.high))}`; o.append(rg);
+    }
+    section("今後の見通し", o);
+  }
+  section("進むべきアプローチ", items(r.actions, (a) => {
+    const c = el("div", "ai-item"), pr = el("span", "prio" + (a.priority === "高" ? " high" : "")), b1 = el("b"), d = el("p");
+    pr.textContent = `優先度 ${["高", "中", "低"].includes(a.priority) ? a.priority : "中"}`; b1.textContent = txt(a.title, 60); d.textContent = txt(a.detail, 400);
+    c.append(pr, b1, d); return c;
+  }));
+  if (Array.isArray(r.caveats) && r.caveats.length) {
+    const ul = el("ul", "ai-caveats"); r.caveats.slice(0, 4).forEach((c) => { const li = el("li"); li.textContent = txt(c, 200); ul.append(li); });
+    section("注意", ul);
+  }
+}
+let resizeTimer;   // 図は幅に合わせて描き直す
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (state.rows) render(); }, 150); });
+$("aigen").addEventListener("click", () => generateAI(!!state.insights[insightKey(state.sel)]));
+$("aistop").addEventListener("click", stopAI);
+
+/* ======================= 確定した週の記録（db。Asana を読めないときの控え） ======================= */
+async function recordSnapshots() {
+  if (!state.db || !state.canWrite || !state.rows || state.env !== "prod") return;
+  const today = todayBiz(), cur = monday(today);
+  for (let s = add(cur, -7); s >= monday(dataStart(today)); s = add(s, -7)) {
+    if (state.snaps[s]) continue;
+    const w = sum(s, add(s, 6));
+    const doc = { env: "prod", start: s, end: add(s, 6), sales: w.sales, count: w.count, unit: w.unit == null ? null : Math.round(w.unit),
+                  recorded_at: new Date().toISOString() };
+    try { await state.db.doc(`weeks/prod_${s}`).set(doc); } catch (_) { state.canWrite = false; return; }
+  }
+}
+
+/* ======================= 読み込み ======================= */
+async function loadData() {
+  state.rows = null; state.error = null; render();
+  const mcp = await use("mcp");
+  if (!mcp) { state.error = { title: "Asana につながっていません", body: "このページで Asana の伝票を読むには、claude.ai で Asana（0x0.co.jp のアカウント）を接続してください。" }; render(); return; }
+  try {
+    state.rows = await loadAsana(mcp);
+    $("fresh").textContent = `Asana から読み込み：${new Date().toLocaleString("ja-JP", { hour12: false })}　定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る`;
+    render();
+    recordSnapshots();
+  } catch (err) {
+    const code = err?.code || "";
+    const body = code === "not_granted" || code === "consent_denied" ? "Asana の読み取りを許可すると表示されます。ページの権限メニューから許可できます。"
+      : code === "server_not_connected" || code === "needs_reauth" ? "claude.ai の設定で Asana を接続（または再接続）してください。"
+      : "時間をおいて開き直してください。（" + (err?.message || code || "不明なエラー") + "）";
+    state.error = { title: "Asana を読み込めませんでした", body }; render();
+  }
+}
+
+$("env").addEventListener("change", (e) => {
+  state.env = e.target.value; state.sel = null; stopAI(); store.set("barnull-env", state.env); loadData();
+});
+$("navtoggle").addEventListener("click", () => {
+  const open = $("side").classList.toggle("open"); $("navtoggle").setAttribute("aria-expanded", String(open));
+});
+const glassSaved = Number(store.get("barnull-glass"));
+function applyGlass(v) { document.documentElement.style.setProperty("--glass-user", String(v)); }
+if (glassSaved >= 0.6 && glassSaved <= 1.3) { $("glass").value = String(glassSaved); applyGlass(glassSaved); }
+$("glass").addEventListener("input", (e) => { applyGlass(e.target.value); store.set("barnull-glass", e.target.value); });
+
+(async function start() {
+  render();
+  use("sample").then((s) => { state.sample = s; renderAI(); });
+  const [db, user] = await Promise.all([use("db"), use("user")]);
+  state.db = db;
+  if (user) { const c = await user.can("data.write"); state.canWrite = c !== false; }
+  if (db) {
+    db.collection("weeks").onSnapshot((snap) => {
+      const m = {}; snap.docs.forEach((d) => { const v = d.data(); if (v.env === "prod") m[v.start] = v; });
+      state.snaps = m; render();
+    }, () => {});
+    db.collection("insights").onSnapshot((snap) => {
+      const m = {}; snap.docs.forEach((d) => { m[d.id] = d.data(); });
+      state.insights = { ...state.insights, ...m }; renderAI();
+    }, () => {});
+  }
+  loadData();
+})();
+</script>

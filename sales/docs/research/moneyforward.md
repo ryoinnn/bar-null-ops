@@ -1,0 +1,12 @@
+# マネフォ クラウド会計 API 調査要点（2026-10-10、サブエージェント）
+- 2026-07-14〜 明細一覧 GET /api/v3/transactions（未仕訳含む）。start_date/end_date 必須（366日以内）、connected_account_id / connected_sub_account_id、journalizing_statuses(none/registered/modified/excluded/new_voucher_attached)、value_min、order、page
+  - 項目: id, date, value, side("INCOME"), content(摘要, null あり), memo, connected_*_id, journalizing_status
+  - スコープは第三者記事で mfc/accounting/transaction.read（公式未確認）。リファレンスは JS 描画で WebFetch 不可 → 実呼び出しで確認要
+- 仕訳 GET journals: start_date or end_date、account_id 絞り込み（貸借どちらでも）、補助科目・借方のみ指定は不可
+- 認証: OAuth 認可コード（アクセス1h、リフレッシュ540日・1回限りローテーション）。2026-09-24〜 APIキー認証（POST https://api.biz.moneyforward.com/auth/exchange, Bearer mf_api_prd_… → JWT 3600秒）。権限は発行ユーザーのもの
+- 登録に必要: アプリポータル「アプリ開発」（システム管理者が付与）、初回は管理コンソール「全権管理」、連携ユーザーに「アプリ連携」「クラウド会計・確定申告」。追加料金なし、技術サポートは士業のみ
+- 自動仕訳ルールは提案のみ。クイック登録(β, 2026-08-18) は人がボタンを押す。銀行明細の同期は日次程度、1〜2日のラグあり
+- MCP サーバー 2026-03-26 全プラン提供（明細一覧の読み取り可）。本番は REST を使う
+- 代替: 三井住友 Web21@Mail 月1,650円、GMOあおぞら API（審査・契約要）、CSV 自動化は API なし → 不要
+- 推奨: transactions API × APIキー認証。普通預金の connected_sub_account_id、side=INCOME、ステータスで絞らず id で重複除外。実行は1日数回で足りる
+- 確認事項: 契約がクラウド会計か会計Plus か / 口座がデータ連携済みか / APIキー発行者 / 1〜2日遅れの許容 / 読み取りのみでよいか

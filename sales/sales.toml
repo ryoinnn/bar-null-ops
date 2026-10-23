@@ -1,0 +1,76 @@
+# 売上管理の設定（秘密情報は書かない。秘密は Secret Manager / この PC では資格情報マネージャー）
+# 変更したら GitHub の main に push する（Cloud Build がテストしてデプロイする）。環境変数で上書きできるのは DRY_RUN だけ
+
+dry_run = false                # true: Slack はテスト用チャンネル、Asana はテスト用プロジェクトに書く（2026-10-17 本番に切り替え）
+
+[gcp]
+project = "barnull-sales"
+region = "us-central1"
+tasks_queue = "sales-events"
+tasks_max_attempts = 10        # Cloud Tasks のキューの最大試行回数（infra/setup.py base と同じ値）。最後の試行で失敗したら Slack に知らせる
+invoker_sa = "sales-invoker@barnull-sales.iam.gserviceaccount.com"
+worker_url = "https://sales-worker-752274rfja-uc.a.run.app"   # sales-worker の URL（サービスを作り直さない限り変わらない）
+
+[business]
+timezone = "Asia/Tokyo"
+day_start = "06:00"            # 6:00〜翌6:00 を1営業日とする
+
+[line]
+bot_mention_name = "@null"     # Bot の表示名（2026-10-17 時点）。メンション情報が付かない手打ちの場合に使う
+# 処理するグループ。Bot が参加したとき（または未登録のグループで @Bot が送られたとき）に Slack に ID が出るので、それを入れる
+allowed_group_ids = [
+    "C1677918dcaced99186836b5cb2dfb9bb",  # 本番「Bar null」（2026-10-17 招待）
+    # テスト用「てすと」C36fd8992ec772db9dfb7976e9d4cf58f は本番化で外した
+]
+reply_ack = true               # 受け付けた @Bot メッセージに、引用付きの「OK」スタンプを返す（2026-10-18 本人の希望）
+
+[slack]
+channel_prod = "C0C96EJ013J"   # #daily_barnull-sales（旧 #barnull-sales。2026-10-17 に名前変更、ID は同じ）
+channel_test = "C0C8E1NLRAM"   # #test_barnull-sales
+alert_mention = "U0A51TDCCEN"  # 桝本
+report_channel_prod = "C0C9KTM1R0X"  # #weekly_barnull-sales（売上週報の通知先。空なら channel_prod。DRY_RUN 中はテスト用チャンネル）
+
+[asana]
+workspace = "1211486340364770" # 0x0.co.jp
+team_name = "0x0 Inc."
+project_name_prod = "Bar null 売上管理（伝票）"
+project_name_test = "Bar null 売上管理（伝票）［テスト］"
+# プロジェクト・セクション・カスタムフィールドの ID は asana_ids.json（barnull-sales asana-setup が書く）
+
+[square]
+merchant_id = "MLW68WPW3T15S"
+location_id = "L7SVX8VVWDQBX"  # Bar null だけを対象にする（SPICE DRINK の LD7FS4BS4298P は扱わない）
+payment_grace_min = 60         # 送信からこの時間たっても決済が見つからなければ「決済未確認」
+payment_retry_days = 3         # 見つからなくても、送信からこの日数は探し続ける
+split_max = 5                  # 割り勘とみなす決済の最大件数
+split_span_min = 30            # 割り勘とみなす決済の時間の幅
+orphan_grace_hours = 6         # 決済の営業日が終わってから、伝票の無い決済として知らせるまで
+orphan_check_since = "2026-10-17T19:23:00+09:00"  # これより前の決済は「伝票の無い決済」として扱わない（本番化した日時）
+oauth_enabled = false          # Square の許可をやり直すときだけ true にして push（運用手順書）。終わったら false に戻す
+
+[mf]
+office_code = "0356-4399"
+# 三井住友（Square の振込が入る口座）の connected_sub_account_id。口座番号は書かない
+bank_subaccount = "qugY1Ry%2B5wIAdbHNByb%2BP58jzj1eIfaOxLF90FVljSQ%3D"
+square_patterns = ["スクエア(カ", "ｽｸｴｱ(ｶ"]
+fetch_interval_hours = 3
+# 現金を振り込む担当者の、通帳に出る名義（カナ）。空のあいだは現金の自動照合をしない（本人から後日共有）
+staff_bank_names = []
+
+[deposit]
+grace_bizdays = 3              # 着金予定日からこの営業日数を過ぎても入金が無ければ「入金未確認」
+cash_window_days = 14          # 現金の決済からこの日数以内の振込と照合する
+
+[followup]
+unpaid_reminder_interval_days = 7   # 未収のリマインドの間隔（起票日から）
+correction_window_hours = 24        # 訂正を当てる伝票の範囲（送った人の、この時間以内の伝票）
+event_retention_days = 30           # 受け取ったイベントの記録を残す日数
+payer_match_confidence = 0.8        # 振込名義と顧客名が同じ人だと判定する確信度
+
+[report]
+artifact_url = "https://claude.ai/artifact/8BynYgvNxC4UyCQVGRUDnC"   # 売上レポート（週次）。週報の通知に載せる
+
+[claude]
+model_primary = "claude-haiku-5-5"
+model_fallback = "claude-sonnet-5-5"
+effort = "low"

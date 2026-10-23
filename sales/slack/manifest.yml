@@ -1,0 +1,25 @@
+# Slack App マニフェスト（売上管理）
+# https://api.slack.com/apps → Create New App → From a manifest → ワークスペースを選んで YAML を貼り付け
+# 作成後に必要な手作業:
+#   1. Install App → ワークスペースにインストール → Bot User OAuth Token（xoxb-）= SLACK_BOT_TOKEN
+#   2. #barnull-sales と #test_barnull-sales で `/invite @barnull_sales` を実行
+# 予約対応の App（Bar null 予約対応 / @barnull）とは別。Socket Mode もイベント購読も使わない（投稿するだけ）
+display_information:
+  name: Bar null 売上管理
+  description: LINE の伝票メッセージを起点に、Square の決済と銀行入金の確認状況を伝票ごとのスレッドで知らせる Bot（株式会社0x0）
+  background_color: "#111111"
+features:
+  bot_user:
+    display_name: barnull_sales
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - chat:write          # 親メッセージの投稿・更新、スレッド返信
+      - channels:read       # チャンネル ID の確認（疎通確認用）
+settings:
+  interactivity:
+    is_enabled: false
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

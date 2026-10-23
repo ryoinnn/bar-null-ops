@@ -1,0 +1,13 @@
+# 手で `gcloud builds submit` するときに送らないもの（イメージに必要なのは Dockerfile、requirements.txt、sales.toml、
+# asana_ids.json、src/。テストを動かすので tests/ も送る）
+.venv/
+samples/
+docs/
+scripts/
+infra/
+billing_guard/
+slack/
+report/
+.pytest_cache/
+.ruff_cache/
+**/__pycache__/
