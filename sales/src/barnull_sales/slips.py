@@ -56,6 +56,7 @@ class Manual(StrEnum):
     DEPOSITED = "手動：入金確認済み"
     COLLECTED = "手動：未収回収済み"
     CANCELLED = "手動：対象外（取消）"
+    OTHER_PAYMENT = "手動：Square以外で支払い"   # 銀行振込など。割り当てていた Square の決済を外す
 
 
 def now_iso() -> str:

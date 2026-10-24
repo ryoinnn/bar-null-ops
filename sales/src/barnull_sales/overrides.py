@@ -6,6 +6,7 @@
 | 入金確認済み      | 決済と入金を人が確認した。アラートをすべて閉じる                          |
 | 未収回収済み      | 未収残高を 0 にする                                                    |
 | 対象外（取消）    | 伝票を取り消す。Square の割り当てを外す（他の伝票に使えるように）          |
+| Square以外で支払い | 銀行振込などで払われた。Square の割り当てを外し（他の伝票に使えるように）、決済・入金は人が確認したものとする |
 状態（伝票ステータス・完了）は slips.derive が事実から決める。
 反映できない値・伝票の見つからないタスクは、チャンネルで知らせて「なし」に戻す。
 """
@@ -47,8 +48,16 @@ def _cancelled(s: Slip) -> None:
     resolve_alerts(s)
 
 
+def _other_payment(s: Slip) -> None:
+    released = s.square.get("released_payment_ids") or s.payment_ids   # もう一度反映しても消さない
+    s.square = {"manual": True, "summary": "Square 以外で支払い（手動）", "released_payment_ids": released, "payment_ids": []}
+    s.deposits = {"manual": True, "completed_at": s.deposits.get("completed_at") or now_iso()}
+    resolve_alerts(s)
+
+
 ACTIONS = {Manual.PAID: _paid, Manual.DEPOSITED: _deposited, Manual.COLLECTED: _collected,
-           Manual.CANCELLED: _cancelled}
+           Manual.CANCELLED: _cancelled, Manual.OTHER_PAYMENT: _other_payment}
+RELEASES = (_cancelled, _other_payment)    # 割り当てていた Square の決済を外すもの
 
 
 def apply(deps: Deps) -> int:
@@ -80,7 +89,7 @@ def _apply_one(deps: Deps, ov: dict) -> bool:
         deps.tracker.reset_override(gid)
         return False
     slip = found[0]
-    if action is _cancelled:   # この伝票に割り当てたすべての決済を外す（途中で止まった割り当ても含む）
+    if action in RELEASES:   # この伝票に割り当てたすべての決済を外す（途中で止まった割り当ても含む）
         claimed = deps.store.find_docs("payment_claims", "slip_id", "==", slip.slip_id)
         deps.store.release_payments(slip.slip_id, sorted(set(claimed) | set(slip.payment_ids)))
     save(deps, slip, action, f"手動上書き（{value}、{by}）")

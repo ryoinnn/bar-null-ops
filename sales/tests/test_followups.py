@@ -248,3 +248,21 @@ def test_restore_task_to_slip():
     assert slip.payment_ids == ["pA", "pB"] and slip.raw_text == "日付：9/28\n顧客名：顧客Aさま"
     assert slip.slack == {"channel_id": "CTEST", "thread_ts": "1792214978.376079",
                           "permalink": "https://x.slack.com/archives/CTEST/p1792214978376079"}
+
+
+def test_other_payment_releases_square_payment_for_the_right_slip():
+    """取り違えた決済を「Square以外で支払い」で外すと、次の照合で正しい伝票に割り当てられる（2026-10-25 の事例）。"""
+    deps = make_deps([slip_msg(Entry(month=10, day=23, customer_name="顧客A", amount=40000, unpaid_amount=10000)),
+                      slip_msg(Entry(month=10, day=23, customer_name="顧客B", amount=30000))],
+                     [pay("p1", "2026-10-24 05:10", 30000)])
+    a = handle_event(event("2026-10-24 05:30", "E1"), "message", deps)["slip_ids"][0]
+    b = handle_event(event("2026-10-24 05:31", "E2"), "message", deps)["slip_ids"][0]
+    reconcile.run(deps, now=datetime(2026, 10, 24, 7, 0, tzinfo=JST))           # 両方に「決済の取り合い」
+    task = deps.tracker.tasks[deps.store.get_slip(a).asana["task_gid"]]
+    task["override"] = Manual.OTHER_PAYMENT
+    overrides.apply(deps)
+    reconcile.run(deps, now=datetime(2026, 10, 24, 7, 30, tzinfo=JST))
+    sa, sb = deps.store.get_slip(a), deps.store.get_slip(b)
+    assert sb.payment_ids == ["p1"] and sb.status == Status.PAID and not sb.open_alerts()
+    assert not sa.payment_ids and sa.status == Status.DEPOSITED and not sa.open_alerts()
+    assert sa.unpaid_remaining == 10000 and not sa.closed_at                     # 未収は残る
