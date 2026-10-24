@@ -259,6 +259,15 @@ td a:hover{text-decoration:underline}
 .btn.plain{background:none;border-color:transparent;box-shadow:none;color:var(--label-2)}
 .btn[disabled]{opacity:.5;cursor:default;transform:none}
 
+/* ---------- 区切りの見出し（通常営業・レンタルスペース） ---------- */
+.sect{margin:6px 4px -6px;font-size:15px;font-weight:700;color:var(--label-2);letter-spacing:.01em;display:flex;align-items:baseline;gap:10px}
+.sect small{font-size:12px;font-weight:500;color:var(--label-3)}
+.ai-group{display:flex;flex-direction:column;gap:14px;padding-top:16px;border-top:1px solid var(--separator)}
+.ai-group:first-of-type{border-top:0;padding-top:0}
+.ai-group > h3{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--accent-text)}
+.ai-eval{margin:0;font-size:15px;line-height:1.75}
+.rtable{width:100%;min-width:480px}
+
 /* ---------- AI の示唆 ---------- */
 .ai{overflow:hidden}
 .ai::before{content:"";position:absolute;inset:-40% -10% auto auto;width:60%;height:120%;pointer-events:none;z-index:-1;
@@ -364,18 +373,27 @@ td a:hover{text-decoration:underline}
     <div class="content">
       <div id="notice"></div>
 
-      <section class="kpis" id="kpis" aria-label="主要な数字">
+      <h2 class="sect">通常営業<small>LINE の伝票</small></h2>
+      <section class="kpis" id="kpis" aria-label="通常営業の主要な数字">
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">売上</span><span class="v num">—</span><span class="d">　</span></div>
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">予約数</span><span class="v num">—</span><span class="d">　</span></div>
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">客単価（1組）</span><span class="v num">—</span><span class="d">　</span></div>
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">1日あたり</span><span class="v num">—</span><span class="d">　</span></div>
       </section>
 
+      <h2 class="sect">レンタルスペース<small>インスタベース・スペースマーケット</small></h2>
+      <section class="kpis" id="rkpis" aria-label="レンタルスペースの主要な数字">
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">利用件数</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">売上（ゲスト支払）</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">店舗の収益（振込）</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">これからの予約</span><span class="v num">—</span><span class="d">　</span></div>
+      </section>
+
       <section class="card lg lg--text ai" id="ai" aria-live="polite">
         <div class="ai-head">
           <div>
             <h2><svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9.5l-4.7 1.9L12 16l-1.8-4.6L5.5 9.5l4.7-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>AI の示唆</h2>
-            <p class="cap" id="aicap">この期間までの売上の流れから、傾向・今後の見通し・打ち手を Claude がまとめます。</p>
+            <p class="cap" id="aicap">通常営業とレンタルスペースの流れから、それぞれの傾向・見通し・打ち手と、合わせた総評を Claude がまとめます。</p>
           </div>
           <div class="ai-actions">
             <button type="button" class="btn plain" id="aistop" hidden>止める</button>
@@ -392,6 +410,9 @@ td a:hover{text-decoration:underline}
       </div>
       <section class="card lg lg--text"><h2>内訳</h2><p class="cap" id="factscap">この期間</p><div class="facts num" id="facts"></div></section>
       <section class="card lg lg--text" id="slipcard"><h2>伝票</h2><p class="cap">伝票 ID から Asana のタスクを開けます</p><div class="tablewrap" id="slips"></div></section>
+      <section class="card lg lg--text chart"><h2>レンタルスペースの推移</h2><p class="cap" id="r1c">利用日の月ごと・ゲストの支払額（予約通知から）</p><div id="r1"></div></section>
+      <section class="card lg lg--text"><h2>レンタルスペースの内訳</h2><p class="cap" id="rfactscap">この期間</p><div class="facts num" id="rfacts"></div></section>
+      <section class="card lg lg--text"><h2>レンタルスペースの月次確定値</h2><p class="cap">毎月1日に、前月分をプラットフォームごとに Asana へ記録したもの</p><div class="tablewrap" id="rmonths"></div></section>
       <p class="foot" id="fresh">定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る</p>
     </div>
   </main>
@@ -400,6 +421,8 @@ td a:hover{text-decoration:underline}
 <script>
 /* ======================= 設定 ======================= */
 const SERVER = "Asana", TOOL = "get_tasks";
+const SLACK = "Slack", SLACK_TOOL = "slack_read_channel", RENT_CHANNEL = "C0C7T2ZDX7D";   // #notif_space-rent_null
+const RENTAL_PREFIX = "RS-";   // Asana のレンタルスペースの月次記録（伝票 ID が RS-IB-202610 など）
 const PROJECTS = { prod: "1219600211224482", test: "1219599891506891" };
 const OPT = "name,permalink_url,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
 const WD = ["月", "火", "水", "木", "金", "土", "日"];
@@ -410,7 +433,7 @@ const store = {
   get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} },
 };
-const state = { env: "prod", rows: null, snaps: {}, insights: {}, sel: null, db: null, canWrite: false, error: null,
+const state = { env: "prod", rows: null, rental: null, rentalMonths: [], rentalError: null, snaps: {}, insights: {}, sel: null, db: null, canWrite: false, error: null,
                 sample: undefined, aiRun: null, openYears: {} };
 if (PROJECTS[store.get("barnull-env")]) state.env = store.get("barnull-env");
 $("env").value = state.env;
@@ -471,8 +494,16 @@ const days = (p, today) => diff(p.start, min(p.end, today)) + 1;
 const inProgress = (p, today) => p.start <= today && today <= p.end;
 
 /* ======================= Asana の読み込み ======================= */
+function fieldsOf(t) { const f = {}; (t.custom_fields || []).forEach((c) => { f[c.name] = c; }); return f; }
+function parseRentalMonth(t) {   // レンタルスペースの月次記録（プラットフォームごとに月1件）
+  const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10);
+  if (!date || f["伝票ステータス"]?.enum_value?.name === "対象外") return null;
+  return { month: date.slice(0, 7), platform: f["担当（LINE）"]?.text_value || "不明",
+           count: parseInt(f["顧客名"]?.text_value || "0", 10) || 0, gross: f["伝票金額"]?.number_value || 0,
+           fee: f["決済手数料"]?.number_value || 0, net: f["入金予定額"]?.number_value || 0, url: t.permalink_url || "" };
+}
 function parseTask(t) {
-  const f = {}; (t.custom_fields || []).forEach((c) => { f[c.name] = c; });
+  const f = fieldsOf(t);
   const date = f["営業日"]?.date_value?.date?.slice(0, 10);
   const amount = f["伝票金額"]?.number_value;
   const status = f["伝票ステータス"]?.enum_value?.name || "";
@@ -488,17 +519,81 @@ function payloadOf(res) {
   try { return txt ? JSON.parse(txt) : {}; } catch (_) { return {}; }
 }
 async function loadAsana(mcp) {
-  const rows = []; let offset = null;
+  const rows = [], months = []; let offset = null;
   for (let i = 0; i < 60; i++) {
     const input = { project: PROJECTS[state.env], limit: 100, opt_fields: OPT };
     if (offset) input.offset = offset;
     const p = payloadOf(await mcp.callTool(SERVER, TOOL, input, { cache: { staleTime: 60000 } }));
-    (p.data || []).forEach((t) => { const r = parseTask(t); if (r) rows.push(r); });
+    (p.data || []).forEach((t) => {
+      const sid = fieldsOf(t)["伝票ID"]?.text_value || "";
+      if (sid.startsWith(RENTAL_PREFIX)) { const m = parseRentalMonth(t); if (m) months.push(m); return; }
+      const r = parseTask(t); if (r) rows.push(r);
+    });
     offset = p.next_page?.offset;
     if (!offset) break;
   }
+  state.rentalMonths = months;
   return rows;
 }
+
+/* ======================= Slack: レンタルスペースの予約通知 =======================
+   #notif_space-rent_null の予約の通知（1予約1件。状態が変わると同じ通知が書き換わる）から、
+   利用日・時間帯・ゲスト支払・店舗収益・人数・用途・初回かを読む（予約者の名前や本文は読まない）。
+   速報値。確定値は月次の Asana の記録。 */
+function slackPayload(res) {
+  if (res && res.payload) return res.payload;
+  const txt = (res?.content || []).find((c) => c.type === "text")?.text || "";
+  try { return JSON.parse(txt); } catch (_) { return { messages: txt }; }
+}
+function parseRental(text, out) {
+  for (const b of String(text || "").split(/=== Message from /).slice(1)) {
+    const head = /:large_(?:blue|orange)_square:\s*(スペースマーケット|インスタベース)｜([^\s*\n]+)/.exec(b);
+    const id = (/予約ID[\s　]*：\s*(\d+)/.exec(b) || [])[1];
+    const dt = /日付[\s　]*：\s*(\d{4})\/(\d{2})\/(\d{2})/.exec(b);
+    if (!head || !id || !dt) continue;
+    const key = `${head[1]}:${id}`;
+    if (out[key]) continue;            // 新しい通知から順に届く。最初に見たもの（最新）を使う
+    const posted = / at (\d{4}-\d{2}-\d{2}) \d{2}:\d{2}/.exec(b);
+    const tm = /時間帯[\s　]*：\s*(\d{1,2}):(\d{2})〜(?:翌)?\d{1,2}:\d{2}（(?:(\d+)時間)?(?:(\d+)分)?）/.exec(b);
+    const yenOf = (re) => { const m = re.exec(b); return m ? Number(m[1].replace(/,/g, "")) : null; };
+    const pu = /人数・用途[\s　]*：\s*([^／\n]*)／([^\n]*)/.exec(b);
+    const status = ((/ステータス：([^*\n]*)/.exec(b) || [])[1] || "").replace(/:[a-z0-9_+-]+:/g, "").trim();
+    const people = pu ? Math.max(0, ...(pu[1].match(/\d+/g) || []).map(Number)) || null : null;
+    out[key] = {
+      platform: head[1], id, kind: head[2], status,
+      cancel: /キャンセル/.test(head[2]) || /キャンセル/.test(status),
+      date: `${dt[1]}-${dt[2]}-${dt[3]}`, posted: posted ? posted[1] : null,
+      startHour: tm ? Number(tm[1]) : null, hours: tm ? Number(tm[3] || 0) + Number(tm[4] || 0) / 60 : null,
+      gross: yenOf(/ゲスト支払[\s　]*：\s*¥([\d,]+)/), net: yenOf(/店舗収益[\s　]*：\s*¥([\d,]+)/),
+      people, purpose: pu ? pu[2].trim().slice(0, 40) : "",
+      first: /予約者[^\n]*（初回）/.test(b) ? true : /予約者[^\n]*（リピート/.test(b) ? false : null,
+    };
+  }
+}
+async function loadRental(mcp) {
+  const out = {}; let cursor = null;
+  const oldest = String(Math.floor(Date.now() / 1000) - 400 * 86400);
+  for (let i = 0; i < 30; i++) {
+    const input = { channel_id: RENT_CHANNEL, limit: 100, oldest };
+    if (cursor) input.cursor = cursor;
+    const p = slackPayload(await mcp.callTool(SLACK, SLACK_TOOL, input, { cache: { staleTime: 300000 } }));
+    parseRental(p.messages, out);
+    cursor = (/cursor:\s*`([^`]+)`/.exec(p.pagination_info || "") || [])[1];
+    if (!cursor) break;
+  }
+  return Object.values(out).filter((r) => r.gross != null);
+}
+
+/* レンタルスペースの集計（キャンセルを除く。利用日で数える） */
+function rentalIn(a, b) {
+  const rows = (state.rental || []).filter((r) => !r.cancel && r.date >= a && r.date <= b);
+  const by = {};
+  rows.forEach((r) => { const x = by[r.platform] = by[r.platform] || { count: 0, gross: 0, net: 0 }; x.count++; x.gross += r.gross; x.net += r.net || 0; });
+  return { rows, count: rows.length, gross: rows.reduce((x, r) => x + r.gross, 0), net: rows.reduce((x, r) => x + (r.net || 0), 0),
+           hours: rows.reduce((x, r) => x + (r.hours || 0), 0), byPlatform: by };
+}
+function rentalUpcoming(today) { return rentalIn(add(today, 1), "9999-12-31"); }
+function rentalMonthsIn(a, b) { return state.rentalMonths.filter((m) => m.month >= a.slice(0, 7) && m.month <= b.slice(0, 7)); }
 
 /* ======================= 集計 ======================= */
 function sum(a, b) {
@@ -659,7 +754,66 @@ function render() {
   renderCharts(p, today, cur);
   renderFacts(p, today, cur, prev);
   renderSlips(cur);
+  renderRental(p, today);
   renderAI();
+}
+
+function setRKpi(i, value, detail) {
+  const k = $("rkpis").children[i]; k.querySelector(".v").textContent = value;
+  const d = k.querySelector(".d"); d.textContent = ""; d.append(...detail);
+}
+function renderRental(p, today) {
+  const end = min(p.end, today);
+  if (!state.rental) {
+    const why = state.rentalError || "Slack の予約通知を読み込んでいます";
+    [0, 1, 2, 3].forEach((i) => setRKpi(i, "—", [i === 0 ? why : "　"]));
+    $("r1").innerHTML = `<p class="empty">${esc(why)}</p>`; $("rfacts").textContent = "";
+  } else {
+    const cur = rentalIn(p.start, end), q = prevOf(p), pe = (p.kind !== "week" && inProgress(p, today))
+      ? min(q.end, add(q.start, diff(p.start, end))) : q.end, prev = rentalIn(q.start, pe), pn = noun[p.kind];
+    const fut = rentalUpcoming(today);
+    setRKpi(0, `${cur.count}件`, [`${pn} ${prev.count}件`]);
+    setRKpi(1, yen(cur.gross), [`${pn}比 `, deltaNode(cur.gross, prev.gross)]);
+    setRKpi(2, yen(cur.net), [cur.gross ? `手数料率 ${((1 - cur.net / cur.gross) * 100).toFixed(0)}%` : "　"]);
+    setRKpi(3, `${fut.count}件`, [`今日より後・${yen(fut.gross)}`]);
+    // 推移: 利用日の月ごと（直近12か月と、予約済みの先の月）
+    const items = [], last = ym(addMonths(end, 3));
+    for (let i = 11; i >= -3; i--) {
+      const m = addMonths(end, -i); if (ym(m) > last) break;
+      const v = rentalIn(m, monthEnd(m)), future = m > today;
+      items.push({ label: `${Number(m.slice(5, 7))}月`, value: v.gross, cls: ym(m) === ym(end) ? "sel" : (future ? "cur" : ""),
+                   title: `${m.slice(0, 7)} ${yen(v.gross)}・${v.count}件${future ? "（予約済み）" : ""}` });
+    }
+    bars($("r1"), items, { label: "レンタルスペースの推移", h: 200 });
+    $("r1c").textContent = "利用日の月ごと・ゲストの支払額（予約通知から）。薄い棒は予約済みの先の月";
+    const box = $("rfacts"); box.textContent = "";
+    const rows = cur.rows, hrs = cur.hours;
+    const firsts = rows.filter((r) => r.first !== null), firstShare = firsts.length ? Math.round(firsts.filter((r) => r.first).length / firsts.length * 100) : null;
+    const purposes = {}; rows.forEach((r) => { const k = (r.purpose || "不明").split(/[ -]/)[0]; purposes[k] = (purposes[k] || 0) + 1; });
+    const topPurpose = Object.entries(purposes).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, n]) => `${k} ${n}件`).join("、");
+    const facts = [
+      ...Object.entries(cur.byPlatform).map(([k, v]) => [k, `${v.count}件・${yen(v.gross)}`]),
+      ["平均の利用時間", cur.count ? `${(hrs / cur.count).toFixed(1)}時間` : "—"],
+      ["1時間あたりの売上", hrs ? yen(cur.gross / hrs) : "—"],
+      ["初めてのお客様", firstShare == null ? "—" : `${firstShare}%`],
+      ["主な用途", topPurpose || "—"],
+    ];
+    $("rfactscap").textContent = `${md(p.start)}〜${md(end)}（利用日で集計、キャンセルを除く）`;
+    facts.forEach(([k, v]) => { const f = el("div", "fact"), a = el("span", "k"), b = el("span", "v"); a.textContent = k; b.textContent = v; f.append(a, b); box.append(f); });
+  }
+  const mb = $("rmonths"); mb.textContent = "";
+  const months = rentalMonthsIn(p.kind === "week" ? monthStart(p.start) : p.start, p.end).sort((a, b) => b.month.localeCompare(a.month) || a.platform.localeCompare(b.platform));
+  if (!state.rows) { mb.innerHTML = `<p class="empty">Asana につながると表示されます。</p>`; return; }
+  if (!months.length) { mb.innerHTML = `<p class="empty">この期間の月次確定値はまだありません（翌月1日に記録されます）。</p>`; return; }
+  const t = el("table", "rtable"); t.innerHTML = "<thead><tr><th>月</th><th>プラットフォーム</th><th>組数</th><th>売上</th><th>手数料</th><th>振込額</th></tr></thead>";
+  const tb = el("tbody");
+  months.forEach((m) => {
+    const tr = el("tr"), c = (txt, cls) => { const td = el("td", cls); td.textContent = txt; tr.append(td); return td; };
+    const mc = c(""); if (m.url) { const a = el("a"); a.href = m.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = m.month.replace("-", "年") + "月"; mc.append(a); } else mc.textContent = m.month;
+    c(m.platform); c(`${m.count}組`, "n num"); c(yen(m.gross), "n num"); c(yen(m.fee), "n num"); c(yen(m.net), "n num");
+    tb.append(tr);
+  });
+  t.append(tb); mb.append(t);
 }
 function renderOffline(p) {
   const notice = $("notice");
@@ -672,6 +826,7 @@ function renderOffline(p) {
   }
   ["c1", "c2", "c3"].forEach((id) => { $(id).innerHTML = `<p class="empty">Asana につながると表示されます。</p>`; });
   $("facts").textContent = ""; $("slips").textContent = "";
+  renderRental(p, todayBiz());
 }
 function renderCharts(p, today, cur) {
   const end = min(p.end, today);
@@ -771,9 +926,28 @@ function noticeBox(title, body) { const d = el("div", "notice"), s = el("strong"
    次に開いた人は Claude を使わずに読める。データが変わったら「作り直す」を出す。 */
 function insightKey(p) { return `${state.env}_${p.key.replace(":", "_")}`; }
 function basisOf(p) {
-  const today = todayBiz(), c = periodStats(p, today);
-  const last = (state.rows || []).reduce((a, r) => r.date > a ? r.date : a, "");
-  return { sales: c.sales, count: c.count, end: c.end, last };
+  const today = todayBiz(), c = periodStats(p, today), r = rentalIn(p.start, min(p.end, today));
+  const last = (state.rows || []).reduce((a, x) => x.date > a ? x.date : a, "");
+  return { sales: c.sales, count: c.count, end: c.end, last, rental: r.gross, rental_count: r.count };
+}
+function rentalData(p) {   // 予約者の名前・本文は含めない
+  const today = todayBiz(), end = min(p.end, today), q = prevOf(p);
+  const agg = (x) => ({ count: x.count, gross: Math.round(x.gross), net: Math.round(x.net), hours: +x.hours.toFixed(1),
+                         by_platform: Object.fromEntries(Object.entries(x.byPlatform).map(([k, v]) => [k, { count: v.count, gross: v.gross, net: v.net }])) });
+  const monthly = []; for (let i = 11; i >= -3; i--) { const m = addMonths(end, -i), v = rentalIn(m, monthEnd(m)); monthly.push([m.slice(0, 7), v.count, v.gross, v.net, +v.hours.toFixed(1), m > today ? "予約済み（先の月）" : ""]); }
+  const rows = (state.rental || []).filter((r) => r.date >= add(end, -180)).sort((a, b) => a.date.localeCompare(b.date)).slice(-200)
+    .map((r) => [r.date, WD[wdi(r.date)], r.startHour, r.hours == null ? null : +r.hours.toFixed(1), r.platform, r.gross, r.net, r.people, r.purpose,
+                 r.first, r.posted ? diff(r.posted, r.date) : null, r.kind, r.cancel ? "キャンセル" : (r.date > today ? "これから" : "利用済み")]);
+  return {
+    source: "Slack の予約通知（速報。予約の変更で同じ予約が2件に見えることがある）と、Asana の月次確定値（翌月1日に記録）",
+    this_period: agg(rentalIn(p.start, end)), comparison: { name: noun[p.kind], ...agg(rentalIn(q.start, q.end)) },
+    upcoming_after_today: agg(rentalUpcoming(today)),
+    monthly_by_use_date: { columns: ["month", "count", "gross", "net", "hours", "note"], rows: monthly },
+    confirmed_monthly_asana: { columns: ["month", "platform", "count", "gross", "fee", "net"], rows: state.rentalMonths.map((m) => [m.month, m.platform, m.count, m.gross, m.fee, m.net]) },
+    bookings: { columns: ["use_date", "weekday", "start_hour", "hours", "platform", "guest_pay", "store_revenue", "people", "purpose",
+                          "first_time", "lead_days", "notice_kind", "state"], rows },
+    note: "gross＝ゲストの支払額（プラットフォーム手数料を含む）、net＝店舗への振込額。バーの通常営業は主に夜。レンタルの時間帯と重なるかは start_hour と hours で分かる",
+  };
 }
 function insightData(p) {
   const today = todayBiz(), end = min(p.end, today), C = compare(p, today);
@@ -806,8 +980,15 @@ function insightData(p) {
   };
 }
 function insightPrompt(p) {
-  return `あなたは予約制のバー「Bar null」（1伝票＝1組の会計）の売上を読む経営アナリストです。
-次の集計データ（JSON）だけを根拠に、「${label(p)}」について分析し、オーナーが次に何をすべきかを日本語で示してください。
+  const today = todayBiz(), end = min(p.end, today);
+  const combined = []; for (let i = 11; i >= 0; i--) { const m = addMonths(end, -i), me = min(monthEnd(m), today);
+    combined.push([m.slice(0, 7), sum(m, me).sales, rentalIn(m, me).gross]); }
+  const data = { bar: insightData(p), rental: rentalData(p),
+                 combined_monthly: { columns: ["month", "bar_sales", "rental_gross"], rows: combined } };
+  return `あなたは予約制のバー「Bar null」の売上を読む経営アナリストです。この店には2つの売上がある。
+- 通常営業（bar）: 夜のバー営業。1伝票＝1組の会計
+- レンタルスペース（rental）: 営業していない時間に、インスタベース・スペースマーケット経由で店を貸す
+次の集計データ（JSON）だけを根拠に、「${label(p)}」について、通常営業・レンタルスペースそれぞれと、合わせた総評を日本語で示してください。
 
 ルール:
 - データに無いこと（天気、イベント、競合、季節要因など）を事実として書かない。仮説なら「〜の可能性」と明記する。
@@ -816,17 +997,24 @@ function insightPrompt(p) {
 - 個人を特定する情報は扱わない（データにも含めていない）。
 - 用語: 売上＝伝票金額の合計（未収を含み、取消を除く）。営業日は 6:00〜翌6:00。予約数＝伝票の件数（1組）。客単価＝売上÷予約数。
 - in_progress が true の期間は途中までの集計。
+- レンタルスペースは、時間帯・曜日・利用時間・用途・人数・初回の割合・予約の先行日数（lead_days）・プラットフォーム別の売上と手数料・これからの予約を見て、
+  どの枠（曜日・時間帯）が埋まり・空いているか、単価や手数料の違い、通常営業と時間が重ならずに稼げているか、予約の見通しを読む。
+- 総評では、2つを合わせた売上の構成と推移、互いの影響（例: レンタルが通常営業の時間を圧迫していないか、空き時間の活用度）、全体として優先すべき打ち手を示す。
 
 出力は次の形の JSON オブジェクトだけ（ほかの文章は書かない）:
-{"headline": "全体を1文で（60字以内）",
+{"overall": {"headline": "総評を1文で（60字以内）", "evaluation": "合わせた評価（250字以内）",
+             "actions": [打ち手と同じ形], "caveats": ["注意点（60字以内）"]},
+ "bar": 欄, "rental": 欄}
+欄 = {"headline": "1文で（60字以内）",
  "findings": [{"title": "傾向の見出し（20字以内）", "detail": "説明（120字以内）", "evidence": "根拠の数字（60字以内）"}],
- "outlook": {"summary": "今後の見通し（150字以内）", "next": {"label": "次の期間の名前（例: 来週）", "low": 数値, "high": 数値} または null},
+ "outlook": {"summary": "今後の見通し（150字以内）", "next": {"label": "次の期間の名前（例: 来月）", "low": 数値, "high": 数値} または null},
  "actions": [{"title": "打ち手（20字以内）", "detail": "具体的な進め方（120字以内）", "priority": "高" または "中" または "低"}],
  "caveats": ["注意点（60字以内）"]}
-findings と actions は3〜5件、caveats は0〜3件。next はデータから幅を持って見積もれるときだけ（無理なら null）。
+各欄の findings と actions は2〜4件、overall の actions は2〜3件、caveats は0〜3件。next はデータから幅を持って見積もれるときだけ（無理なら null）。
+データが無い・少ない欄も省かず、その旨を headline と caveats に書く。
 
 データ:
-${JSON.stringify(insightData(p))}`;
+${JSON.stringify(data)}`;
 }
 function stopAI() { if (state.aiRun) { state.aiRun.ctl.abort(); state.aiRun = null; } }
 async function generateAI(refresh) {
@@ -838,7 +1026,7 @@ async function generateAI(refresh) {
   try {
     const result = await sample.json(insightPrompt(p), { signal: ctl.signal, modelTier: "default",
       cache: refresh ? { gcTime: DAY_GCTIME, refresh: true } : { gcTime: DAY_GCTIME } });
-    if (!result || typeof result !== "object" || !result.headline) throw { code: "invalid_json" };
+    if (!result || typeof result !== "object" || !(result.overall || result.bar)) throw { code: "invalid_json" };
     const doc = { env: state.env, key: p.key, label: label(p), result, basis: basisOf(p), generated_at: new Date().toISOString() };
     state.insights[insightKey(p)] = doc;
     if (state.db && state.canWrite) state.db.doc(`insights/${insightKey(p)}`).set(doc).catch(() => {});
@@ -886,17 +1074,46 @@ function renderAI() {
   renderInsight(body, doc, p);
 }
 function renderInsight(body, doc, p) {
-  const r = doc.result || {}, txt = (v, n) => String(v ?? "").slice(0, n);
-  const h = el("div", "ai-headline"); h.textContent = txt(r.headline, 200); body.append(h);
+  const res = doc.result || {}, txt = (v, n) => String(v ?? "").slice(0, n);
+  const legacy = !res.overall && !res.bar;   // 以前の示唆（通常営業だけ）
   const meta = el("div", "ai-meta");
   const now = basisOf(p), b = doc.basis || {};
-  const stale = state.rows && (b.sales !== now.sales || b.count !== now.count || b.last !== now.last);
+  const stale = state.rows && (b.sales !== now.sales || b.count !== now.count || b.last !== now.last ||
+    (b.rental != null && state.rental && (b.rental !== now.rental || b.rental_count !== now.rental_count)));
   meta.textContent = `${new Date(doc.generated_at).toLocaleString("ja-JP", { hour12: false, dateStyle: "medium", timeStyle: "short" })} に作成` +
     (stale ? "　・作成後にデータが更新されています" : "");
   body.append(meta);
-  const section = (title, node) => { const s = el("div", "ai-sec"), t = el("h3"); t.textContent = title; s.append(t, node); body.append(s); };
   const items = (list, make) => { const g = el("div", "ai-grid"); (Array.isArray(list) ? list : []).slice(0, 6).forEach((x) => g.append(make(x || {}))); return g; };
-  section("見えている傾向", items(r.findings, (f) => {
+  const action = (a) => {
+    const c = el("div", "ai-item"), pr = el("span", "prio" + (a.priority === "高" ? " high" : "")), b1 = el("b"), d = el("p");
+    pr.textContent = `優先度 ${["高", "中", "低"].includes(a.priority) ? a.priority : "中"}`; b1.textContent = txt(a.title, 60); d.textContent = txt(a.detail, 400);
+    c.append(pr, b1, d); return c;
+  };
+  const caveats = (list, into) => {
+    if (!Array.isArray(list) || !list.length) return;
+    const ul = el("ul", "ai-caveats"); list.slice(0, 4).forEach((c) => { const li = el("li"); li.textContent = txt(c, 200); ul.append(li); });
+    sec(into, "注意", ul);
+  };
+  const sec = (into, title, node) => { const s = el("div", "ai-sec"), t = el("h3"); t.textContent = title; s.append(t, node); into.append(s); };
+  const group = (title) => { const g = el("div", "ai-group"), h = el("h3"); h.textContent = title; g.append(h); body.append(g); return g; };
+  if (res.overall) {
+    const g = group("総評"), o = res.overall;
+    const h = el("div", "ai-headline"); h.textContent = txt(o.headline, 200); g.append(h);
+    if (o.evaluation) { const e = el("p", "ai-eval"); e.textContent = txt(o.evaluation, 800); g.append(e); }
+    sec(g, "優先する打ち手", items(o.actions, action));
+    caveats(o.caveats, g);
+  }
+  const part = (title, r) => {
+    const g = group(title);
+    const h = el("div", "ai-headline"); h.textContent = txt(r.headline, 200); g.append(h);
+    renderPart(g, r, { items, action, caveats, sec, txt });
+  };
+  if (legacy) { part("通常営業（以前の示唆。レンタルスペースを含みません）", res); return; }
+  if (res.bar) part("通常営業", res.bar);
+  if (res.rental) part("レンタルスペース", res.rental);
+}
+function renderPart(g, r, { items, action, caveats, sec, txt }) {
+  sec(g, "見えている傾向", items(r.findings, (f) => {
     const c = el("div", "ai-item"), b1 = el("b"), d = el("p"), s = el("small");
     b1.textContent = txt(f.title, 60); d.textContent = txt(f.detail, 400); s.textContent = f.evidence ? "根拠：" + txt(f.evidence, 200) : "";
     c.append(b1, d, s); return c;
@@ -907,17 +1124,10 @@ function renderInsight(body, doc, p) {
     if (nx && Number.isFinite(Number(nx.low)) && Number.isFinite(Number(nx.high))) {
       const rg = el("span", "range num"); rg.textContent = `${txt(nx.label || "次の期間", 30)}の見込み：${yen(Number(nx.low))} 〜 ${yen(Number(nx.high))}`; o.append(rg);
     }
-    section("今後の見通し", o);
+    sec(g, "今後の見通し", o);
   }
-  section("進むべきアプローチ", items(r.actions, (a) => {
-    const c = el("div", "ai-item"), pr = el("span", "prio" + (a.priority === "高" ? " high" : "")), b1 = el("b"), d = el("p");
-    pr.textContent = `優先度 ${["高", "中", "低"].includes(a.priority) ? a.priority : "中"}`; b1.textContent = txt(a.title, 60); d.textContent = txt(a.detail, 400);
-    c.append(pr, b1, d); return c;
-  }));
-  if (Array.isArray(r.caveats) && r.caveats.length) {
-    const ul = el("ul", "ai-caveats"); r.caveats.slice(0, 4).forEach((c) => { const li = el("li"); li.textContent = txt(c, 200); ul.append(li); });
-    section("注意", ul);
-  }
+  sec(g, "進むべきアプローチ", items(r.actions, action));
+  caveats(r.caveats, g);
 }
 
 /* ======================= レンズ効果（Liquid Glass の屈折） =======================
@@ -1018,6 +1228,13 @@ async function loadData() {
   state.rows = null; state.error = null; render();
   const mcp = await use("mcp");
   if (!mcp) { state.error = { title: "Asana につながっていません", body: "このページで Asana の伝票を読むには、claude.ai で Asana（0x0.co.jp のアカウント）を接続してください。" }; render(); return; }
+  state.rental = null; state.rentalError = null;
+  loadRental(mcp).then((r) => { state.rental = r; render(); }).catch((err) => {
+    const code = err?.code || "";
+    state.rentalError = code === "server_not_connected" || code === "needs_reauth" ? "claude.ai で Slack を接続すると表示されます"
+      : code === "not_granted" || code === "consent_denied" ? "Slack の読み取りを許可すると表示されます" : "Slack の予約通知を読めませんでした";
+    render();
+  });
   try {
     state.rows = await loadAsana(mcp);
     $("fresh").textContent = `Asana から読み込み：${new Date().toLocaleString("ja-JP", { hour12: false })}　定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る`;

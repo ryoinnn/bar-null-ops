@@ -44,3 +44,19 @@ def test_slack_text_is_short():
     text = slack_text(build(rows(), date(2026, 10, 19)), "https://claude.ai/artifact/x")
     assert text.splitlines() == ["*売上週報 10/12〜10/18*", "先週（10/12〜10/18）の売上：¥120,000",
                                  "今月（10/1〜10/18）の売上：¥260,000", "詳細レポート：https://claude.ai/artifact/x"]
+
+
+def test_rental_monthly_records_are_not_counted_as_bar_sales():
+    from barnull_sales.report import fetch_rows
+
+    def task(slip_id, amount, d):
+        return {"custom_fields": [{"name": "営業日", "date_value": {"date": d}}, {"name": "伝票金額", "number_value": amount},
+                                  {"name": "伝票ステータス", "enum_value": {"name": "起票済み"}},
+                                  {"name": "伝票ID", "text_value": slip_id}]}
+
+    class Api:
+        def list(self, path, params):
+            return [task("S-20261031-001", 50000, "2026-10-31"), task("RS-IB-202610", 120000, "2026-10-31")]
+
+    rows = fetch_rows(Api(), "p")
+    assert [r.amount for r in rows] == [50000]

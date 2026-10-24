@@ -16,6 +16,11 @@ from .asana import FIELDS, AsanaAPI
 from .slips import Status
 
 EXCLUDED = (Status.CANCELLED,)
+RENTAL_PREFIX = "RS-"   # レンタルスペースの月次記録（予約対応システムが起票。通常営業の売上には数えない）
+
+
+def is_rental(slip_id: str | None) -> bool:
+    return bool(slip_id) and slip_id.startswith(RENTAL_PREFIX)
 
 
 @dataclass
@@ -29,15 +34,16 @@ class Row:
 def fetch_rows(api: AsanaAPI, project_gid: str) -> list[Row]:
     tasks = api.list("/tasks", params={
         "project": project_gid,
-        "opt_fields": "custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name"})
-    name = {key: FIELDS[key][0] for key in ("business_date", "slip_amount", "status", "unpaid_remaining")}
+        "opt_fields": "custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,"
+                      "custom_fields.text_value"})
+    name = {key: FIELDS[key][0] for key in ("business_date", "slip_amount", "status", "unpaid_remaining", "slip_id")}
     rows = []
     for t in tasks:
         f = {c["name"]: c for c in t.get("custom_fields", [])}
         d = ((f.get(name["business_date"]) or {}).get("date_value") or {}).get("date")
         amount = (f.get(name["slip_amount"]) or {}).get("number_value")
         status = ((f.get(name["status"]) or {}).get("enum_value") or {}).get("name") or ""
-        if not d or amount is None or status in EXCLUDED:
+        if not d or amount is None or status in EXCLUDED or is_rental((f.get(name["slip_id"]) or {}).get("text_value")):
             continue
         rows.append(Row(date.fromisoformat(d[:10]), int(amount),
                         int((f.get(name["unpaid_remaining"]) or {}).get("number_value") or 0), status))

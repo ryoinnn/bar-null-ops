@@ -33,7 +33,7 @@ def _slack_from_permalink(url: str | None) -> dict:
 
 def task_to_slip(task: dict) -> Slip | None:
     f = {NAME_TO_KEY[c["name"]]: _value(c) for c in task.get("custom_fields", []) if c.get("name") in NAME_TO_KEY}
-    if not f.get("slip_id"):
+    if not f.get("slip_id") or f["slip_id"].startswith("RS-"):   # RS- はレンタルスペースの月次記録（伝票ではない）
         return None
     notes = task.get("notes") or ""
     raw = notes.split("LINE の原文:\n", 1)[1].split("\n\n処理履歴:", 1)[0] if "LINE の原文:\n" in notes else ""
