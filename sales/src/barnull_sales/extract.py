@@ -101,6 +101,8 @@ kind の決め方:
 - note は備考の原文（無い・「なし」なら空文字）。
 - 備考に未収（後払い）の金額があれば unpaid_amount、回収予定日の記述があれば unpaid_due_text。
 - 支払方法の手がかり（カード、現金、割り勘、振込など）があれば payment_hint に短く書く。
+- 「未収分」「未収の回収」「〜さんの未収」など、以前の会計の未収金（後払い）が支払われた・回収したことを伝える内容は、
+  日付や金額が書かれていても unpaid_collection_report にする（新しい会計の slip_content にしない。売上が二重になるため）。
 - kind が slip_content 以外なら entries は空。対応する correction / collection_report / cash_deposit だけを埋め、ほかは null。
 - correction の target_customer_name は訂正する伝票の顧客名（書かれていなければ null）、new_amount は訂正後の金額、new_customer_name は顧客名の訂正があれば訂正後の名前。
 - confidence は分類と値の取り出しの自信（0〜1）。"""

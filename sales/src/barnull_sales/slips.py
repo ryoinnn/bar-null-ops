@@ -42,6 +42,7 @@ class Alert(StrEnum):
     DEPOSIT_MISSING = "入金未確認"
     PAYER_UNCLEAR = "回収の振込か不明"
     CORRECTION_AFTER_CLOSE = "完了後の訂正"
+    PAYMENT_CONTESTED = "決済の取り合い"     # 同じ金額の決済が1件しか無く、別の伝票に割り当て済み
     RESTORED = "復元した伝票"
 
 

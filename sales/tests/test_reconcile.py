@@ -180,3 +180,40 @@ def test_refund_is_alerted_once_per_payment_even_after_resolved():
     save(deps, slip, lambda s: resolve_alerts(s), "人が確認")
     reconcile.run(deps, now=now + timedelta(minutes=30))
     assert len([x for x in deps.notifier.posts if "返金検知" in x["text"]]) == 1
+
+
+# ---------------------------------------------------------------- 営業日と決済の日のずれ（2026-10-25）
+def test_payment_on_next_morning_is_matched():
+    """10/19 の伝票の決済が 10/20 07:15（翌営業日）にあっても、営業日の翌日の朝までなら割り当てる。"""
+    deps = make_deps([slip_msg(Entry(month=10, day=19, customer_name="顧客A", amount=102000))],
+                     [pay("p1", "2026-10-20 07:15", 102000)])
+    r = handle_event(event("2026-10-20 01:00"), "message", deps)
+    reconcile.run(deps, now=datetime(2026, 10, 20, 8, 0, tzinfo=JST))
+    slip = deps.store.get_slip(r["slip_ids"][0])
+    assert slip.payment_ids == ["p1"] and slip.status == "決済確認済み"
+    assert not [p for p in deps.notifier.posts if "日付ズレ" in p["text"]]
+
+
+def test_same_day_payment_is_preferred_over_next_day():
+    """同じ金額の伝票が2日続くとき、それぞれの営業日の中の決済を先に割り当てる（翌日の分を取らない）。"""
+    deps = make_deps([slip_msg(Entry(month=10, day=10, customer_name="顧客A", amount=60000)),
+                      slip_msg(Entry(month=10, day=11, customer_name="顧客B", amount=60000))],
+                     [pay("d11", "2026-10-11 22:00", 60000), pay("d10", "2026-10-11 02:00", 60000)])
+    a = handle_event(event("2026-10-11 03:00", "E1"), "message", deps)["slip_ids"][0]
+    b = handle_event(event("2026-10-11 23:00", "E2"), "message", deps)["slip_ids"][0]
+    assert deps.store.get_slip(a).payment_ids == ["d10"] and deps.store.get_slip(b).payment_ids == ["d11"]
+
+
+def test_payment_contested_by_two_slips_is_reported_on_both():
+    """同じ金額の伝票が2件あるのに決済が1件だけなら、「決済未確認」ではなく両方の伝票で知らせる。"""
+    deps = make_deps([slip_msg(Entry(month=10, day=23, customer_name="顧客A", amount=40000, unpaid_amount=10000)),
+                      slip_msg(Entry(month=10, day=23, customer_name="顧客B", amount=30000))],
+                     [pay("p1", "2026-10-24 05:10", 30000)])
+    a = handle_event(event("2026-10-24 05:30", "E1"), "message", deps)["slip_ids"][0]
+    b = handle_event(event("2026-10-24 05:31", "E2"), "message", deps)["slip_ids"][0]
+    assert deps.store.get_slip(a).payment_ids == ["p1"]
+    reconcile.run(deps, now=datetime(2026, 10, 24, 7, 0, tzinfo=JST))
+    sa, sb = deps.store.get_slip(a), deps.store.get_slip(b)
+    assert sb.open_alerts("決済の取り合い") and not sb.open_alerts("決済未確認")
+    assert sa.open_alerts("決済の取り合い") and sa.status == "要確認"
+    assert any(a in t and "決済の取り合い" in t for t in threads(deps, sb))

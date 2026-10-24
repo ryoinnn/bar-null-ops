@@ -28,7 +28,8 @@ class SquareConfig:
     merchant_id: str
     location_id: str
     payment_grace_min: float = 60        # 送信からこの時間たっても決済が見つからなければ「決済未確認」
-    payment_retry_days: float = 3        # 見つからなくても、送信からこの日数は探し続ける
+    payment_retry_days: float = 7        # 見つからなくても、送信からこの日数は探し続ける
+    payment_window_extra_days: int = 1   # 営業日の翌日の朝までも探す（営業日と実際の決済の日がずれることがあるため）
     split_max: int = 5                   # 割り勘とみなす決済の最大件数
     split_span_min: float = 30           # 割り勘とみなす決済の時間の幅
     orphan_grace_hours: float = 6        # 決済の営業日が終わってから「伝票なし」と知らせるまで

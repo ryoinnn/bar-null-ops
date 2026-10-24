@@ -79,12 +79,22 @@ def try_match(deps: Deps, slip: Slip, payments: list[Payment], claims: dict[str,
         return "skip"
     # 他の伝票に割り当て済みの決済は使わない（この伝票への割り当てが途中で止まった決済は使ってよい）
     blocked = {pid for pid, sid in claims.items() if sid != slip.slip_id}
-    window = _window(deps, slip)
-    neighbors = [p for p in payments if window[0] - timedelta(days=1) <= p.created_at < window[1] + timedelta(days=1)]
+    core = _window(deps, slip)
     same = sum(1 for o in open_slips if o.needs_payment and o.expected_square_amount == expected
-               and _window(deps, o) == window)
-    result = find_match(expected, payments, blocked, window, split_max=sq.split_max, split_span_min=sq.split_span_min,
-                        neighbor_payments=neighbors, same_amount_open_slips=max(same, 1))
+               and _window(deps, o) == core)
+    # まず営業日（6:00〜翌6:00）の中を探し、無ければ翌日の朝まで広げて探す（営業日と決済の日がずれることがあるため。
+    # 先に営業日の中を探すのは、翌日の別の伝票の決済を取らないように）
+    windows = [core]
+    if slip.business_date and sq.payment_window_extra_days > 0:
+        windows.append((core[0], core[1] + timedelta(days=sq.payment_window_extra_days)))
+    for i, window in enumerate(windows):
+        widest = i == len(windows) - 1
+        neighbors = [p for p in payments if window[0] - timedelta(days=1) <= p.created_at < window[1] + timedelta(days=1)]
+        result = find_match(expected, payments, blocked, window, split_max=sq.split_max,
+                            split_span_min=sq.split_span_min, neighbor_payments=neighbors if widest else None,
+                            same_amount_open_slips=max(same, 1))
+        if result.kind != "not_found":
+            break
     if result.kind == "matched":
         if not apply_match(deps, slip, result.payments, result.method):
             return "claim_conflict"
@@ -111,10 +121,29 @@ def try_match(deps: Deps, slip: Slip, payments: list[Payment], claims: dict[str,
                         important=True)
             return "unpaid_mismatch"
     if alert_missing and now - _sent(slip) >= timedelta(minutes=sq.payment_grace_min):
+        rival = next((p for p in payments if p.usable and p.amount == expected and window[0] <= p.created_at < window[1]
+                      and claims.get(p.id) not in (None, slip.slip_id)), None)
+        if rival:
+            contested(deps, slip, rival, claims[rival.id])
+            return "contested"
         raise_alert(deps, slip, Alert.PAYMENT_MISSING,
                     f"送信から{int(sq.payment_grace_min)}分たっても、Square に {yen(expected)} の決済が見つかりません"
                     "（会計を受け取っていない可能性があります）", important=True)
     return "not_found"
+
+
+def contested(deps: Deps, slip: Slip, payment: Payment, other_id: str) -> None:
+    """同じ金額の決済が1件しか無く、別の伝票に割り当て済み。どちらの伝票の決済か、人に決めてもらう（両方の伝票に出す）。"""
+    tz = deps.settings.tz
+    what = f"{yen(payment.amount)}（{describe([payment], tz)}）"
+    raise_alert(deps, slip, Alert.PAYMENT_CONTESTED,
+                f"同じ時間帯に {what} の決済が1件だけあり、伝票 {other_id} に割り当て済みです。"
+                "どちらの伝票の決済かを確かめ、Asana の「手動上書き」で決めてください", important=True)
+    other = deps.store.get_slip(other_id)
+    if other and not other.closed_at:
+        raise_alert(deps, other, Alert.PAYMENT_CONTESTED,
+                    f"この伝票に割り当てた {what} の決済は、同じ金額の伝票 {slip.slip_id} の決済かもしれません"
+                    "（決済は1件だけ）。どちらの伝票の決済かを確かめてください")
 
 
 def apply_match(deps: Deps, slip: Slip, payments: list[Payment], method: str) -> bool:
@@ -130,7 +159,7 @@ def apply_match(deps: Deps, slip: Slip, payments: list[Payment], method: str) ->
 
     def fn(s: Slip) -> None:
         s.square = dict(square)
-        resolve_alerts(s, *PAYMENT_ALERTS)
+        resolve_alerts(s, *PAYMENT_ALERTS, Alert.PAYMENT_CONTESTED)   # 自分の決済が見つかった
 
     save(deps, slip, fn, "Square 決済を確認")
     fee_text = f"手数料 {yen(square['fee'])}" if square["fee"] else "手数料なし"
