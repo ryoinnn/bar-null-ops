@@ -2,12 +2,13 @@
 
 | ジョブ                  | いつ           | ステップ                                                               |
 |------------------------|----------------|-----------------------------------------------------------------------|
-| /jobs/reconcile        | 30分ごと        | manual_overrides → republish → resync → reconcile → deposits          |
+| /jobs/reconcile        | 30分ごと        | manual_overrides → republish → resync → reconcile → deposits → pos_notify |
 | /jobs/daily            | 毎日 10:05      | deposit_alerts → unpaid_reminders → delete_old_events                 |
 | /jobs/weekly           | 毎週月曜 9:10   | weekly_report                                                         |
 
 1つのステップが失敗しても、次のステップは動かす。失敗は health が数え、続いたら Slack に知らせる。
 ログは jsonPayload.job（ステップ名）で絞り込める。
+福岡（[schedule] mode = "tasks"）は Cloud Scheduler を使わず、/jobs/tick が同じステップを動かして次の回を予約する（schedule.py）。
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from . import deposits, health, logs, overrides, reconcile, unpaid
+from . import deposits, health, logs, overrides, pos_notify, reconcile, unpaid
 from .deps import Deps
 from .errors import ItemErrors
 from .slip_ops import publish, sync
@@ -73,7 +74,7 @@ def delete_old_events(deps: Deps) -> int:
 
 
 RECONCILE_STEPS = [("manual_overrides", overrides.apply), ("republish", republish), ("resync", resync),
-                   ("reconcile", reconcile.run), ("deposits", deposits.run)]
+                   ("reconcile", reconcile.run), ("deposits", deposits.run), ("pos_notify", pos_notify.run)]
 
 
 def weekly_report(deps: Deps) -> dict:

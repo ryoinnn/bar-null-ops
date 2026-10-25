@@ -72,6 +72,46 @@ def find_match(expected: int, payments: list[Payment], claimed: set[str], window
     return MatchResult("not_found")
 
 
+def receipt_matches(receipts: list[dict], payments: list[Payment], claimed: set[str], *, before_min: float = 10,
+                    after_min: float = 60) -> tuple[dict[str, Payment], dict[str, list[Payment]]]:
+    """POS の受け取り（id, method, amount, at）の1件ずつに、Square の決済を割り当てる。
+
+    現金の受け取りは Square の現金の決済、Square の受け取りは現金以外の決済だけを見る。金額が同じで、
+    受け取りの時刻の before_min 分前〜after_min 分後にあるもの。
+    同じ方法・同じ金額の受け取りが複数あるときは、候補の数が受け取りの数以下なら時刻の順に組にする。
+    候補が多すぎるときは、時刻がはっきり近い1件（3分以内で、次の候補より5分以上近い）だけを割り当てる。
+    戻り値: (受け取り ID → 決済, 決められなかった受け取り ID → 候補)
+    """
+    matched: dict[str, Payment] = {}
+    unclear: dict[str, list[Payment]] = {}
+    used = set(claimed)
+    groups: dict[tuple[bool, int], list[dict]] = {}
+    for r in receipts:
+        groups.setdefault((r["method"] == "cash", r["amount"]), []).append(r)
+    for (cash, amount), rs in groups.items():
+        rs = sorted(rs, key=lambda r: r["at"])
+        times = [datetime.fromisoformat(r["at"]) for r in rs]
+        lo, hi = min(times) - timedelta(minutes=before_min), max(times) + timedelta(minutes=after_min)
+        pool = sorted([p for p in payments if usable(p, used) and (p.source_type == "CASH") == cash
+                       and p.amount == amount and lo <= p.created_at <= hi], key=lambda p: p.created_at)
+        if pool and len(pool) <= len(rs):
+            for r, p in zip(rs, pool, strict=False):   # 候補が受け取りより少なければ、残りは後の回で
+                matched[r["id"]] = p
+                used.add(p.id)
+            continue
+        for r, t in zip(rs, times, strict=True):
+            near = sorted([p for p in pool if p.id not in used
+                           and t - timedelta(minutes=before_min) <= p.created_at <= t + timedelta(minutes=after_min)],
+                          key=lambda p: abs((p.created_at - t).total_seconds()))
+            gaps = [abs((p.created_at - t).total_seconds()) / 60 for p in near]
+            if len(near) == 1 or (len(near) > 1 and gaps[0] <= 3 and gaps[1] - gaps[0] >= 5):
+                matched[r["id"]] = near[0]
+                used.add(near[0].id)
+            elif near:
+                unclear[r["id"]] = near[:5]
+    return matched, unclear
+
+
 def describe(payments: list[Payment], tz: ZoneInfo) -> str:
     """「10/11 02:14 カード」「10/02 03:51 交通系IC ほか1件」"""
     first = payments[0]

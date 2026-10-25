@@ -67,6 +67,16 @@ def _wait(api: str, op: str, attempt: int, r: httpx.Response | None) -> None:
     time.sleep(delay)
 
 
+METADATA_ID_TOKEN = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity"
+
+
+def gcp_id_token(audience: str) -> str:
+    """このサービスアカウントの ID トークン（相手のサービスが「誰からの呼び出しか」を確かめるため）。"""
+    r = request("GCP metadata", "GET", METADATA_ID_TOKEN, headers={"Metadata-Flavor": "Google"},
+                params={"audience": audience, "format": "full"}, timeout=5)
+    return r.text.strip()
+
+
 def gcp_token() -> str:
     """Cloud Run のサービスアカウントのアクセストークン（メタデータサーバーから）。"""
     r = request("GCP metadata", "GET", METADATA_TOKEN, headers={"Metadata-Flavor": "Google"}, timeout=5)

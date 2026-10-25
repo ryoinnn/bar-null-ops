@@ -73,6 +73,10 @@ class FakePayouts:
         self.payouts = list(payouts or [])
         self.entry_calls = 0
 
+    def list_payouts_for(self, location_id, begin):
+        """ほかの店舗の振込（テストでは others に入れておく）。"""
+        return list(getattr(self, "others", {}).get(location_id, []))
+
     def list_payouts(self, begin):
         return self.payouts
 
@@ -101,3 +105,16 @@ class FakeLine:
 
     def reply_ok_sticker(self, reply_token, quote_token):
         self.replies.append((reply_token, quote_token))
+
+
+class FakePos:
+    """POS へ知らせた中身を覚える。fail を立てると送れない。"""
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, list[dict]]] = []
+        self.fail = False
+
+    def send(self, visit_id: str, events: list[dict]) -> None:
+        if self.fail:
+            raise RuntimeError("POS に届かない")
+        self.sent.append((visit_id, events))

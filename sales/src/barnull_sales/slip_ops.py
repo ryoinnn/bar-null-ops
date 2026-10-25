@@ -39,9 +39,14 @@ def save(deps: Deps, slip: Slip, fn: Callable[[Slip], None], reason: str, *, eve
 
     def apply(s: Slip) -> None:
         nonlocal closed
-        before, was_closed = s.status, s.closed_at
+        before, was_closed, remaining = s.status, s.closed_at, s.unpaid_remaining
         fn(s)
         derive(s)
+        if s.source == "pos" and s.unpaid_remaining < remaining:
+            # 未収の回収が確認できた（振込・後日の Square・手動のどれも、ここを通る）。POS に知らせる（pos_notify）
+            s.pos.setdefault("outbox", []).append({"type": "unpaid_collected", "amount": remaining - s.unpaid_remaining,
+                                                   "remaining": s.unpaid_remaining, "at": now_iso(), "sent_at": None})
+            s.pos["outbox_pending"] = True
         closed = bool(s.closed_at and not was_closed and not s.cancelled)
         if s.status != before or event_id:
             s.status_history.append({"from": before, "to": s.status, "at": now_iso(), "reason": reason,

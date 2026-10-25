@@ -118,7 +118,10 @@ def run(deps: Deps, now: datetime | None = None, force_mf: bool = False) -> dict
         stats["cash_reports"] = match_cash_reports(deps, txns, claims, staff, errs)
     stats["unpaid_bank"] = unpaid.collect_by_bank(deps, txns, claims, patterns + staff, errs)
     if staff:
-        stats["cash_confirmed"] = match_cash(deps, awaiting_slips(deps), txns, claims, staff, today, errs)
+        if s.mf.cash_by_business_day:
+            stats["cash_days_confirmed"] = match_cash_days(deps, awaiting_slips(deps), txns, claims, staff, now, errs)
+        else:
+            stats["cash_confirmed"] = match_cash(deps, awaiting_slips(deps), txns, claims, staff, today, errs)
     errs.raise_if_any()
     return stats
 
@@ -192,6 +195,17 @@ def _usable(claims: dict[str, str], txn_id: str, ref: str) -> bool:
     return claims.get(txn_id) in (None, ref)
 
 
+def _shared_payouts(deps: Deps, begin: datetime) -> list[dict]:
+    """同じ口座に振り込まれるほかの店舗の振込（[square] shared_bank_locations。読み取りだけ）。"""
+    out = []
+    for loc in deps.settings.square.shared_bank_locations:
+        for po in deps.payouts.list_payouts_for(loc, begin):
+            if po.get("status") in ("SENT", "PAID"):
+                out.append({"id": po["id"], "amount": (po.get("amount_money") or {}).get("amount", 0),
+                            "arrival_date": po.get("arrival_date"), "location_id": loc})
+    return out
+
+
 def match_payouts(deps: Deps, slips: list[Slip], txns, claims: dict[str, str], patterns: list[str],
                   errs: ItemErrors) -> int:
     grace = deps.settings.deposit.grace_bizdays
@@ -200,11 +214,26 @@ def match_payouts(deps: Deps, slips: list[Slip], txns, claims: dict[str, str], p
         for e in slip.deposits.get("expected") or []:
             if e["kind"] == "square_payout" and not e.get("confirmed"):
                 by_payout.setdefault(e["payout_id"], (e, []))[1].append(slip)
+    others: list[dict] = []
+    if by_payout and deps.settings.square.shared_bank_locations:
+        first = min(date.fromisoformat(e["arrival_date"]) for e, _ in by_payout.values())
+        others = _shared_payouts(deps, datetime.combine(first - timedelta(days=10), datetime.min.time(), UTC))
     n = 0
     for payout_id, (e, group) in by_payout.items():
         ref = f"payout:{payout_id}"
         arrival = date.fromisoformat(e["arrival_date"])
         lo, hi = arrival - timedelta(days=1), bizdate.add_bank_days(arrival, grace)
+        twin = next((o for o in others if o["amount"] == e["amount"] and o["arrival_date"]
+                     and abs((date.fromisoformat(o["arrival_date"]) - arrival).days) <= grace + 1), None)
+        if twin:
+            # 同じ口座のほかの店舗にも同じ金額の振込がある。どちらの入金か取り違えうるので、人に決めてもらう
+            for slip in group:
+                with errs.item(slip_id=slip.slip_id):
+                    raise_alert(deps, slip, Alert.DEPOSIT_AMBIGUOUS,
+                                f"Square振込 {yen(e['amount'])}（着金予定 {e['arrival_date']}）と同じ金額の振込が、"
+                                f"同じ口座に入るほかの店舗（{twin['location_id']}）にもあります。どちらの入金かを確かめ、"
+                                "Asana の「手動上書き」で入金確認済みにしてください")
+            continue
         hit = next((t for t in txns if _usable(claims, t.id, ref) and t.amount == e["amount"]
                     and lo <= date.fromisoformat(t.date) <= hi and any(p in norm_text(t.content) for p in patterns)), None)
         if not hit or not deps.store.claim_deposit(hit.id, ref):
@@ -241,6 +270,49 @@ def match_cash(deps: Deps, slips: list[Slip], txns, claims: dict[str, str], staf
                     confirm(deps, slip, key, hit)
                     n += 1
     return n
+
+
+def match_cash_days(deps: Deps, slips: list[Slip], txns, claims: dict[str, str], staff: list[str], now: datetime,
+                    errs: ItemErrors) -> int:
+    """現金を営業日ごとの合計で照合する（福岡。[mf] cash_by_business_day）。
+
+    その営業日が終わって6時間たってから、その日の現金（伝票ごとの「cash」）の合計と同じ金額の、担当者名義の入金を探す。
+    """
+    s = deps.settings
+    days: dict[str, list[tuple[Slip, dict]]] = {}
+    for slip in slips:
+        for e in slip.deposits.get("expected") or []:
+            if entry_key(e) == "cash" and not e.get("confirmed") and slip.business_date:
+                days.setdefault(slip.business_date, []).append((slip, e))
+    n = 0
+    for day, items in sorted(days.items()):
+        with errs.item(cash_day=day):
+            _, end = bizdate.business_window(date.fromisoformat(day), s.tz, s.day_start)
+            if now < end + timedelta(hours=6) or not _cash_day_ready(deps, day):
+                continue
+            ref = f"cashday:{day}"
+            total = sum(e["amount"] for _, e in items)
+            lo = date.fromisoformat(day)
+            hi = lo + timedelta(days=s.deposit.cash_window_days)
+            hits = [t for t in txns if _usable(claims, t.id, ref) and t.amount == total
+                    and lo <= date.fromisoformat(t.date) <= hi and any(x in norm_text(t.content) for x in staff)]
+            if len(hits) != 1 or not deps.store.claim_deposit(hits[0].id, ref):
+                continue
+            claims[hits[0].id] = ref
+            for slip, _ in items:
+                confirm(deps, slip, "cash", hits[0])
+            n += 1
+    return n
+
+
+def _cash_day_ready(deps: Deps, day: str) -> bool:
+    """その営業日の現金が、すべての伝票で入金の予定に入ったか（決済の確認待ち・カードの振込待ちの伝票があると、合計がまだ決まらない）。"""
+    for x in deps.store.find_slips("business_date", "==", day):
+        if x.cancelled or not any(r["method"] == "cash" for r in x.pos_receipts):
+            continue
+        if not any(entry_key(e) == "cash" for e in x.deposits.get("expected") or []):
+            return False
+    return True
 
 
 def match_cash_reports(deps: Deps, txns, claims: dict[str, str], staff: list[str], errs: ItemErrors) -> int:

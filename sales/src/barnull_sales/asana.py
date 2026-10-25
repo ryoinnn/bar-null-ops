@@ -36,6 +36,13 @@ FIELDS = {
     "slack_url": ("Slackスレッド", "text", None),
     "manual": ("手動上書き", "enum", MANUAL_OPTIONS),
 }
+# POS の伝票の店舗（福岡）だけが使う欄。asana-setup で、LINE を使わない店舗のときだけ作る
+POS_FIELDS = {
+    "customer_codes": ("顧客コード", "text", None),
+    "referrals": ("紹介元", "text", None),
+    "pos_visit": ("POS 伝票ID", "text", None),
+    "receipts": ("受け取りの内訳", "text", None),
+}
 
 
 class TaskTracker(Protocol):
@@ -96,6 +103,19 @@ class AsanaTracker:
             values[f["square_amount"]] = slip.square.get("amount")
             values[f["fee"]] = slip.square.get("fee") or 0
             values[f["payment_id"]] = ", ".join(slip.payment_ids)
+        if slip.source == "pos":
+            from .texts import pos_referrals
+            method = {"cash": "現金", "square": "Square", "unpaid": "未収"}
+            pos_values = {
+                "customer_codes": ", ".join(c.get("code", "") for c in slip.pos.get("customers") or []),
+                "referrals": pos_referrals(slip),
+                "pos_visit": slip.pos.get("visit_id", ""),
+                "receipts": "、".join(f"{method.get(r['method'], r['method'])} {r['amount']:,}"
+                                     for r in slip.pos.get("receipts") or []),
+            }
+            for key, value in pos_values.items():
+                if f.get(key):   # 欄を作っていない店舗（Bar null）では書かない
+                    values[f[key]] = value
         expected = slip.deposits.get("expected") or []
         if expected:
             values[f["deposit_expected"]] = sum(e.get("share", 0) for e in expected)

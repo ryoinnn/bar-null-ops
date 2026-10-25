@@ -80,6 +80,7 @@ class PaymentSource(Protocol):
 
 class PayoutSource(Protocol):
     def list_payouts(self, begin: datetime) -> list[dict]: ...
+    def list_payouts_for(self, location_id: str, begin: datetime) -> list[dict]: ...
     def payment_ids(self, payout_id: str) -> list[str]: ...
 
 
@@ -110,6 +111,10 @@ class SquareAPI:
     def list_payouts(self, begin: datetime) -> list[dict]:
         params = {"location_id": self.location_id, "begin_time": begin.astimezone(UTC).isoformat(), "limit": 100}
         return self._pages("/v2/payouts", params, "payouts", max_pages=10)
+
+    def list_payouts_for(self, location_id: str, begin: datetime) -> list[dict]:
+        """同じアカウントのほかの店舗の振込（同じ口座に入る振込の取り違えを防ぐため。読み取りだけ）。"""
+        return SquareAPI(self.token_provider, location_id).list_payouts(begin)
 
     def payment_ids(self, payout_id: str) -> list[str]:
         entries = self._pages(f"/v2/payouts/{payout_id}/payout-entries", {"limit": 100}, "payout_entries")

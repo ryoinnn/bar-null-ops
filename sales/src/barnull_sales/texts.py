@@ -61,7 +61,17 @@ def slack_parent(slip: Slip) -> str:
     lines.append(f"顧客：{esc(slip.customer_name) or '不明'}様　金額：{yen(slip.slip_amount)}")
     if slip.note:
         lines.append(f"備考：{esc(slip.note)}")
-    lines.append(f"担当：{who(slip.sender_display_name)}（LINE）")
+    if slip.source == "pos":
+        lines.append(f"担当：{who(slip.sender_display_name)}（POS {slip.pos.get('visit_id', '')}）")
+        refs = pos_referrals(slip)
+        if refs:
+            lines.append(f"紹介元：{esc(refs)}")
+        method = {"cash": "現金", "square": "Square", "unpaid": "未収"}
+        receipts = "、".join(f"{method.get(r['method'], r['method'])} {yen(r['amount'])}" for r in slip.pos.get("receipts") or [])
+        if receipts:
+            lines.append(f"受け取り：{receipts}")
+    else:
+        lines.append(f"担当：{who(slip.sender_display_name)}（LINE）")
     lines.append(f"ステータス：{slip.status}" + ("（完了）" if slip.closed_at and not slip.cancelled else ""))
     if slip.payment_ids:
         fee = slip.square.get("fee")
@@ -72,6 +82,16 @@ def slack_parent(slip: Slip) -> str:
     if slip.dry_run:
         lines.append("（テスト）")
     return "\n".join(lines)
+
+
+def pos_referrals(slip: Slip) -> str:
+    """POS の伝票の紹介元（2次は「1次 › 2次」）。重複は1つにまとめる。"""
+    out = []
+    for r in slip.pos.get("referrals") or []:
+        name = f"{r['tenant_name']} › {r['agent_name']}" if r.get("tenant_name") else r.get("agent_name", "")
+        if name and name not in out:
+            out.append(name)
+    return "、".join(out)
 
 
 def review(settings, title: str, sender: str | None, text: str) -> str:
@@ -96,9 +116,9 @@ def asana_notes(slip: Slip) -> str:
         f"伝票金額: {yen(slip.slip_amount)}",
         f"未収: {yen(slip.unpaid_amount) if slip.unpaid_amount else 'なし'} {slip.unpaid_due_text}".rstrip(),
         f"Square で期待する金額: {yen(slip.expected_square_amount)}",
-        f"担当（LINE）: {slip.sender_display_name or '不明'}",
+        f"担当（{'POS' if slip.source == 'pos' else 'LINE'}）: {slip.sender_display_name or '不明'}",
         "",
-        "LINE の原文:",
+        "POS の伝票:" if slip.source == "pos" else "LINE の原文:",
         slip.raw_text,
         "",
         "処理履歴:",

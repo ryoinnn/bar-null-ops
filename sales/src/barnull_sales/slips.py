@@ -43,6 +43,7 @@ class Alert(StrEnum):
     PAYER_UNCLEAR = "回収の振込か不明"
     CORRECTION_AFTER_CLOSE = "完了後の訂正"
     PAYMENT_CONTESTED = "決済の取り合い"     # 同じ金額の決済が1件しか無く、別の伝票に割り当て済み
+    DEPOSIT_AMBIGUOUS = "入金の候補が複数"   # 同じ口座のほかの店舗にも同じ金額の振込がある
     RESTORED = "復元した伝票"
 
 
@@ -110,6 +111,8 @@ class Slip:
     sync_pending: bool = False                    # Slack・Asana への反映が失敗し、やり直しが必要
     dry_run: bool = True
     created_at: str = field(default_factory=now_iso)
+    source: str = "line"                          # line（LINE の伝票）/ pos（福岡の POS から）
+    pos: dict = field(default_factory=dict)       # POS の伝票: visit_id, revision, receipts, customers, referrals, outbox
 
     def to_dict(self) -> dict:
         return plain(asdict(self))
@@ -137,8 +140,16 @@ class Slip:
         return [p["id"] for p in records if not p.get("unpaid_collection")]
 
     @property
+    def pos_receipts(self) -> list[dict]:
+        """POS の伝票で、Square の決済と突合する受け取り（現金・Square。未収は除く）。"""
+        return [r for r in self.pos.get("receipts") or [] if r.get("method") in ("cash", "square")]
+
+    @property
     def payment_settled(self) -> bool:
-        """その日の会計の決済が確認できたか（全額未収で決済が無い伝票は、確認するものが無いので済み）。"""
+        """その日の会計の決済が確認できたか（全額未収で決済が無い伝票は、確認するものが無いので済み）。
+
+        POS の伝票は、受け取り（現金・Square）の1件ずつに決済が見つかったとき（main_payment_ids は全部そろってから入る）。
+        """
         return bool(self.main_payment_ids) or bool(self.square.get("manual")) or self.expected_square_amount == 0
 
     @property
@@ -200,7 +211,7 @@ def _resolve_moot_alerts(slip: Slip) -> None:
     if slip.payment_settled:
         moot += PAYMENT_ALERTS
     if slip.deposit_settled:
-        moot.append(Alert.DEPOSIT_MISSING)
+        moot += [Alert.DEPOSIT_MISSING, Alert.DEPOSIT_AMBIGUOUS]
     if slip.unpaid_remaining <= 0:
         moot.append(Alert.PAYER_UNCLEAR)
     now = now_iso()

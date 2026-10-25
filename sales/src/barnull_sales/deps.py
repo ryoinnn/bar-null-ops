@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .extract import Extractor
     from .line import LineClient
     from .mf import BankLedgerSource
+    from .pos_notify import PosClient
     from .slack import Notifier
     from .square import PaymentSource, PayoutSource
     from .store import Store
@@ -27,3 +28,4 @@ class Deps:
     payments: PaymentSource | None = None   # Square の決済
     payouts: PayoutSource | None = None     # Square の振込
     bank: BankLedgerSource | None = None    # マネフォの銀行明細
+    pos: PosClient | None = None            # POS（福岡）へ知らせる先

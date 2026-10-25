@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from . import bizdate, unpaid
 from .deps import Deps
 from .errors import ItemErrors
-from .matching import describe, find_match, orphan_due, search_window
+from .matching import describe, find_match, orphan_due, receipt_matches, search_window
 from .slip_ops import post, raise_alert, resolve_alerts, save
 from .slips import PAYMENT_ALERTS, Alert, Slip, Status, now_iso
 from .square import Payment
@@ -77,6 +77,8 @@ def try_match(deps: Deps, slip: Slip, payments: list[Payment], claims: dict[str,
     expected = slip.expected_square_amount
     if not slip.needs_payment:
         return "skip"
+    if slip.source == "pos":
+        return try_match_pos(deps, slip, payments, claims, now, alert_missing)
     # 他の伝票に割り当て済みの決済は使わない（この伝票への割り当てが途中で止まった決済は使ってよい）
     blocked = {pid for pid, sid in claims.items() if sid != slip.slip_id}
     core = _window(deps, slip)
@@ -130,6 +132,63 @@ def try_match(deps: Deps, slip: Slip, payments: list[Payment], claims: dict[str,
                     f"送信から{int(sq.payment_grace_min)}分たっても、Square に {yen(expected)} の決済が見つかりません"
                     "（会計を受け取っていない可能性があります）", important=True)
     return "not_found"
+
+
+def try_match_pos(deps: Deps, slip: Slip, payments: list[Payment], claims: dict[str, str], now: datetime,
+                  alert_missing: bool) -> str:
+    """POS の伝票: 受け取り（現金・Square）の1件ずつに決済を割り当てる。全部そろったら決済確認済み。"""
+    s, sq = deps.settings, deps.settings.square
+    done = dict(slip.square.get("receipt_matches") or {})          # 受け取り ID → 決済 ID
+    blocked = {pid for pid, sid in claims.items() if sid != slip.slip_id} | set(done.values())
+    todo = [r for r in slip.pos_receipts if r["id"] not in done]
+    found, unclear = receipt_matches(todo, payments, blocked, before_min=sq.receipt_before_min,
+                                     after_min=sq.receipt_after_min)
+    by_id = {p.id: p for p in payments}
+    for rid, p in found.items():
+        if deps.store.claim_payments(slip.slip_id, [p.id]):
+            done[rid] = p.id
+            claims[p.id] = slip.slip_id
+            by_id[p.id] = p
+    complete = all(r["id"] in done for r in slip.pos_receipts)
+    if found:
+        records = {pid: by_id[pid] for pid in done.values() if pid in by_id}
+
+        def fn(x: Slip) -> None:
+            x.square = {**x.square, "receipt_matches": dict(done)}
+            if complete:
+                known = {p["id"]: p for p in x.square.get("payments") or []}
+                rows = [records[pid].record() if pid in records else known[pid] for pid in done.values()
+                        if pid in records or pid in known]
+                x.square.update({
+                    "payment_ids": list(done.values()), "payments": rows, "amount": sum(r["amount"] for r in rows),
+                    "fee": sum(r.get("fee") or 0 for r in rows),
+                    "methods": sorted({r["source_type"] for r in rows}), "match_method": "receipt",
+                    "summary": describe([records[pid] for pid in done.values() if pid in records] or [], s.tz)
+                    if records else "", "matched_at": now_iso(),
+                })
+                resolve_alerts(x, *PAYMENT_ALERTS, Alert.PAYMENT_CONTESTED)
+
+        save(deps, slip, fn, "Square 決済を確認" if complete else "Square 決済を一部確認")
+        if complete:
+            fee = slip.square.get("fee") or 0
+            post(deps, slip, f"決済確認済み：Square {yen(slip.square.get('amount'))}（POS の受け取り {len(done)}件と突合）"
+                             + (f" 手数料 {yen(fee)}" if fee else " 手数料なし"))
+            return "matched"
+    if unclear:
+        lines = [f"・受け取り {yen(next(r['amount'] for r in slip.pos_receipts if r['id'] == rid))}："
+                 + "、".join(describe([p], s.tz) for p in cands) for rid, cands in unclear.items()]
+        raise_alert(deps, slip, Alert.AMBIGUOUS,
+                    "次の受け取りに合う決済が複数あり、決められません。Asana の「手動上書き」で決めてください。\n"
+                    + "\n".join(lines))
+        return "ambiguous"
+    if alert_missing and now - _sent(slip) >= timedelta(minutes=sq.payment_grace_min):
+        missing = [r for r in slip.pos_receipts if r["id"] not in done]
+        if missing:
+            what = "、".join(f"{'現金' if r['method'] == 'cash' else 'Square'} {yen(r['amount'])}" for r in missing)
+            raise_alert(deps, slip, Alert.PAYMENT_MISSING,
+                        f"確定から{int(sq.payment_grace_min)}分たっても、POS の受け取り（{what}）に合う Square の決済が"
+                        "見つかりません（Square の端末で打っていない可能性があります）", important=True)
+    return "partial" if done else "not_found"
 
 
 def contested(deps: Deps, slip: Slip, payment: Payment, other_id: str) -> None:
