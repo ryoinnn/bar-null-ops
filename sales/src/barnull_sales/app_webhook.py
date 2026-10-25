@@ -78,7 +78,7 @@ def square_callback(code: str = "", state: str = "", error: str = "") -> Respons
     tok = exchange(secret("SQUARE_APP_ID"), secret("SQUARE_APP_SECRET"), code=code)
     if tok.get("merchant_id") != s.square.merchant_id:
         log.warning("想定外の加盟店からの許可を拒否")
-        return _page("このアカウントでは連携できません", "Bar null の Square アカウントで許可してください。", 403)
+        return _page("このアカウントでは連携できません", f"{s.store_name} の Square アカウントで許可してください。", 403)
     SecretStore(s.project, "square-oauth").write(
         {k: tok[k] for k in ("access_token", "refresh_token", "expires_at", "merchant_id") if k in tok})
     log.info("Square の OAuth トークンを保存した")

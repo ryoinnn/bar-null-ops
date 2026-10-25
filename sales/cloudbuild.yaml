@@ -1,6 +1,7 @@
 # 売上管理のデプロイ。GitHub の main に sales/ の変更を push すると、トリガー sales-deploy がこれを動かす。
 # テスト → イメージの作成 → sales-worker → sales-webhook の順。テストが落ちたらデプロイしない。
 # 手で動かすとき（GitHub を使えないとき）: uv run python sales/infra/setup.py deploy
+# 店舗ごとに GCP プロジェクトとトリガーが分かれ、_SALES_TOML で設定ファイルを選ぶ（Bar null は sales.toml）。
 steps:
   - id: test
     name: python:3.12-slim
@@ -34,7 +35,7 @@ steps:
       - --memory=512Mi
       - --timeout=600
       - --set-secrets=SALES_CONFIG=sales-config:latest
-      - --set-env-vars=ROLE=worker
+      - --set-env-vars=ROLE=worker,SALES_TOML=/app/${_SALES_TOML}
 
   - id: deploy-webhook
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -51,13 +52,14 @@ steps:
       - --memory=512Mi
       - --cpu-boost
       - --set-secrets=SALES_CONFIG=sales-webhook-config:latest
-      - --set-env-vars=ROLE=webhook
+      - --set-env-vars=ROLE=webhook,SALES_TOML=/app/${_SALES_TOML}
 
 substitutions:
   _DIR: sales                    # リポジトリの中の sales/（手で sales/ だけを送るときは "."）
   _REGION: us-central1
   _IMAGE: us-central1-docker.pkg.dev/${PROJECT_ID}/sales/sales
   _TAG: ${SHORT_SHA}             # GitHub からのビルドではコミットの短い ID
+  _SALES_TOML: sales.toml        # 店舗の設定ファイル（sales/ からの相対。福岡は stores/node/sales.toml）
 
 options:
   logging: CLOUD_LOGGING_ONLY

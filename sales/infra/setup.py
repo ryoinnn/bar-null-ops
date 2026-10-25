@@ -1,6 +1,6 @@
 """売上管理の Google Cloud の準備（gcloud を順に実行する。何度実行しても同じ結果になる）。
 
-    uv run python sales/infra/setup.py STEP [STEP ...] [--dry-run]
+    uv run python sales/infra/setup.py STEP [STEP ...] [--dry-run] [--config stores/<店舗>/sales.toml]
 
 ふだんのデプロイは GitHub の main への push（Cloud Build のトリガー sales-deploy が sales/cloudbuild.yaml を動かす）。
 このスクリプトは、最初の準備・権限・秘密情報の更新・GitHub を使えないときの手動デプロイに使う。
@@ -25,6 +25,7 @@ STEP:
   migrate       2026-10 の整理の移行（MIGRATE の順に実行）
 
 --dry-run を付けると、実行せずにコマンドを表示するだけ。秘密の値は表示しない。
+--config で店舗の設定ファイルを選ぶ（省くと Bar null の sales.toml）。店舗ごとの GCP の名前などは、その [infra] に書く。
 """
 
 from __future__ import annotations
@@ -35,21 +36,37 @@ import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from barnull_sales.config import KEYRING_SERVICE, SECRETS_BY_SERVICE, load_settings  # noqa: E402
+from barnull_sales.config import SECRETS_BY_SERVICE, load_settings  # noqa: E402
 
-CFG = load_settings(ROOT / "sales.toml")
+
+def _config_path() -> Path:
+    """--config（sales/ からの相対か絶対）。省くと Bar null の sales.toml。"""
+    if "--config" in sys.argv:
+        value = Path(sys.argv[sys.argv.index("--config") + 1])
+        return value if value.is_absolute() else ROOT / value
+    return ROOT / "sales.toml"
+
+
+CONFIG_PATH = _config_path()
+CFG = load_settings(CONFIG_PATH)
+INFRA = tomllib.loads(CONFIG_PATH.read_text(encoding="utf-8")).get("infra", {})
 PROJECT = CFG.project
 REGION = CFG.region
-BILLING_ACCOUNT = "019A83-7F08B4-6F9AEC"
-BUDGET_NAME = "barnull-sales-guard"
-REPO = "sales"
+# 省いたときは Bar null の値
+BILLING_ACCOUNT = INFRA.get("billing_account", "019A83-7F08B4-6F9AEC")
+BUDGET_NAME = INFRA.get("budget_name", "barnull-sales-guard")
+REPO = INFRA.get("registry", "sales")
 QUEUE = CFG.tasks_queue
-GITHUB_CONNECTION = "github"          # Cloud Build の GitHub 接続名（コンソールで作る）
-GITHUB_REPO = "ryoinnn-bar-null-ops"   # 接続にリンクしたリポジトリの名前（コンソールが「所有者-リポジトリ」で付ける）
+GITHUB_CONNECTION = INFRA.get("github_connection", "github")          # Cloud Build の GitHub 接続名（コンソールで作る）
+GITHUB_REPO = INFRA.get("github_repo", "ryoinnn-bar-null-ops")         # 接続にリンクしたリポジトリの名前（「所有者-リポジトリ」）
+TRIGGER = INFRA.get("trigger_name", "sales-deploy")
+# この店舗の設定ファイル（sales/ からの相対。Cloud Build の _SALES_TOML に渡す）
+SALES_TOML_REL = CONFIG_PATH.resolve().relative_to(ROOT.resolve()).as_posix()
 
 GCLOUD = os.environ.get("GCLOUD", str(Path(os.environ.get("LOCALAPPDATA", "")) / "Google" / "Cloud SDK"
                                       / "google-cloud-sdk" / "bin" / "gcloud.cmd"))
@@ -130,7 +147,7 @@ def step_apis() -> None:
 def step_registry() -> None:
     if not exists("artifacts", "repositories", "describe", REPO, f"--location={REGION}"):
         gcloud("artifacts", "repositories", "create", REPO, "--repository-format=docker", f"--location={REGION}",
-               "--description=Bar null sales")
+               f"--description={CFG.store_name} sales")
     policy = [
         {"name": "delete-all", "action": {"type": "Delete"}, "condition": {"tagState": "any"}},
         {"name": "keep-latest-2", "action": {"type": "Keep"}, "mostRecentVersions": {"keepCount": 2}},
@@ -146,7 +163,7 @@ def _keyring_values(names: tuple[str, ...]) -> dict:
 
     out = {}
     for n in names:
-        v = (keyring.get_password(KEYRING_SERVICE, n) or "").strip()
+        v = (keyring.get_password(CFG.keyring_service, n) or "").strip()
         if not v and n == "ANTHROPIC_API_KEY":   # 売上管理用のキーが無ければ予約対応のキー（2026-10-10 本人の選択）
             v = (keyring.get_password("bar-null-ops", n) or "").strip()
         if v:
@@ -281,13 +298,13 @@ def step_trigger() -> None:
     """
     repo = f"projects/{PROJECT}/locations/{REGION}/connections/{GITHUB_CONNECTION}/repositories/{GITHUB_REPO}"
     trigger = {
-        "name": "sales-deploy", "filename": "sales/cloudbuild.yaml",
+        "name": TRIGGER, "filename": "sales/cloudbuild.yaml", "substitutions": {"_SALES_TOML": SALES_TOML_REL},
         "includedFiles": ["sales/**"], "ignoredFiles": ["sales/report/**", "sales/docs/**", "sales/README.md"],
         "repositoryEventConfig": {"repository": repo, "repositoryType": "GITHUB", "push": {"branch": "^main$"}},
         "serviceAccount": f"projects/{PROJECT}/serviceAccounts/{DEPLOYER}",
     }
     if not DRY:
-        current = gcloud("builds", "triggers", "describe", "sales-deploy", f"--region={REGION}", "--format=value(id)",
+        current = gcloud("builds", "triggers", "describe", TRIGGER, f"--region={REGION}", "--format=value(id)",
                          capture=True, check=False)
         if current:
             trigger["id"] = current
@@ -300,7 +317,8 @@ def step_deploy() -> None:
     """GitHub を使わずにデプロイする（sales/ を送って cloudbuild.yaml を動かす）。"""
     tag = "manual-" + time.strftime("%Y%m%d-%H%M%S")
     gcloud("builds", "submit", str(ROOT), f"--config={ROOT / 'cloudbuild.yaml'}", f"--region={REGION}",
-           f"--substitutions=_DIR=.,_TAG={tag}", f"--service-account=projects/{PROJECT}/serviceAccounts/{DEPLOYER}",
+           f"--substitutions=_DIR=.,_TAG={tag},_SALES_TOML={SALES_TOML_REL}",
+           f"--service-account=projects/{PROJECT}/serviceAccounts/{DEPLOYER}",
            "--default-buckets-behavior=regional-user-owned-bucket")
 
 
@@ -386,7 +404,11 @@ MIGRATE = ("secrets-compat", "base", "iam-grant", "guard", "deployer", "deploy",
 
 
 def main() -> None:
-    names = [a for a in sys.argv[1:] if not a.startswith("--")]
+    args = sys.argv[1:]
+    if "--config" in args:   # --config の値は STEP ではない
+        i = args.index("--config")
+        args = args[:i] + args[i + 2:]
+    names = [a for a in args if not a.startswith("--")]
     if names == ["migrate"]:
         names = list(MIGRATE)
     if not names or any(n not in STEPS for n in names):

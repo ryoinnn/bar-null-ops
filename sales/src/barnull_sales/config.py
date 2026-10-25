@@ -1,6 +1,8 @@
 """設定（sales.toml）と秘密情報（Cloud Run では Secret Manager の JSON、手元では資格情報マネージャー）。
 
 設定はすべて sales.toml に書く。環境変数で上書きできるのは DRY_RUN と SALES_TOML（設定ファイルの場所）だけ。
+店舗ごとに設定ファイルを分ける（Bar null は sales.toml、福岡 Node は stores/node/sales.toml。SALES_TOML で選ぶ）。
+[store] と [line] は省ける（省くと Bar null の値。LINE を使わない店舗は [line] を書かない）。
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[2]
+KEYRING_SERVICE = "barnull-sales"   # Bar null の既定（店舗ごとに [store] keyring_service で変えられる）
 
 
 def _pick(cls, d: dict):
@@ -95,6 +98,9 @@ class Settings:
     deposit: DepositConfig
     followup: FollowupConfig
     asana_ids: dict
+    store_name: str = "Bar null"             # 画面や通知に出す店舗名
+    line_enabled: bool = True                # LINE から伝票を受け付けるか（[line] が無ければ受け付けない）
+    keyring_service: str = "barnull-sales"   # 手元で秘密情報を読む資格情報マネージャーの名前
 
     @property
     def slack_channel(self) -> str:
@@ -119,7 +125,8 @@ class Settings:
 def load_settings(path: Path | None = None) -> Settings:
     path = path or Path(os.environ.get("SALES_TOML", ROOT / "sales.toml"))
     c = tomllib.loads(path.read_text(encoding="utf-8"))
-    g, b, ln, s, a, cl = c["gcp"], c["business"], c["line"], c["slack"], c["asana"], c["claude"]
+    g, b, s, a, cl = c["gcp"], c["business"], c["slack"], c["asana"], c["claude"]
+    ln, st = c.get("line"), c.get("store", {})
     h, m = (int(x) for x in b["day_start"].split(":"))
     ids_path = path.parent / "asana_ids.json"
     dry = os.environ.get("DRY_RUN")
@@ -128,8 +135,9 @@ def load_settings(path: Path | None = None) -> Settings:
         project=g["project"], region=g["region"], tasks_queue=g["tasks_queue"],
         tasks_max_attempts=int(g.get("tasks_max_attempts", 10)), invoker_sa=g["invoker_sa"], worker_url=g["worker_url"],
         tz=ZoneInfo(b["timezone"]), day_start=time(h, m),
-        bot_mention_name=ln["bot_mention_name"], allowed_group_ids=tuple(ln.get("allowed_group_ids", [])),
-        reply_ack=ln.get("reply_ack", False),
+        bot_mention_name=(ln or {}).get("bot_mention_name", ""),
+        allowed_group_ids=tuple((ln or {}).get("allowed_group_ids", [])),
+        reply_ack=(ln or {}).get("reply_ack", False),
         slack_channel_prod=s["channel_prod"], slack_channel_test=s["channel_test"],
         slack_alert_mention=s.get("alert_mention", ""), slack_report_channel_prod=s.get("report_channel_prod", ""),
         asana_workspace=a["workspace"], asana_team_name=a["team_name"],
@@ -139,6 +147,8 @@ def load_settings(path: Path | None = None) -> Settings:
         square=_pick(SquareConfig, c["square"]), mf=_pick(MfConfig, c["mf"]),
         deposit=_pick(DepositConfig, c.get("deposit", {})), followup=_pick(FollowupConfig, c.get("followup", {})),
         asana_ids=json.loads(ids_path.read_text(encoding="utf-8")) if ids_path.exists() else {},
+        store_name=st.get("name", "Bar null"), line_enabled=ln is not None,
+        keyring_service=st.get("keyring_service", KEYRING_SERVICE),
     )
 
 
@@ -155,7 +165,6 @@ SECRETS_BY_SERVICE = {
     "sales-webhook-config": ("LINE_CHANNEL_SECRET", "SQUARE_APP_ID", "SQUARE_APP_SECRET"),  # sales-webhook
     "billing-guard-config": ("SLACK_BOT_TOKEN",),                                          # billing-guard
 }
-KEYRING_SERVICE = "barnull-sales"
 
 
 @lru_cache
@@ -169,9 +178,10 @@ def secrets() -> dict[str, str]:
     except ImportError:
         return {}
     names = {n for group in SECRETS_BY_SERVICE.values() for n in group}
+    service = settings().keyring_service
     out = {}
     for n in sorted(names):
-        v = (keyring.get_password(KEYRING_SERVICE, n) or "").strip()
+        v = (keyring.get_password(service, n) or "").strip()
         if not v and n == "ANTHROPIC_API_KEY":   # 売上管理用のキーが無ければ予約対応のキー（2026-10-10 本人の選択）
             v = (keyring.get_password("bar-null-ops", n) or "").strip()
         if v:
