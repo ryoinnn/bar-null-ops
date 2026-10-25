@@ -42,13 +42,13 @@ project_name_test = "Node 売上管理（伝票）［テスト］"
 
 [square]
 merchant_id = "MLW68WPW3T15S"  # Bar null と同じアカウント
-location_id = ""               # 「Node 福岡」の店舗（本人が作る）。空のあいだは Square を読まない
+location_id = "LP7BBP0PEQHQK"  # 「Node 福岡」（2026-10-26 本人が作成）
 payment_grace_min = 60
 payment_retry_days = 7
 payment_window_extra_days = 1
 orphan_grace_hours = 6
 orphan_check_since = "2099-01-01T00:00:00+09:00"   # 本番化までは「伝票の無い決済」を知らせない
-oauth_enabled = false
+oauth_enabled = false          # 2026-10-26 許可済み（やり直すときだけ true にして setup.py square-open）
 shared_bank_locations = ["L7SVX8VVWDQBX"]   # 同じ三井住友の口座に振り込まれる Bar null
 receipt_before_min = 10
 receipt_after_min = 60
