@@ -6,6 +6,8 @@
     uv run python sales/scripts/set_secret.py            # 未登録のものを順に聞く
     uv run python sales/scripts/set_secret.py NAME ...   # 指定したものを登録し直す
     uv run python sales/scripts/set_secret.py --status   # 登録状況だけ表示
+    uv run python sales/scripts/set_secret.py --service node-sales SQUARE_APP_ID SQUARE_APP_SECRET
+        # 店舗ごとの名前で登録する（福岡は node-sales。sales.toml の [store] keyring_service）
 """
 
 from __future__ import annotations
@@ -49,7 +51,13 @@ def register(name: str) -> None:
 
 
 def main() -> None:
-    args = [a.upper() for a in sys.argv[1:]]
+    global SERVICE
+    argv = sys.argv[1:]
+    if "--service" in argv:
+        i = argv.index("--service")
+        SERVICE, argv = argv[i + 1], argv[:i] + argv[i + 2:]
+        print(f"資格情報マネージャーの名前: {SERVICE}")
+    args = [a.upper() for a in argv]
     if args == ["--STATUS"]:
         for n in NAMES:
             print(f"  {'✓' if is_set(n) else '✗'} {n}")

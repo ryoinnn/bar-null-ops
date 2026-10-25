@@ -14,7 +14,7 @@ import sys
 import time
 from dataclasses import replace
 
-from .config import ROOT, secret, settings
+from .config import config_path, secret, settings
 
 
 def cmd_asana_setup(args: argparse.Namespace) -> None:
@@ -23,7 +23,8 @@ def cmd_asana_setup(args: argparse.Namespace) -> None:
     s = settings()
     name = s.asana_project_name_test if args.env == "test" else s.asana_project_name_prod
     setup(AsanaAPI(secret("ASANA_PAT")), workspace=s.asana_workspace, team_name=s.asana_team_name,
-          project_name=name, env=args.env, ids_path=ROOT / "asana_ids.json", dry_run=args.dry_run)
+          project_name=name, env=args.env, ids_path=config_path().parent / "asana_ids.json", dry_run=args.dry_run,
+          pos=not s.line_enabled)
 
 
 def _firestore_with_gcloud():

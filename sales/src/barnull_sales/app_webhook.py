@@ -15,7 +15,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from . import logs
-from .config import secret, settings
+from .config import SQUARE_TOKEN_KEYS, secret, settings
 from .line import classify_event, verify_signature
 from .tasks import enqueue
 
@@ -33,6 +33,8 @@ async def webhook_line(request: Request) -> Response:
     body = await request.body()
     if len(body) > MAX_BODY:
         return Response(status_code=413)
+    if not settings().line_enabled:   # LINE を使わない店舗（福岡）
+        return Response(status_code=404)
     if not verify_signature(secret("LINE_CHANNEL_SECRET"), body, request.headers.get("x-line-signature")):
         log.warning("署名が一致しない")
         return Response(status_code=400)
@@ -79,8 +81,12 @@ def square_callback(code: str = "", state: str = "", error: str = "") -> Respons
     if tok.get("merchant_id") != s.square.merchant_id:
         log.warning("想定外の加盟店からの許可を拒否")
         return _page("このアカウントでは連携できません", f"{s.store_name} の Square アカウントで許可してください。", 403)
-    SecretStore(s.project, "square-oauth").write(
-        {k: tok[k] for k in ("access_token", "refresh_token", "expires_at", "merchant_id") if k in tok})
+    new = {k: tok[k] for k in SQUARE_TOKEN_KEYS if k in tok}
+    if s.secret_name:   # 秘密情報と同じシークレット（福岡）: ほかの鍵を残したまま、トークンだけ入れ替える
+        store = SecretStore(s.project, s.secret_name)
+        store.write({**(store.read() or {}), **new})
+    else:
+        SecretStore(s.project, "square-oauth").write(new)
     log.info("Square の OAuth トークンを保存した")
     return _page("Square との連携が完了しました",
                  "読み取り専用（決済・注文・振込・店舗情報）で連携しました。この画面は閉じてください。"

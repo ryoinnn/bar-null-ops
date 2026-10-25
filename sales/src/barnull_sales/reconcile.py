@@ -30,6 +30,8 @@ def _fetch(deps: Deps, slips: list[Slip], now: datetime, days_back: float) -> li
 
 def run(deps: Deps, now: datetime | None = None) -> dict:
     """30分ごと: 決済が未確認の伝票の突合、未収の Square での回収、返金・伝票の無い決済の通知。"""
+    if not deps.payments:   # Square の店舗がまだ無い（福岡の準備中）
+        return {"skipped": "no_square"}
     now = now or datetime.now(UTC)
     sq = deps.settings.square
     retry = timedelta(days=sq.payment_retry_days)

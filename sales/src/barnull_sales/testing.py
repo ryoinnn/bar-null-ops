@@ -112,9 +112,11 @@ class FakePos:
 
     def __init__(self) -> None:
         self.sent: list[tuple[str, list[dict]]] = []
+        self.slip_ids: list[str] = []
         self.fail = False
 
-    def send(self, visit_id: str, events: list[dict]) -> None:
+    def send(self, visit_id: str, events: list[dict], slip_id: str = "") -> None:
         if self.fail:
             raise RuntimeError("POS に届かない")
         self.sent.append((visit_id, events))
+        self.slip_ids.append(slip_id)

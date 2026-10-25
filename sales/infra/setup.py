@@ -6,9 +6,12 @@
 このスクリプトは、最初の準備・権限・秘密情報の更新・GitHub を使えないときの手動デプロイに使う。
 
 STEP:
+  project       GCP プロジェクトを作り、請求先アカウントにつなぐ（新しい店舗のとき）
+  budget        このプロジェクトだけを見る予算（月 100 円。1・50・100 円でメール）を作る
   apis          使う API を有効にする
   registry      Artifact Registry（コンテナ置き場。最新2つだけ残す）
   secrets       秘密情報を、この PC の資格情報マネージャーからサービスごとのシークレットに登録する（古い版は破棄）
+                [gcp] secret のある店舗（福岡）は1つのシークレットにまとめる（Square のトークンは残す）
   secrets-compat  移行用: secrets と同じだが、sales-config にすべての鍵を残す
   base          Firestore、サービスアカウント、Cloud Tasks のキュー
   iam           サービスアカウントの権限（必要なものだけ）。以前の広すぎる権限は外す（iam-grant と iam-revoke に分けても動かせる）
@@ -41,7 +44,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from barnull_sales.config import SECRETS_BY_SERVICE, load_settings  # noqa: E402
+from barnull_sales.config import (  # noqa: E402
+    SECRETS_BY_SERVICE,
+    SINGLE_SECRET_KEYS,
+    SQUARE_TOKEN_KEYS,
+    keyring_value,
+    load_settings,
+)
 
 
 def _config_path() -> Path:
@@ -67,6 +76,10 @@ GITHUB_REPO = INFRA.get("github_repo", "ryoinnn-bar-null-ops")         # 接続�
 TRIGGER = INFRA.get("trigger_name", "sales-deploy")
 # この店舗の設定ファイル（sales/ からの相対。Cloud Build の _SALES_TOML に渡す）
 SALES_TOML_REL = CONFIG_PATH.resolve().relative_to(ROOT.resolve()).as_posix()
+# 秘密情報を1つのシークレットにまとめる店舗（福岡）。Cloud Run には渡さず、起動後に API で読む
+SINGLE = CFG.secret_name
+BUILD_SUBS = f"_SALES_TOML={SALES_TOML_REL}" + (",_WORKER_SECRETS=--clear-secrets,_WEBHOOK_SECRETS=--clear-secrets"
+                                                if SINGLE else "")
 
 GCLOUD = os.environ.get("GCLOUD", str(Path(os.environ.get("LOCALAPPDATA", "")) / "Google" / "Cloud SDK"
                                       / "google-cloud-sdk" / "bin" / "gcloud.cmd"))
@@ -140,6 +153,24 @@ def unbind(kind: str, target: str, member: str, role: str, *extra: str) -> None:
 
 
 # ---------------------------------------------------------------- 基本
+def step_project() -> None:
+    if not exists("projects", "describe", PROJECT):
+        org = INFRA.get("organization")   # 0x0.co.jp の組織（Bar null と同じ）
+        gcloud("projects", "create", PROJECT, f"--name={PROJECT}", *([f"--organization={org}"] if org else []))
+    gcloud("billing", "projects", "link", PROJECT, f"--billing-account={BILLING_ACCOUNT}")
+
+
+def step_budget() -> None:
+    out = gcloud("billing", "budgets", "list", f"--billing-account={BILLING_ACCOUNT}", "--format=value(displayName)",
+                 capture=True)
+    if BUDGET_NAME in out.splitlines():
+        print(f"  予算「{BUDGET_NAME}」はあります")
+        return
+    gcloud("billing", "budgets", "create", f"--billing-account={BILLING_ACCOUNT}", f"--display-name={BUDGET_NAME}",
+           "--budget-amount=100JPY", "--calendar-period=month", f"--filter-projects=projects/{project_number()}",
+           "--threshold-rule=percent=0.01", "--threshold-rule=percent=0.5", "--threshold-rule=percent=1.0")
+
+
 def step_apis() -> None:
     gcloud("services", "enable", *APIS)
 
@@ -159,13 +190,9 @@ def step_registry() -> None:
 
 
 def _keyring_values(names: tuple[str, ...]) -> dict:
-    import keyring
-
     out = {}
     for n in names:
-        v = (keyring.get_password(CFG.keyring_service, n) or "").strip()
-        if not v and n == "ANTHROPIC_API_KEY":   # 売上管理用のキーが無ければ予約対応のキー（2026-10-10 本人の選択）
-            v = (keyring.get_password("bar-null-ops", n) or "").strip()
+        v = keyring_value(n, CFG.keyring_service)   # 店舗の名前で無ければ Bar null の名前のもの（Slack・Asana などは共通）
         if v:
             out[n] = v
     missing = [n for n in names if n not in out]
@@ -179,6 +206,9 @@ def step_secrets(compat: bool = False) -> None:
 
     compat: 移行中だけ、sales-config にすべての鍵を残す（新しい版をデプロイするまで、今の webhook が読むため）。
     """
+    if SINGLE:
+        _single_secret()
+        return
     groups = dict(SECRETS_BY_SERVICE)
     if compat:
         groups["sales-config"] = tuple(sorted({n for names in groups.values() for n in names}))
@@ -195,6 +225,35 @@ def step_secrets(compat: bool = False) -> None:
             gcloud("secrets", "versions", "destroy", v, f"--secret={secret}", "--quiet", "--format=none")
 
 
+def _destroy_old_versions(secret: str) -> None:
+    out = gcloud("secrets", "versions", "list", secret, "--filter=state:ENABLED", "--sort-by=~createTime",
+                 "--format=value(name)", capture=True)
+    for v in [x.rsplit("/", 1)[-1] for x in out.splitlines() if x.strip()][1:]:   # 最新以外を破棄（無料枠に収める）
+        gcloud("secrets", "versions", "destroy", v, f"--secret={secret}", "--quiet", "--format=none")
+
+
+def _single_secret() -> None:
+    """1つのシークレットにまとめる（福岡）。今の版にある Square のトークンは残し、版は1つにする。"""
+    print(f"  {SINGLE}: {', '.join(SINGLE_SECRET_KEYS)}（Square のトークンは残す）")
+    import keyring
+
+    square_app = ("SQUARE_APP_ID", "SQUARE_APP_SECRET")   # 店舗の Square アプリ（Bar null のものは使わない。無ければ後で入れる）
+    data = _keyring_values(tuple(k for k in SINGLE_SECRET_KEYS if k not in square_app))
+    data |= {k: v for k in square_app if (v := (keyring.get_password(CFG.keyring_service, k) or "").strip())}
+    if exists("secrets", "describe", SINGLE):
+        current = gcloud("secrets", "versions", "access", "latest", f"--secret={SINGLE}", capture=True, check=False)
+        try:
+            old = json.loads(current) if current else {}
+        except json.JSONDecodeError:
+            old = {}
+        data |= {k: old[k] for k in SQUARE_TOKEN_KEYS if k in old}
+    else:
+        gcloud("secrets", "create", SINGLE, "--replication-policy=automatic")
+    gcloud("secrets", "versions", "add", SINGLE, "--data-file=-", stdin=json.dumps(data))
+    if not DRY:
+        _destroy_old_versions(SINGLE)
+
+
 def step_base() -> None:
     """Firestore、サービスアカウント、Cloud Tasks のキュー（worker は1件ずつ処理するので、同時に送るのも1件）。"""
     if not exists("firestore", "databases", "describe", "--database=(default)"):
@@ -209,6 +268,9 @@ def step_base() -> None:
 
 def step_iam_grant() -> None:
     """権限は「誰が・何に・何をできるか」を最小にする。"""
+    if SINGLE:
+        _iam_single()
+        return
     # sales-webhook: LINE のイベントをキュー sales-events に積む（プロジェクト全体ではなくキューだけ）
     bind("tasks queues", QUEUE, WEBHOOK, "roles/cloudtasks.enqueuer", f"--location={REGION}")
     bind("iam service-accounts", INVOKER, WEBHOOK, "roles/iam.serviceAccountUser")   # タスクに worker 呼び出しの ID を付ける
@@ -223,8 +285,22 @@ def step_iam_grant() -> None:
         bind("secrets", "billing-guard-config", GUARD, "roles/secretmanager.secretAccessor")
 
 
+def _iam_single() -> None:
+    """福岡: webhook は普段どの秘密にも触れない（Square の許可をやり直す間だけ。square-open）。
+    worker は秘密情報を読み、Square のトークンを更新する。定期ジョブを Cloud Tasks で予約する（[schedule] mode = "tasks"）。"""
+    bind("projects", PROJECT, WORKER, "roles/datastore.user", "--condition=None")
+    for role in ("roles/secretmanager.secretAccessor", "roles/secretmanager.secretVersionManager"):
+        bind("secrets", SINGLE, WORKER, role)
+    bind("run services", "sales-worker", INVOKER, "roles/run.invoker", f"--region={REGION}")
+    if CFG.schedule_mode == "tasks":
+        bind("tasks queues", QUEUE, WORKER, "roles/cloudtasks.enqueuer", f"--location={REGION}")
+        bind("iam service-accounts", INVOKER, WORKER, "roles/iam.serviceAccountUser")
+
+
 def step_iam_revoke() -> None:
     """以前に付けた広すぎる権限を外す（新しいシークレットを使う版をデプロイした後で）。"""
+    if SINGLE:
+        return
     unbind("projects", PROJECT, WEBHOOK, "roles/cloudtasks.enqueuer", "--condition=None")
     unbind("secrets", "sales-config", WEBHOOK, "roles/secretmanager.secretAccessor")
     unbind("secrets", "sales-config", GUARD, "roles/secretmanager.secretAccessor")
@@ -237,6 +313,9 @@ def step_iam() -> None:
 
 def step_square() -> None:
     """Square の OAuth トークンの置き場所。worker は読んで更新する。webhook は普段は触れない（square-open の間だけ書ける）。"""
+    if SINGLE:   # 秘密情報と同じシークレット（_iam_single で worker に権限を付ける）
+        step_square_close()
+        return
     if not exists("secrets", "describe", "square-oauth"):
         gcloud("secrets", "create", "square-oauth", "--replication-policy=automatic")
     for role in ("roles/secretmanager.secretVersionManager", "roles/secretmanager.secretAccessor"):
@@ -246,12 +325,16 @@ def step_square() -> None:
 
 def step_square_open() -> None:
     """Square の許可をやり直す間だけ、webhook が新しいトークンを保存できるようにする（運用手順書）。"""
+    if SINGLE:   # 福岡: アプリの ID を読み、ほかの鍵を残したままトークンを入れ替えるので、読み書きの両方
+        for role in ("roles/secretmanager.secretAccessor", "roles/secretmanager.secretVersionManager"):
+            bind("secrets", SINGLE, WEBHOOK, role)
+        return
     bind("secrets", "square-oauth", WEBHOOK, "roles/secretmanager.secretVersionManager")
 
 
 def step_square_close() -> None:
     for role in ("roles/secretmanager.secretVersionManager", "roles/secretmanager.secretAccessor"):
-        unbind("secrets", "square-oauth", WEBHOOK, role)
+        unbind("secrets", SINGLE or "square-oauth", WEBHOOK, role)
 
 
 def step_deployer() -> None:
@@ -298,7 +381,8 @@ def step_trigger() -> None:
     """
     repo = f"projects/{PROJECT}/locations/{REGION}/connections/{GITHUB_CONNECTION}/repositories/{GITHUB_REPO}"
     trigger = {
-        "name": TRIGGER, "filename": "sales/cloudbuild.yaml", "substitutions": {"_SALES_TOML": SALES_TOML_REL},
+        "name": TRIGGER, "filename": "sales/cloudbuild.yaml",
+        "substitutions": dict(x.split("=", 1) for x in BUILD_SUBS.split(",")),
         "includedFiles": ["sales/**"], "ignoredFiles": ["sales/report/**", "sales/docs/**", "sales/README.md"],
         "repositoryEventConfig": {"repository": repo, "repositoryType": "GITHUB", "push": {"branch": "^main$"}},
         "serviceAccount": f"projects/{PROJECT}/serviceAccounts/{DEPLOYER}",
@@ -317,7 +401,7 @@ def step_deploy() -> None:
     """GitHub を使わずにデプロイする（sales/ を送って cloudbuild.yaml を動かす）。"""
     tag = "manual-" + time.strftime("%Y%m%d-%H%M%S")
     gcloud("builds", "submit", str(ROOT), f"--config={ROOT / 'cloudbuild.yaml'}", f"--region={REGION}",
-           f"--substitutions=_DIR=.,_TAG={tag},_SALES_TOML={SALES_TOML_REL}",
+           f"--substitutions=_DIR=.,_TAG={tag},{BUILD_SUBS}",
            f"--service-account=projects/{PROJECT}/serviceAccounts/{DEPLOYER}",
            "--default-buckets-behavior=regional-user-owned-bucket")
 
@@ -390,7 +474,7 @@ def step_guard_live() -> None:
            f"--update-env-vars=GUARD_MODE=live,SLACK_CHANNEL={CFG.slack_channel_prod}")
 
 
-STEPS = {"apis": step_apis, "registry": step_registry, "secrets": step_secrets,
+STEPS = {"project": step_project, "budget": step_budget, "apis": step_apis, "registry": step_registry, "secrets": step_secrets,
          "secrets-compat": lambda: step_secrets(compat=True), "base": step_base, "iam": step_iam,
          "iam-grant": step_iam_grant, "iam-revoke": step_iam_revoke,
          "square": step_square, "square-open": step_square_open, "square-close": step_square_close, "deployer": step_deployer, "scheduler": step_scheduler, "trigger": step_trigger,

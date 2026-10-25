@@ -109,6 +109,9 @@ class Settings:
     store_name: str = "Bar null"             # 画面や通知に出す店舗名
     line_enabled: bool = True                # LINE から伝票を受け付けるか（[line] が無ければ受け付けない）
     keyring_service: str = "barnull-sales"   # 手元で秘密情報を読む資格情報マネージャーの名前
+    # 秘密情報を1つのシークレットにまとめる店舗（福岡。[gcp] secret）。Square のトークンも同じシークレットに入れ、
+    # Cloud Run では起動時に環境変数ではなく API で読む（版を1つに保ち、Secret Manager の無料枠に収めるため）
+    secret_name: str = ""
 
     @property
     def slack_channel(self) -> str:
@@ -131,7 +134,7 @@ class Settings:
 
 
 def load_settings(path: Path | None = None) -> Settings:
-    path = path or Path(os.environ.get("SALES_TOML", ROOT / "sales.toml"))
+    path = path or config_path()
     c = tomllib.loads(path.read_text(encoding="utf-8"))
     g, b, s, a, cl = c["gcp"], c["business"], c["slack"], c["asana"], c["claude"]
     ln, st = c.get("line"), c.get("store", {})
@@ -160,7 +163,13 @@ def load_settings(path: Path | None = None) -> Settings:
         schedule_mode=c.get("schedule", {}).get("mode", "scheduler"),
         store_name=st.get("name", "Bar null"), line_enabled=ln is not None,
         keyring_service=st.get("keyring_service", KEYRING_SERVICE),
+        secret_name=g.get("secret", ""),
     )
+
+
+def config_path() -> Path:
+    """今の店舗の設定ファイル（asana_ids.json は同じフォルダに置く）。"""
+    return Path(os.environ.get("SALES_TOML", ROOT / "sales.toml"))
 
 
 @lru_cache
@@ -176,28 +185,47 @@ SECRETS_BY_SERVICE = {
     "sales-webhook-config": ("LINE_CHANNEL_SECRET", "SQUARE_APP_ID", "SQUARE_APP_SECRET"),  # sales-webhook
     "billing-guard-config": ("SLACK_BOT_TOKEN",),                                          # billing-guard
 }
+# 1つのシークレットにまとめる店舗（[gcp] secret）が入れる鍵。LINE は使わない。Square のトークンも同じシークレットに入る
+SINGLE_SECRET_KEYS = ("SLACK_BOT_TOKEN", "ASANA_PAT", "MF_API_KEY", "ANTHROPIC_API_KEY", "SQUARE_APP_ID",
+                      "SQUARE_APP_SECRET")
+SQUARE_TOKEN_KEYS = ("access_token", "refresh_token", "expires_at", "merchant_id")
 
 
 @lru_cache
 def secrets() -> dict[str, str]:
-    """Cloud Run では環境変数 SALES_CONFIG（そのサービス用のシークレットの JSON）、手元では資格情報マネージャー。"""
+    """Cloud Run では環境変数 SALES_CONFIG（そのサービス用のシークレットの JSON）か、[gcp] secret を API で読む。
+    手元では資格情報マネージャー（店舗の名前で無ければ Bar null の名前のものを使う。Slack・Asana などは共通）。"""
     raw = os.environ.get("SALES_CONFIG")
     if raw:
         return json.loads(raw)
+    s = settings()
+    if s.secret_name and os.environ.get("ROLE"):
+        from .square import SecretStore
+
+        data = SecretStore(s.project, s.secret_name).read() or {}
+        return {k: v for k, v in data.items() if k not in SQUARE_TOKEN_KEYS}
     try:
-        import keyring
+        import keyring  # noqa: F401  （無い環境では資格情報マネージャーを使わない）
     except ImportError:
         return {}
     names = {n for group in SECRETS_BY_SERVICE.values() for n in group}
-    service = settings().keyring_service
     out = {}
     for n in sorted(names):
-        v = (keyring.get_password(service, n) or "").strip()
-        if not v and n == "ANTHROPIC_API_KEY":   # 売上管理用のキーが無ければ予約対応のキー（2026-10-10 本人の選択）
-            v = (keyring.get_password("bar-null-ops", n) or "").strip()
+        v = keyring_value(n, s.keyring_service)
         if v:
             out[n] = v
     return out
+
+
+def keyring_value(name: str, service: str) -> str:
+    import keyring
+
+    v = (keyring.get_password(service, name) or "").strip()
+    if not v and service != KEYRING_SERVICE:
+        v = (keyring.get_password(KEYRING_SERVICE, name) or "").strip()
+    if not v and name == "ANTHROPIC_API_KEY":   # 売上管理用のキーが無ければ予約対応のキー（2026-10-10 本人の選択）
+        v = (keyring.get_password("bar-null-ops", name) or "").strip()
+    return v
 
 
 def secret(name: str) -> str:

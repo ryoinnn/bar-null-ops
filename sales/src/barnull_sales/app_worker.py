@@ -39,8 +39,9 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 @lru_cache
 def deps() -> Deps:
     s = settings()
-    square = SquareAPI(OAuthTokens(SecretStore(s.project, "square-oauth"), secret("SQUARE_APP_ID"),
-                                   secret("SQUARE_APP_SECRET")), s.square.location_id)
+    # Square のトークンは square-oauth（福岡は秘密情報と同じシークレット）。店舗（location）が未設定なら Square を読まない
+    square = SquareAPI(OAuthTokens(SecretStore(s.project, s.secret_name or "square-oauth"), secret("SQUARE_APP_ID"),
+                                   secret("SQUARE_APP_SECRET")), s.square.location_id) if s.square.location_id else None
     return Deps(
         settings=s,
         store=FirestoreStore(s.project),

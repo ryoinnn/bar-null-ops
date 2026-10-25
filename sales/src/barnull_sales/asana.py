@@ -171,8 +171,12 @@ class AsanaTracker:
 
 # ---------------------------------------------------------------- セットアップ
 def setup(api: AsanaAPI, *, workspace: str, team_name: str, project_name: str, env: str, ids_path: Path,
-          dry_run: bool) -> dict:
-    """プロジェクト・セクション・カスタムフィールドを冪等に作り、ID を ids_path に保存する。"""
+          dry_run: bool, pos: bool = False) -> dict:
+    """プロジェクト・セクション・カスタムフィールドを冪等に作り、ID を ids_path に保存する。
+
+    pos: POS の伝票の店舗（福岡）。POS_FIELDS も作る。カスタムフィールドはワークスペース共通なので、ids_path に
+    Bar null の custom_fields を写しておけば、同じ欄をプロジェクトに足すだけになる（作り直さない）。"""
+    spec = {**FIELDS, **POS_FIELDS} if pos else FIELDS
     ids = json.loads(ids_path.read_text(encoding="utf-8")) if ids_path.exists() else {}
 
     def act(desc: str, fn):
@@ -185,7 +189,7 @@ def setup(api: AsanaAPI, *, workspace: str, team_name: str, project_name: str, e
         raise SystemExit(f"チーム「{team_name}」が見つかりません")
 
     fields = ids.setdefault("custom_fields", {})
-    for key, (name, kind, options) in FIELDS.items():
+    for key, (name, kind, options) in spec.items():
         if key in fields:
             if kind == "enum":  # 後から足した選択肢（例: 対象外）を追加する
                 for o in options:
@@ -221,7 +225,7 @@ def setup(api: AsanaAPI, *, workspace: str, team_name: str, project_name: str, e
     if project:
         existing = api.list(f"/projects/{project}/custom_field_settings", {"opt_fields": "custom_field.gid"})
         attached = {s["custom_field"]["gid"] for s in existing}
-        for key, (name, _, _) in FIELDS.items():
+        for key, (name, _, _) in spec.items():
             gid = fields[key]["gid"] if isinstance(fields.get(key), dict) else fields.get(key)
             if gid and gid not in attached:
                 act(f"フィールドをプロジェクトに追加: {name}",

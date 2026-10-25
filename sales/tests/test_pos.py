@@ -177,6 +177,7 @@ def test_unpaid_collection_is_sent_to_pos():
     assert pos_notify.run(deps) == 1
     (visit_id, events), = deps.pos.sent
     assert visit_id == "V-20261017-001" and events[0]["type"] == "unpaid_collected" and events[0]["remaining"] == 0
+    assert deps.pos.slip_ids == [sid]
     assert deps.store.get_slip(sid).pos["outbox_pending"] is False and pos_notify.run(deps) == 0
 
 
@@ -252,3 +253,28 @@ def test_ensure_only_in_tasks_mode():
     assert schedule.ensure(deps, now, enqueue=lambda d, slot: calls.append(slot) or "created") == "created"
     assert calls == [datetime(2026, 10, 19, 1, 30, tzinfo=UTC)]
     assert schedule.ensure(deps, now, enqueue=lambda d, slot: (_ for _ in ()).throw(RuntimeError("x"))) == "failed"
+
+
+# ---------------------------------------------------------------- 福岡の準備中（Square の店舗が無い）
+def test_square_without_location_never_reads_other_stores(monkeypatch):
+    from barnull_sales import square
+
+    calls = []
+    monkeypatch.setattr(square, "request", lambda *a, **k: calls.append(k.get("params")) or _Resp())
+    api = square.SquareAPI(lambda: "t", "")
+    for fn in (lambda: api.list_payments(datetime.now(UTC), datetime.now(UTC)), lambda: api.list_payouts(datetime.now(UTC))):
+        with pytest.raises(RuntimeError):
+            fn()
+    assert calls == []
+    assert api.payment_ids("po1") == [] and calls == [{"limit": 100}]   # 振込の明細は店舗を指定しない
+
+
+def test_reconcile_skips_without_square():
+    deps = node_deps()
+    deps.payments = None
+    assert reconcile.run(deps) == {"skipped": "no_square"}
+
+
+class _Resp:
+    def json(self):
+        return {}

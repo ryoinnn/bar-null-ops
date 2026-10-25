@@ -34,7 +34,7 @@ steps:
       - --concurrency=1          # 1件ずつ処理する（伝票の同時更新を起こさない）
       - --memory=512Mi
       - --timeout=600
-      - --set-secrets=SALES_CONFIG=sales-config:latest
+      - ${_WORKER_SECRETS}
       - --set-env-vars=ROLE=worker,SALES_TOML=/app/${_SALES_TOML}
 
   - id: deploy-webhook
@@ -51,7 +51,7 @@ steps:
       - --max-instances=1
       - --memory=512Mi
       - --cpu-boost
-      - --set-secrets=SALES_CONFIG=sales-webhook-config:latest
+      - ${_WEBHOOK_SECRETS}
       - --set-env-vars=ROLE=webhook,SALES_TOML=/app/${_SALES_TOML}
 
 substitutions:
@@ -60,6 +60,9 @@ substitutions:
   _IMAGE: us-central1-docker.pkg.dev/${PROJECT_ID}/sales/sales
   _TAG: ${SHORT_SHA}             # GitHub からのビルドではコミットの短い ID
   _SALES_TOML: sales.toml        # 店舗の設定ファイル（sales/ からの相対。福岡は stores/node/sales.toml）
+  # 秘密情報の渡し方。福岡（[gcp] secret）は --clear-secrets（起動後に API で読む）
+  _WORKER_SECRETS: --set-secrets=SALES_CONFIG=sales-config:latest
+  _WEBHOOK_SECRETS: --set-secrets=SALES_CONFIG=sales-webhook-config:latest
 
 options:
   logging: CLOUD_LOGGING_ONLY

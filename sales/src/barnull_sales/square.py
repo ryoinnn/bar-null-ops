@@ -103,13 +103,18 @@ class SquareAPI:
                 break
         return out
 
+    def _location(self) -> str:
+        if not self.location_id:   # 空のまま送ると、ほかの店舗の決済・振込まで返ってくる
+            raise RuntimeError("Square の店舗（location）が sales.toml にありません")
+        return self.location_id
+
     def list_payments(self, begin: datetime, end: datetime) -> list[Payment]:
-        params = {"location_id": self.location_id, "begin_time": begin.astimezone(UTC).isoformat(),
+        params = {"location_id": self._location(), "begin_time": begin.astimezone(UTC).isoformat(),
                   "end_time": end.astimezone(UTC).isoformat(), "sort_order": "ASC", "limit": 100}
         return [parse_payment(p) for p in self._pages("/v2/payments", params, "payments")]
 
     def list_payouts(self, begin: datetime) -> list[dict]:
-        params = {"location_id": self.location_id, "begin_time": begin.astimezone(UTC).isoformat(), "limit": 100}
+        params = {"location_id": self._location(), "begin_time": begin.astimezone(UTC).isoformat(), "limit": 100}
         return self._pages("/v2/payouts", params, "payouts", max_pages=10)
 
     def list_payouts_for(self, location_id: str, begin: datetime) -> list[dict]:
@@ -201,7 +206,7 @@ class OAuthTokens:
         data = self._cache
         if not data or self._expires(data) - datetime.now(UTC) < timedelta(days=7):
             data = self.store.read()   # 他のインスタンスが先に更新していれば、それを使う
-        if not data:
+        if not data or not data.get("access_token"):
             raise RuntimeError("Square の許可がまだです（運用手順書「Square の許可をやり直す」を参照）")
         if self._expires(data) - datetime.now(UTC) < timedelta(days=7):
             new = exchange(self.app_id, self.app_secret, refresh_token=data["refresh_token"])

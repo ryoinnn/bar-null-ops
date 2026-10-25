@@ -1,0 +1,86 @@
+# 福岡 Node の売上管理の設定（秘密情報は書かない）。Bar null の sales.toml と同じ形。違うところだけ説明を付ける
+# 伝票は POS（node-fukuoka）から届く。LINE と Claude の解析は使わない（[line] を書かない）
+# node-fukuoka の docs/pos_phase3_plan.md
+
+dry_run = true                 # Phase 3 の間はテスト用のチャンネル・プロジェクトに書く
+
+[store]
+name = "Node"
+keyring_service = "node-sales" # この PC の資格情報マネージャーの名前（無い鍵は Bar null の barnull-sales のものを使う）
+
+[gcp]
+project = "node-fukuoka-sales"
+region = "us-central1"
+tasks_queue = "sales-events"   # 定期ジョブの予約（[schedule]）に使う
+tasks_max_attempts = 10
+invoker_sa = "sales-invoker@node-fukuoka-sales.iam.gserviceaccount.com"
+worker_url = "https://sales-worker-685670396881.us-central1.run.app"   # sales-worker の URL（プロジェクト番号から決まる）
+secret = "sales-config"        # 秘密情報と Square のトークンを1つのシークレットにまとめる（無料枠に収めるため）
+
+[business]
+timezone = "Asia/Tokyo"
+day_start = "09:00"            # 9:00〜翌9:00 を1営業日とする（POS と同じ）
+
+[schedule]
+mode = "tasks"                 # Cloud Scheduler を使わず、Cloud Tasks で次の回を予約する（無料）
+
+[pos]
+callback_url = "https://node-api-cg3mpvmkva-an.a.run.app/internal/pos/sales-events"   # 未収の回収を知らせる先（stg）
+callback_audience = "https://node-api-cg3mpvmkva-an.a.run.app"
+
+[slack]
+channel_prod = "C0CBS997YRZ"   # #daily_node-sales（2026-10-25 作成）
+channel_test = "C0CBH4WHH9V"   # #test_node-sales
+alert_mention = "U0A51TDCCEN"  # 桝本
+report_channel_prod = "C0CC272MGUC"  # #weekly_node-sales
+
+[asana]
+workspace = "1211486340364770" # 0x0.co.jp
+team_name = "0x0 Inc."
+project_name_prod = "Node 売上管理（伝票）"
+project_name_test = "Node 売上管理（伝票）［テスト］"
+
+[square]
+merchant_id = "MLW68WPW3T15S"  # Bar null と同じアカウント
+location_id = ""               # 「Node 福岡」の店舗（本人が作る）。空のあいだは Square を読まない
+payment_grace_min = 60
+payment_retry_days = 7
+payment_window_extra_days = 1
+orphan_grace_hours = 6
+orphan_check_since = "2099-01-01T00:00:00+09:00"   # 本番化までは「伝票の無い決済」を知らせない
+oauth_enabled = false
+shared_bank_locations = ["L7SVX8VVWDQBX"]   # 同じ三井住友の口座に振り込まれる Bar null
+receipt_before_min = 10
+receipt_after_min = 60
+
+[mf]
+office_code = "0356-4399"
+bank_subaccount = "qugY1Ry%2B5wIAdbHNByb%2BP58jzj1eIfaOxLF90FVljSQ%3D"   # Bar null と同じ三井住友
+square_patterns = ["スクエア(カ", "ｽｸｴｱ(ｶ"]
+fetch_interval_hours = 3
+staff_bank_names = []          # 福岡の現金を入金する人の名義（カナ）。決まるまで現金は自動で照合しない
+cash_by_business_day = true    # 現金は営業日ごとの合計で照合する
+
+[deposit]
+grace_bizdays = 3
+cash_window_days = 14
+
+[followup]
+unpaid_reminder_interval_days = 7
+event_retention_days = 30
+payer_match_confidence = 0.8
+
+[report]
+artifact_url = ""
+
+[claude]
+model_primary = "claude-haiku-5-5"   # 振込名義と顧客名の照合にだけ使う
+model_fallback = "claude-sonnet-5-5"
+effort = "low"
+
+[infra]
+billing_account = "019A83-7F08B4-6F9AEC"
+organization = "339769118919"  # 0x0.co.jp（Bar null と同じ）
+budget_name = "node-fukuoka-sales-guard"
+registry = "sales"
+trigger_name = "sales-deploy-node"
