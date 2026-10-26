@@ -15,7 +15,7 @@
   --label:rgba(0,0,0,.88); --label-2:rgba(60,60,67,.72); --label-3:rgba(60,60,67,.46);
   --separator:rgba(60,60,67,.14); --fill:rgba(120,120,128,.10); --fill-2:rgba(120,120,128,.16);
   --bg-base:#ECEEF3; --decor:rgba(40,50,80,.09); --card-solid:#fff;
-  --green:#248A3D; --red:#D70015;
+  --green:#248A3D; --red:#D70015; --warn:#B25000; --series-rent:#2a78d6;
   --bar:rgba(120,120,128,.24); --bar-cur:color-mix(in srgb, var(--accent) 34%, transparent);
   --bar-top:#FF6B98; --bar-bottom:#D6124F;
   --blob-a:color-mix(in srgb, var(--accent) 22%, transparent); --blob-b:rgba(150,170,255,.20); --blob-c:rgba(120,220,200,.16);
@@ -41,7 +41,7 @@
   --label:rgba(255,255,255,.93); --label-2:rgba(235,235,245,.68); --label-3:rgba(235,235,245,.40);
   --separator:rgba(255,255,255,.10); --fill:rgba(255,255,255,.06); --fill-2:rgba(255,255,255,.11);
   --bg-base:#0C0C12; --decor:rgba(200,210,255,.07); --card-solid:#1C1C22;
-  --green:#30D158; --red:#FF453A; --bar:rgba(235,235,245,.20); --bar-top:#FF86A9; --bar-bottom:#E5195A;
+  --green:#30D158; --red:#FF453A; --warn:#FF9F0A; --series-rent:#3987e5; --bar:rgba(235,235,245,.20); --bar-top:#FF86A9; --bar-bottom:#E5195A;
   --blob-a:color-mix(in srgb, var(--accent) 26%, transparent); --blob-b:rgba(110,90,255,.22); --blob-c:rgba(10,160,200,.16);
   --lg-tint:38,38,46; --lg-a:min(.92, calc(.36 * var(--glass-user))); --lg-a-text:min(.94, calc(.60 * var(--glass-user)));
   --lg-blur:blur(14px) saturate(170%) brightness(.95);
@@ -55,7 +55,7 @@
   --label:rgba(255,255,255,.93); --label-2:rgba(235,235,245,.68); --label-3:rgba(235,235,245,.40);
   --separator:rgba(255,255,255,.10); --fill:rgba(255,255,255,.06); --fill-2:rgba(255,255,255,.11);
   --bg-base:#0C0C12; --decor:rgba(200,210,255,.07); --card-solid:#1C1C22;
-  --green:#30D158; --red:#FF453A; --bar:rgba(235,235,245,.20); --bar-top:#FF86A9; --bar-bottom:#E5195A;
+  --green:#30D158; --red:#FF453A; --warn:#FF9F0A; --series-rent:#3987e5; --bar:rgba(235,235,245,.20); --bar-top:#FF86A9; --bar-bottom:#E5195A;
   --blob-a:color-mix(in srgb, var(--accent) 26%, transparent); --blob-b:rgba(110,90,255,.22); --blob-c:rgba(10,160,200,.16);
   --lg-tint:38,38,46; --lg-a:min(.92, calc(.36 * var(--glass-user))); --lg-a-text:min(.94, calc(.60 * var(--glass-user)));
   --lg-blur:blur(14px) saturate(170%) brightness(.95);
@@ -204,7 +204,8 @@ main{min-width:0;display:flex;flex-direction:column;gap:18px;padding-bottom:44px
   .aicol{position:sticky;top:calc(14px + var(--tb-h, 66px) + 18px + env(safe-area-inset-top,0px));
     max-height:calc(100vh - var(--tb-h, 66px) - 64px - env(safe-area-inset-top,0px))}
   .aicol .ai{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:rgba(120,120,128,.35) transparent}
-  .aicol .ai-grid{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .aicol .ai-nav{position:sticky;top:-22px;z-index:3;margin-inline:-22px;padding:10px 22px;
+    background:rgba(var(--lg-tint),.86);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--separator)}
 }
 .card{border-radius:var(--r-card);padding:22px;min-width:0}
 .card h2{margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em}
@@ -275,10 +276,6 @@ td a:hover{text-decoration:underline}
 /* ---------- 区切りの見出し（通常営業・レンタルスペース） ---------- */
 .sect{margin:6px 4px -6px;font-size:15px;font-weight:700;color:var(--label-2);letter-spacing:.01em;display:flex;align-items:baseline;gap:10px}
 .sect small{font-size:12px;font-weight:500;color:var(--label-3)}
-.ai-group{display:flex;flex-direction:column;gap:14px;padding-top:16px;border-top:1px solid var(--separator)}
-.ai-group:first-of-type{border-top:0;padding-top:0}
-.ai-group > h3{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--accent-text)}
-.ai-eval{margin:0;font-size:15px;line-height:1.75}
 .rtable{width:100%;min-width:480px}
 
 /* ---------- 担当者別 ---------- */
@@ -313,24 +310,92 @@ td a:hover{text-decoration:underline}
 .ai::before{content:"";position:absolute;inset:-40% -10% auto auto;width:60%;height:120%;pointer-events:none;z-index:-1;
   background:radial-gradient(closest-side, color-mix(in srgb, var(--accent) 16%, transparent), transparent)}
 .ai-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px}
-.ai-head h2{display:flex;align-items:center;gap:8px}
+.ai-head h2{display:flex;align-items:center;gap:8px;font-size:19px}
 .spark{width:22px;height:22px;color:var(--accent)}
 .ai-actions{display:flex;gap:8px;align-items:center}
-.ai-body{margin-top:10px;display:flex;flex-direction:column;gap:16px}
-.ai-headline{font-size:clamp(17px,2vw,22px);font-weight:700;letter-spacing:-.01em;line-height:1.45;text-wrap:balance}
-.ai-meta{font-size:12px;color:var(--label-2)}
-.ai-sec h3{margin:0 0 8px;font-size:13px;font-weight:700;color:var(--label-2);letter-spacing:.02em}
-.ai-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
-.ai-item{border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0;
-  background:rgba(var(--lg-tint),.40);border:1px solid var(--lg-rim);box-shadow:inset 0 1px 0 var(--lg-hi), 0 6px 16px -10px rgba(0,0,0,.25)}
-.ai-item b{font-size:15px;font-weight:650}
-.ai-item p{margin:0;font-size:14px;line-height:1.65}
-.ai-item small{font-size:12px;color:var(--label-2)}
-.ai-item .prio{align-self:flex-start;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--fill-2);color:var(--label-2)}
-.ai-item .prio.high{background:var(--accent-grad);color:#fff}
-.ai-out{border-radius:18px;padding:12px 16px;font-size:14px;line-height:1.7;background:var(--accent-soft);border:1px solid color-mix(in srgb, var(--accent) 22%, transparent)}
-.ai-out .range{display:block;margin-top:6px;font-weight:700;color:var(--accent-text)}
-.ai-caveats{margin:0;padding-left:18px;font-size:13px;color:var(--label-2)}
+.ai-body{margin-top:6px;display:flex;flex-direction:column}
+.ai-meta{font-size:12px;color:var(--label-2);padding-bottom:4px}
+.ai-meta .stale{color:var(--warn);font-weight:650}
+/* 欄へ移るボタン */
+.ai-nav{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0}
+.ai-navbtn{border:1px solid var(--lg-rim);background:rgba(var(--lg-tint),.5);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:650;cursor:pointer;
+  color:var(--label);box-shadow:inset 0 1px 0 var(--lg-hi);transition:background-color 160ms var(--ease)}
+.ai-navbtn:hover{background:var(--accent-soft);color:var(--accent-text)}
+/* 大見出し（総評・通常営業・担当者・レンタルスペース） */
+.ai-group{display:flex;flex-direction:column;gap:18px;padding:24px 0 22px;border-top:1px solid var(--separator);scroll-margin-top:64px}
+.ai-gtitle{margin:0;display:flex;align-items:center;gap:10px;font-size:21px;font-weight:750;letter-spacing:-.015em;color:var(--label)}
+.ai-gtitle::before{content:"";width:5px;height:22px;border-radius:3px;background:var(--accent-grad);flex:none}
+.ai-gtitle.rent::before{background:var(--series-rent)}
+.ai-gtitle small{font-size:12px;font-weight:600;color:var(--label-2);letter-spacing:0}
+.ai-headline{font-size:clamp(17px,1.6vw,20px);font-weight:700;letter-spacing:-.01em;line-height:1.5;text-wrap:balance;margin:-6px 0 0}
+.ai-eval{margin:0;font-size:15px;line-height:1.8}
+/* 見出し（見えている傾向・今後の見通し・進むべきアプローチ） */
+.ai-sec{display:flex;flex-direction:column;gap:10px}
+.ai-sec > h4{margin:0;display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;color:var(--label)}
+.ai-sec > h4 svg{width:18px;height:18px;color:var(--accent-text);flex:none}
+.ai-sec > h4 small{font-size:12px;font-weight:600;color:var(--label-2)}
+/* 傾向（良い・注意・中立） */
+.ai-find,.ai-acts,.ai-decide{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.ai-find li,.ai-acts li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;align-items:start;padding:12px 14px;border-radius:14px;
+  background:rgba(var(--lg-tint),.38);border:1px solid var(--lg-rim);box-shadow:inset 0 1px 0 var(--lg-hi)}
+.ai-find b,.ai-acts b{font-size:15px;font-weight:700;line-height:1.45}
+.ai-find p,.ai-acts p{margin:2px 0 0;font-size:14px;line-height:1.7}
+.tone{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:3px 8px;border-radius:7px;white-space:nowrap;margin-top:1px}
+.tone svg{width:12px;height:12px}
+.tone.good{background:color-mix(in srgb, var(--green) 15%, transparent);color:var(--green)}
+.tone.warn{background:color-mix(in srgb, var(--warn) 16%, transparent);color:var(--warn)}
+.tone.neu{background:var(--fill-2);color:var(--label-2)}
+.ev{display:inline-block;margin-top:6px;font-size:13px;line-height:1.55;padding:4px 10px;border-radius:8px;background:var(--fill);color:var(--label)}
+.ev em{font-style:normal;font-weight:700;color:var(--label-2);margin-right:6px}
+/* 打ち手 */
+.prio{display:inline-grid;place-items:center;min-width:40px;font-size:12px;font-weight:750;padding:3px 8px;border-radius:7px;background:var(--fill-2);color:var(--label-2);margin-top:1px}
+.prio.high{background:var(--accent-grad);color:#fff}
+.prio.mid{background:var(--accent-soft);color:var(--accent-text)}
+.ai-acts .area{font-size:12px;color:var(--label-2);font-weight:600}
+/* 判断のポイント */
+.ai-decide{counter-reset:d}
+.ai-decide li{counter-increment:d;display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start;font-size:15px;line-height:1.65;font-weight:600}
+.ai-decide li::before{content:counter(d);display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent-grad);color:#fff;font-size:13px;font-weight:750}
+.ai-caveats{margin:0;padding-left:18px;font-size:13px;color:var(--label-2);line-height:1.7}
+/* 図 */
+.ai-fig{margin:0;padding:14px 16px 12px;border-radius:16px;display:flex;flex-direction:column;gap:12px;
+  background:rgba(var(--lg-tint),.38);border:1px solid var(--lg-rim);box-shadow:inset 0 1px 0 var(--lg-hi)}
+.ai-fig figcaption{font-size:13px;font-weight:700;color:var(--label-2)}
+.ai-figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;color:var(--label-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
+.s1{background:var(--accent)} .s2{background:var(--series-rent)} .s0{background:var(--bar)}
+.stack{display:flex;gap:2px;height:16px}
+.stack i{display:block;min-width:3px} .stack i:first-child{border-radius:5px 0 0 5px} .stack i:last-child{border-radius:0 5px 5px 0} .stack i:only-child{border-radius:5px}
+.cols{display:flex;align-items:stretch;gap:6px;height:150px}
+.col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.colbars{flex:1;width:min(30px,72%);display:flex;flex-direction:column-reverse;gap:2px}
+.colbars i{display:block;width:100%;flex:none} .colbars i:last-of-type{border-radius:4px 4px 0 0}
+.colbars .cv{font-size:11px;font-weight:700;color:var(--label);text-align:center;white-space:nowrap;margin-bottom:2px}
+.col .cl{font-size:11px;color:var(--label-2);white-space:nowrap}
+.col.on .cl{color:var(--label);font-weight:700}
+.col:not(.on) .colbars i{opacity:.55}
+.hrows{display:flex;flex-direction:column;gap:12px}
+.hrow{display:grid;grid-template-columns:minmax(64px,auto) minmax(0,1fr) auto;gap:4px 12px;align-items:center;font-size:13px}
+.hrow .hl{color:var(--label);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9em}
+.htrack{display:flex;flex-direction:column;gap:3px}
+.htrack i{display:block;height:11px;border-radius:0 4px 4px 0;min-width:2px}
+.htrack i.prev{height:6px;background:var(--bar)}
+.hv{text-align:right;white-space:nowrap;font-weight:700} .hv small{display:block;font-weight:500;color:var(--label-2);font-size:12px}
+/* 見通しの幅 */
+.ai-out{display:flex;flex-direction:column;gap:12px}
+.ai-out p{margin:0;font-size:15px;line-height:1.8}
+.rng{position:relative;height:36px;margin:8px 4px 0}
+.rng .tr{position:absolute;left:0;right:0;top:17px;height:2px;background:var(--separator)}
+.rng .band{position:absolute;top:9px;height:18px;border-radius:5px;background:color-mix(in srgb, var(--accent) 26%, transparent);border:1.5px solid var(--accent)}
+.rng.rent .band{background:color-mix(in srgb, var(--series-rent) 24%, transparent);border-color:var(--series-rent)}
+.rng .mk{position:absolute;top:2px;width:3px;height:32px;margin-left:-1.5px;border-radius:2px;background:var(--label)}
+.rng-l{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;color:var(--label-2)}
+.rng-l b{color:var(--label)}
+.rng-l .sw.mk{width:3px;height:14px;border-radius:2px;background:var(--label)}
+.rng-l .sw.band{background:color-mix(in srgb, var(--accent) 26%, transparent);border:1.5px solid var(--accent)}
+.rng-l .sw.band.rent{background:color-mix(in srgb, var(--series-rent) 24%, transparent);border-color:var(--series-rent)}
 .thinking{display:flex;align-items:center;gap:10px;color:var(--label-2);font-size:14px}
 .dots{display:inline-flex;gap:5px}
 .dots i{width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.3;animation:pulse 1.2s infinite var(--ease)}
@@ -1139,14 +1204,17 @@ function insightPrompt(p, staff) {
 
 出力は次の形の JSON オブジェクトだけ（ほかの文章は書かない）:
 {"overall": {"headline": "総評を1文で（60字以内）", "evaluation": "合わせた評価（350字以内）",
+             "decisions": ["いま判断・確認すべきこと（60字以内）"],
              "actions": [打ち手と同じ形], "caveats": ["注意点（60字以内）"]},
  "bar": 欄, "staff": 欄（outlook は null でよい）, "rental": 欄}
 欄 = {"headline": "1文で（60字以内）",
- "findings": [{"title": "傾向の見出し（20字以内）", "detail": "説明（120字以内）", "evidence": "根拠の数字（60字以内）"}],
+ "findings": [{"title": "傾向の見出し（20字以内）", "detail": "説明（120字以内）", "evidence": "根拠の数字（60字以内）", "tone": "良い" または "注意" または "中立"}],
  "outlook": {"summary": "今後の見通し（150字以内）", "next": {"label": "次の期間の名前（例: 来月）", "low": 数値, "high": 数値} または null},
  "actions": [{"title": "打ち手（20字以内）", "detail": "具体的な進め方（120字以内）", "priority": "高" または "中" または "低"}],
  "caveats": ["注意点（60字以内）"]}
-各欄の findings は3〜5件、actions は2〜4件、overall の actions は2〜4件、caveats は0〜3件。next はデータから幅を持って見積もれるときだけ（無理なら null）。
+各欄の findings は3〜5件、actions は2〜4件、overall の decisions は1〜3件、actions は2〜4件、caveats は0〜3件。
+tone は、店にとって良い動きなら「良い」、手を打つべき動きなら「注意」、どちらでもなければ「中立」。
+findings は重要な順に並べ、evidence には比べた数字を両方書く（例: 「今週 ¥120,000／先週 ¥90,000」）。next はデータから幅を持って見積もれるときだけ（無理なら null）。
 データが無い・少ない欄も省かず、その旨を headline と caveats に書く。
 
 データ:
@@ -1210,63 +1278,233 @@ function renderAI() {
   }
   renderInsight(body, doc, p);
 }
+/* 示唆の表示。文章は Claude、図はページが今のデータから描く（作成後にデータが変わると、図は新しい数字になる） */
+const ICON = {
+  find: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>',
+  out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18l5-6 4 3 7-9"/><path d="M15 6h5v5"/></svg>',
+  act: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>',
+  dec: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg>',
+  fig: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+};
+const TONE = {
+  "良い": { cls: "good", label: "良い", svg: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2l4 6H2z" fill="currentColor"/></svg>' },
+  "注意": { cls: "warn", label: "注意", svg: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5v6M6 9.5v1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' },
+  "中立": { cls: "neu", label: "参考", svg: '<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="2.2" fill="currentColor"/></svg>' },
+};
+const PRIO = { "高": "high", "中": "mid", "低": "low" };
+
 function renderInsight(body, doc, p) {
   const names = doc.staff_map || {};   // 「担当A」などを名前に戻す
   const res = doc.result || {}, txt = (v, n) => String(v ?? "").replace(/担当[A-Z]/g, (k) => names[k] || k).slice(0, n);
   const legacy = !res.overall && !res.bar;   // 以前の示唆（通常営業だけ）
-  const meta = el("div", "ai-meta");
   const now = basisOf(p), b = doc.basis || {};
   const stale = state.rows && (b.sales !== now.sales || b.count !== now.count || b.last !== now.last ||
     (b.rental != null && state.rental && (b.rental !== now.rental || b.rental_count !== now.rental_count)));
-  meta.textContent = `${new Date(doc.generated_at).toLocaleString("ja-JP", { hour12: false, dateStyle: "medium", timeStyle: "short" })} に作成` +
-    (stale ? "　・作成後にデータが更新されています" : "");
+  const meta = el("div", "ai-meta");
+  meta.append(`${new Date(doc.generated_at).toLocaleString("ja-JP", { hour12: false, dateStyle: "medium", timeStyle: "short" })} に作成。図は今のデータで描いています`);
+  if (stale) { const s = el("span", "stale"); s.textContent = "　・作成後にデータが更新されています"; meta.append(s); }
   body.append(meta);
-  const items = (list, make) => { const g = el("div", "ai-grid"); (Array.isArray(list) ? list : []).slice(0, 6).forEach((x) => g.append(make(x || {}))); return g; };
-  const action = (a) => {
-    const c = el("div", "ai-item"), pr = el("span", "prio" + (a.priority === "高" ? " high" : "")), b1 = el("b"), d = el("p");
-    pr.textContent = `優先度 ${["高", "中", "低"].includes(a.priority) ? a.priority : "中"}`; b1.textContent = txt(a.title, 60); d.textContent = txt(a.detail, 400);
-    c.append(pr, b1, d); return c;
+
+  const H = { txt, p };
+  const groups = [];
+  const group = (id, title, sub, cls) => {
+    const g = el("section", "ai-group"); g.id = `ai-${id}`;
+    const h = el("h3", "ai-gtitle" + (cls ? " " + cls : "")); h.append(title);
+    if (sub) { const s = el("small"); s.textContent = sub; h.append(s); }
+    g.append(h); groups.push([title, g]); return g;
   };
-  const caveats = (list, into) => {
-    if (!Array.isArray(list) || !list.length) return;
-    const ul = el("ul", "ai-caveats"); list.slice(0, 4).forEach((c) => { const li = el("li"); li.textContent = txt(c, 200); ul.append(li); });
-    sec(into, "注意", ul);
-  };
-  const sec = (into, title, node) => { const s = el("div", "ai-sec"), t = el("h3"); t.textContent = title; s.append(t, node); into.append(s); };
-  const group = (title) => { const g = el("div", "ai-group"), h = el("h3"); h.textContent = title; g.append(h); body.append(g); return g; };
-  if (res.overall) {
-    const g = group("総評"), o = res.overall;
-    const h = el("div", "ai-headline"); h.textContent = txt(o.headline, 200); g.append(h);
-    if (o.evaluation) { const e = el("p", "ai-eval"); e.textContent = txt(o.evaluation, 800); g.append(e); }
-    sec(g, "優先する打ち手", items(o.actions, action));
-    caveats(o.caveats, g);
+  if (res.overall) renderOverall(group("overall", "総評", "通常営業＋レンタルスペース"), res.overall, H);
+  if (legacy) renderPart(group("bar", "通常営業", "以前の示唆（レンタルスペースを含みません）"), "bar", res, H);
+  else {
+    if (res.bar) renderPart(group("bar", "通常営業"), "bar", res.bar, H);
+    if (res.staff) renderPart(group("staff", "担当者", "管理者を除く"), "staff", res.staff, H);
+    if (res.rental) renderPart(group("rental", "レンタルスペース", "", "rent"), "rental", res.rental, H);
   }
-  const part = (title, r) => {
-    const g = group(title);
-    const h = el("div", "ai-headline"); h.textContent = txt(r.headline, 200); g.append(h);
-    renderPart(g, r, { items, action, caveats, sec, txt });
-  };
-  if (legacy) { part("通常営業（以前の示唆。レンタルスペースを含みません）", res); return; }
-  if (res.bar) part("通常営業", res.bar);
-  if (res.staff) part("担当者", res.staff);
-  if (res.rental) part("レンタルスペース", res.rental);
+  if (groups.length > 1) {
+    const nav = el("nav", "ai-nav"); nav.setAttribute("aria-label", "示唆の欄へ移る");
+    groups.forEach(([title, g]) => {
+      const bt = el("button", "ai-navbtn"); bt.type = "button"; bt.textContent = title;
+      bt.addEventListener("click", () => g.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
+      nav.append(bt);
+    });
+    body.append(nav);
+  }
+  groups.forEach(([, g]) => body.append(g));
 }
-function renderPart(g, r, { items, action, caveats, sec, txt }) {
-  sec(g, "見えている傾向", items(r.findings, (f) => {
-    const c = el("div", "ai-item"), b1 = el("b"), d = el("p"), s = el("small");
-    b1.textContent = txt(f.title, 60); d.textContent = txt(f.detail, 400); s.textContent = f.evidence ? "根拠：" + txt(f.evidence, 200) : "";
-    c.append(b1, d, s); return c;
-  }));
-  if (r.outlook && r.outlook.summary) {
-    const o = el("div", "ai-out"); o.append(txt(r.outlook.summary, 600));
-    const nx = r.outlook.next;
-    if (nx && Number.isFinite(Number(nx.low)) && Number.isFinite(Number(nx.high))) {
-      const rg = el("span", "range num"); rg.textContent = `${txt(nx.label || "次の期間", 30)}の見込み：${yen(Number(nx.low))} 〜 ${yen(Number(nx.high))}`; o.append(rg);
-    }
-    sec(g, "今後の見通し", o);
+
+/* ---------- 部品 ---------- */
+function aiSec(into, icon, title, node, sub) {
+  const s = el("div", "ai-sec"), h = el("h4");
+  h.innerHTML = ICON[icon]; h.append(title);
+  if (sub) { const sm = el("small"); sm.textContent = sub; h.append(sm); }
+  s.append(h, node); into.append(s); return s;
+}
+function headline(into, H, v) { if (!v) return; const h = el("p", "ai-headline"); h.textContent = H.txt(v, 200); into.append(h); }
+function findingsList(list, H) {
+  const ul = el("ul", "ai-find");
+  (Array.isArray(list) ? list : []).slice(0, 6).forEach((f) => {
+    f = f || {}; const t = TONE[f.tone] || TONE["中立"];
+    const li = el("li"), tg = el("span", `tone ${t.cls}`), c = el("div"), b = el("b"), d = el("p");
+    tg.innerHTML = t.svg; tg.append(t.label);
+    b.textContent = H.txt(f.title, 60); d.textContent = H.txt(f.detail, 400); c.append(b, d);
+    if (f.evidence) { const e = el("span", "ev"), em = el("em"); em.textContent = "根拠"; e.append(em, H.txt(f.evidence, 200)); c.append(e); }
+    li.append(tg, c); ul.append(li);
+  });
+  return ul;
+}
+function actionsList(list, H, area) {
+  const order = { "高": 0, "中": 1, "低": 2 };
+  const ol = el("ol", "ai-acts");
+  (Array.isArray(list) ? list : []).slice(0, 6).map((a, i) => [a || {}, i])
+    .sort((x, y) => (order[x[0].priority] ?? 1) - (order[y[0].priority] ?? 1) || x[1] - y[1])
+    .forEach(([a]) => {
+      const pr = ["高", "中", "低"].includes(a.priority) ? a.priority : "中";
+      const li = el("li"), tg = el("span", `prio ${PRIO[pr]}`), c = el("div"), b = el("b"), d = el("p");
+      tg.textContent = `優先 ${pr}`; b.textContent = H.txt(a.title, 60); d.textContent = H.txt(a.detail, 400);
+      c.append(b, d); li.append(tg, c); ol.append(li);
+    });
+  return ol;
+}
+function caveatsOf(into, list, H) {
+  if (!Array.isArray(list) || !list.length) return;
+  const ul = el("ul", "ai-caveats"); list.slice(0, 4).forEach((c) => { const li = el("li"); li.textContent = H.txt(c, 200); ul.append(li); });
+  aiSec(into, "warn", "注意点", ul);
+}
+function fig(caption, ...nodes) { const f = el("figure", "ai-fig"), c = el("figcaption"); c.textContent = caption; f.append(c, ...nodes); return f; }
+function legend(items) {   // [[cls, text]]
+  const l = el("div", "legend");
+  items.forEach(([cls, t]) => { const s = el("span"), sw = el("i", `sw ${cls}`); s.append(sw, t); l.append(s); });
+  return l;
+}
+/* 横棒: rows = [{label, value, prev, text, sub}] （prev があれば前の期間を細い灰色の棒で重ねる） */
+function hbars(rows, cls, perRow) {   // perRow: 単位の違う指標を並べるとき、行ごとに棒の長さをそろえる
+  const box = el("div", "hrows"), all = Math.max(1, ...rows.map((r) => Math.max(r.value || 0, r.prev || 0)));
+  rows.forEach((r) => {
+    const max = perRow ? Math.max(1, r.value || 0, r.prev || 0) : all;
+    const row = el("div", "hrow"), l = el("span", "hl"), tr = el("div", "htrack"), v = el("span", "hv");
+    l.textContent = r.label; l.title = r.label;
+    const a = el("i", cls); a.style.width = `${(r.value || 0) / max * 100}%`; tr.append(a);
+    if (r.prev != null) { const q = el("i", "prev"); q.style.width = `${r.prev / max * 100}%`; tr.append(q); }
+    v.append(r.text); if (r.sub) { const sm = el("small"); sm.append(...[].concat(r.sub)); v.append(sm); }
+    tr.title = r.title || ""; row.append(l, tr, v); box.append(row);
+  });
+  return box;
+}
+/* 積み上げの縦棒: items = [{label, a, b, on, title}]（a=通常営業、b=レンタル） */
+function stackCols(items) {
+  const box = el("div", "cols"), max = Math.max(1, ...items.map((x) => x.a + (x.b || 0)));
+  items.forEach((x) => {
+    const c = el("div", "col" + (x.on ? " on" : "")), bars = el("div", "colbars"), l = el("span", "cl");
+    c.title = x.title;
+    if (x.a) { const i = el("i", "s1"); i.style.height = `${x.a / max * 82}%`; bars.append(i); }
+    if (x.b) { const i = el("i", "s2"); i.style.height = `${x.b / max * 82}%`; bars.append(i); }
+    if (x.on) { const v = el("span", "cv"); v.textContent = short(x.a + (x.b || 0)); bars.append(v); }
+    l.textContent = x.label; c.append(bars, l); box.append(c);
+  });
+  return box;
+}
+/* 見通しの幅と、この期間の実績 */
+function rangeChart(base, nx, H, rent) {
+  const low = Number(nx.low), high = Number(nx.high);
+  const max = Math.max(1, high, low, base.value) * 1.08, x = (v) => `${Math.max(0, Math.min(100, v / max * 100))}%`;
+  const box = el("div"), r = el("div", "rng" + (rent ? " rent" : ""));
+  const tr = el("i", "tr"), band = el("i", "band"), mk = el("i", "mk");
+  band.style.left = x(Math.min(low, high)); band.style.width = `calc(${x(Math.abs(high - low))} + 2px)`;
+  mk.style.left = x(base.value); r.title = `${base.label} ${yen(base.value)}`;
+  r.append(tr, band, mk);
+  const l = el("div", "rng-l"), a = el("span"), b = el("span");
+  const swb = el("i", "sw band" + (rent ? " rent" : "")), swm = el("i", "sw mk"), bb = el("b"), mb = el("b");
+  bb.textContent = `${yen(low)} 〜 ${yen(high)}`; mb.textContent = yen(base.value);
+  a.append(swb, `${H.txt(nx.label || "次の期間", 30)}の見込み `, bb);
+  b.append(swm, `${base.label} `, mb);
+  l.append(a, b); box.append(r, l); return box;
+}
+
+/* ---------- 図（ページが今のデータから描く） ---------- */
+function figOverall(p) {
+  if (!state.rows) return null;
+  const today = todayBiz(), end = min(p.end, today), bar = periodStats(p, today).sales, rent = state.rental ? rentalIn(p.start, end).gross : null;
+  const out = el("div", "ai-figs");
+  const total = bar + (rent || 0), pc = (v) => total ? Math.round(v / total * 100) : 0;
+  const st = el("div", "stack");
+  if (bar) { const i = el("i", "s1"); i.style.flex = String(bar); i.title = `通常営業 ${yen(bar)}`; st.append(i); }
+  if (rent) { const i = el("i", "s2"); i.style.flex = String(rent); i.title = `レンタルスペース ${yen(rent)}`; st.append(i); }
+  if (!total) st.append(el("i", "s0"));
+  out.append(fig(`この期間の売上 ${yen(total)} の内訳`, st,
+    legend([["s1", `通常営業 ${yen(bar)}（${pc(bar)}%）`], ["s2", rent == null ? "レンタル 読み込み中" : `レンタル ${yen(rent)}（${pc(rent)}%）`]])));
+  const ks = staffBuckets(p, today);
+  const items = ks.map((k) => { const be = min(k.b, today), a = sum(k.a, be).sales, b2 = state.rental ? rentalIn(k.a, be).gross : 0;
+    return { label: k.label.replace("〜", ""), a, b: b2, on: k.on, title: `${k.label} 通常営業 ${yen(a)}・レンタル ${yen(b2)}` }; });
+  out.append(fig(p.kind === "week" ? "週ごとの売上（直近8週）" : p.kind === "month" ? "月ごとの売上（直近6か月）" : "年ごとの売上",
+    stackCols(items), legend([["s1", "通常営業"], ["s2", "レンタル（ゲスト支払）"]])));
+  return out;
+}
+function figBar(p) {
+  if (!state.rows) return null;
+  const C = compare(p, todayBiz()), c = C.cur, q = C.prev, pn = noun[p.kind];
+  const d = (a, b) => { const v = pct(a, b); if (v == null) return "—"; const s = el("span", v >= 0 ? "up" : "down"); s.textContent = `${v >= 0 ? "+" : ""}${v.toFixed(0)}%`; return s; };
+  const rows = [
+    C.perDayBasis ? { label: "1日あたり", value: c.perDay || 0, prev: q.perDay || 0, text: yen(c.perDay), sub: [`${pn} ${yen(q.perDay)} `, d(c.perDay, q.perDay)] }
+                  : { label: "売上", value: c.sales, prev: q.sales, text: yen(c.sales), sub: [`${pn} ${yen(q.sales)} `, d(c.sales, q.sales)] },
+    { label: "予約数", value: c.count, prev: q.count, text: `${c.count}組`, sub: [`${pn} ${q.count}組 `, d(c.count, q.count)] },
+    { label: "客単価", value: c.unit || 0, prev: q.unit || 0, text: yen(c.unit), sub: [`${pn} ${yen(q.unit)} `, d(c.unit, q.unit)] },
+  ];
+  return fig(`${pn}との比較（それぞれの指標で棒の長さをそろえています）`, hbars(rows, "s1", true), legend([["s1", "この期間"], ["s0", pn]]));
+}
+function figStaff(p) {
+  if (!state.rows) return null;
+  const C = compare(p, todayBiz()), s = staffOf(C.cur.rows), q = staffOf(C.prev.rows), pn = noun[p.kind];
+  const list = Object.entries(s.by).sort((a, b) => b[1].sales - a[1].sales).slice(0, 8);
+  if (!list.length) return fig("担当者別の売上", Object.assign(el("p", "empty"), { textContent: "この期間に担当者の伝票はありません。" }));
+  const rows = list.map(([n, v]) => ({ label: n, value: v.sales, prev: q.by[n]?.sales || 0, text: yen(v.sales),
+    sub: `${v.count}組・客単価 ${yen(v.unit)}・${v.days}日` }));
+  return fig("担当者別の売上（細い棒は" + pn + "）", hbars(rows, "s1"), legend([["s1", "この期間"], ["s0", pn]]));
+}
+function figRental(p) {
+  if (!state.rental) return null;
+  const today = todayBiz(), end = min(p.end, today), cur = rentalIn(p.start, end), fut = rentalUpcoming(today);
+  const rows = Object.entries(cur.byPlatform).sort((a, b) => b[1].gross - a[1].gross)
+    .map(([k, v]) => ({ label: k, value: v.gross, text: yen(v.gross), sub: `${v.count}件・振込 ${yen(v.net)}` }));
+  const box = el("div", "ai-figs");
+  box.append(rows.length ? fig("プラットフォーム別（ゲスト支払）", hbars(rows, "s2"))
+                         : fig("プラットフォーム別", Object.assign(el("p", "empty"), { textContent: "この期間の利用はありません。" })));
+  const fr = Object.entries(fut.byPlatform).map(([k, v]) => ({ label: k, value: v.gross, text: yen(v.gross), sub: `${v.count}件` }));
+  if (fr.length) box.append(fig(`これからの予約 ${fut.count}件・${yen(fut.gross)}`, hbars(fr, "s2")));
+  return box;
+}
+
+/* ---------- 欄 ---------- */
+function renderOverall(g, o, H) {
+  headline(g, H, o.headline);
+  const f = figOverall(H.p); if (f) g.append(f);
+  if (o.evaluation) { const e = el("p", "ai-eval"); e.textContent = H.txt(o.evaluation, 800); g.append(e); }
+  if (Array.isArray(o.decisions) && o.decisions.length) {
+    const ol = el("ol", "ai-decide"); o.decisions.slice(0, 4).forEach((d) => { const li = el("li"); li.textContent = H.txt(d, 200); ol.append(li); });
+    aiSec(g, "dec", "判断のポイント", ol);
   }
-  sec(g, "進むべきアプローチ", items(r.actions, action));
-  caveats(r.caveats, g);
+  aiSec(g, "act", "優先する打ち手", actionsList(o.actions, H), "優先度の高い順");
+  caveatsOf(g, o.caveats, H);
+}
+function renderPart(g, id, r, H) {
+  r = r || {};
+  headline(g, H, r.headline);
+  const f = id === "staff" ? figStaff(H.p) : id === "rental" ? figRental(H.p) : figBar(H.p);
+  if (f) g.append(f);
+  const tones = (Array.isArray(r.findings) ? r.findings : []).reduce((m, x) => { const t = (TONE[x?.tone] || TONE["中立"]).label; m[t] = (m[t] || 0) + 1; return m; }, {});
+  aiSec(g, "find", "見えている傾向", findingsList(r.findings, H), ["良い", "注意"].filter((k) => tones[k]).map((k) => `${k} ${tones[k]}件`).join("・"));
+  if (r.outlook && r.outlook.summary) {
+    const o = el("div", "ai-out"), t = el("p"); t.textContent = H.txt(r.outlook.summary, 600); o.append(t);
+    const nx = r.outlook.next;
+    if (nx && Number.isFinite(Number(nx.low)) && Number.isFinite(Number(nx.high)) && state.rows && id !== "staff") {
+      const today = todayBiz(), end = min(H.p.end, today), live = inProgress(H.p, today);
+      const value = id === "rental" ? (state.rental ? rentalIn(H.p.start, end).gross : null) : periodStats(H.p, today).sales;
+      if (value != null) o.append(rangeChart({ label: `${label(H.p)}の実績${live ? "（途中）" : ""}`, value }, nx, H, id === "rental"));
+    }
+    aiSec(g, "out", "今後の見通し", o);
+  }
+  aiSec(g, "act", "進むべきアプローチ", actionsList(r.actions, H), "優先度の高い順");
+  caveatsOf(g, r.caveats, H);
 }
 
 /* ======================= レンズ効果（Liquid Glass の屈折） =======================
