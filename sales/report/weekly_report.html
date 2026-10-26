@@ -192,7 +192,20 @@ main{min-width:0;display:flex;flex-direction:column;gap:18px;padding-bottom:44px
   background:rgba(var(--lg-tint),.45);border:1px solid var(--lg-rim);box-shadow:inset 0 1px 0 var(--lg-hi);color:var(--label-2)}
 .chip.live{color:var(--accent-text)}
 .chip.live::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 10px var(--accent)}
+/* 本文: 既定は1列（AI の示唆は数字のすぐ下）。広い画面では右の列に AI の示唆を固定して並べる */
 .content{display:flex;flex-direction:column;gap:18px;max-width:1100px;width:100%}
+.datacol,.detail{display:contents}
+.detail > *{order:2}
+.aicol{order:1;min-width:0;display:flex;flex-direction:column}
+@media (min-width: 1500px){
+  .content{display:grid;grid-template-columns:minmax(0,3fr) minmax(420px,2fr);align-items:start;max-width:1720px}
+  .datacol{display:flex;flex-direction:column;gap:18px;min-width:0}
+  .detail{display:flex;flex-direction:column;gap:18px}
+  .aicol{position:sticky;top:calc(14px + var(--tb-h, 66px) + 18px + env(safe-area-inset-top,0px));
+    max-height:calc(100vh - var(--tb-h, 66px) - 64px - env(safe-area-inset-top,0px))}
+  .aicol .ai{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:rgba(120,120,128,.35) transparent}
+  .aicol .ai-grid{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+}
 .card{border-radius:var(--r-card);padding:22px;min-width:0}
 .card h2{margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em}
 .card .cap{margin:2px 0 14px;font-size:13px;color:var(--label-2)}
@@ -267,6 +280,33 @@ td a:hover{text-decoration:underline}
 .ai-group > h3{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--accent-text)}
 .ai-eval{margin:0;font-size:15px;line-height:1.75}
 .rtable{width:100%;min-width:480px}
+
+/* ---------- 担当者別 ---------- */
+.staff{display:flex;flex-direction:column}
+.st-row{display:grid;grid-template-columns:minmax(110px,.9fr) minmax(0,1.5fr) minmax(0,1.2fr) minmax(90px,.7fr) 104px;align-items:center;gap:14px;
+  padding:12px 4px;border-bottom:1px solid var(--separator)}
+.st-row:last-child{border-bottom:0}
+.st-head{padding-block:0 6px;font-size:12px;font-weight:650;color:var(--label-2)}
+.st-name{display:flex;flex-direction:column;min-width:0}
+.st-name b{font-size:15px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-name span,.st-m .d,.st-u .d{font-size:12px;color:var(--label-2)}
+.st-m{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;row-gap:3px;min-width:0}
+.st-m .v,.st-u .v{font-size:15px;font-weight:650;text-align:right}
+.st-m .d{grid-column:1 / -1}
+.st-bar{height:8px;border-radius:4px;background:var(--fill-2);overflow:hidden;box-shadow:inset 0 1px 1px rgba(0,0,0,.06)}
+.st-bar i{display:block;height:100%;border-radius:4px;background:var(--accent-grad)}
+.st-bar.cnt i{background:var(--bar-cur)}
+.st-u{display:flex;flex-direction:column;align-items:flex-end;min-width:0}
+.st-spark svg{display:block;width:100%;height:30px}
+.st-spark rect{fill:var(--bar)} .st-spark rect.on{fill:var(--accent)}
+.st-mlabel{display:none;font-size:12px;color:var(--label-2)}
+@media (max-width: 760px){
+  .st-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);row-gap:10px}
+  .st-head{display:none}
+  .st-name{grid-column:1 / -1}
+  .st-mlabel{display:block;grid-column:1 / -1}
+  .st-u{align-items:flex-start}
+}
 
 /* ---------- AI の示唆 ---------- */
 .ai{overflow:hidden}
@@ -371,6 +411,7 @@ td a:hover{text-decoration:underline}
     </div>
 
     <div class="content">
+     <div class="datacol">
       <div id="notice"></div>
 
       <h2 class="sect">通常営業<small>LINE の伝票</small></h2>
@@ -389,11 +430,28 @@ td a:hover{text-decoration:underline}
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">これからの予約</span><span class="v num">—</span><span class="d">　</span></div>
       </section>
 
+      <div class="detail">
+      <section class="card lg lg--text chart"><h2 id="c1t">日ごとの売上</h2><p class="cap" id="c1c">営業日（6:00〜翌6:00）</p><div id="c1"></div></section>
+      <div class="grid2">
+        <section class="card lg lg--text chart"><h2 id="c2t">推移</h2><p class="cap" id="c2c"></p><div id="c2"></div></section>
+        <section class="card lg lg--text chart"><h2>曜日ごとの平均</h2><p class="cap" id="c3c">伝票のあった日の平均</p><div id="c3"></div></section>
+      </div>
+      <section class="card lg lg--text"><h2>担当者別の売上・予約数</h2><p class="cap" id="staffcap">LINE で伝票を送った人ごと</p><div class="staff num" id="staff"></div></section>
+      <section class="card lg lg--text"><h2>内訳</h2><p class="cap" id="factscap">この期間</p><div class="facts num" id="facts"></div></section>
+      <section class="card lg lg--text" id="slipcard"><h2>伝票</h2><p class="cap">伝票 ID から Asana のタスクを開けます</p><div class="tablewrap" id="slips"></div></section>
+      <section class="card lg lg--text chart"><h2>レンタルスペースの推移</h2><p class="cap" id="r1c">利用日の月ごと・ゲストの支払額（予約通知から）</p><div id="r1"></div></section>
+      <section class="card lg lg--text"><h2>レンタルスペースの内訳</h2><p class="cap" id="rfactscap">この期間</p><div class="facts num" id="rfacts"></div></section>
+      <section class="card lg lg--text"><h2>レンタルスペースの月次確定値</h2><p class="cap">毎月1日に、前月分をプラットフォームごとに Asana へ記録したもの</p><div class="tablewrap" id="rmonths"></div></section>
+      <p class="foot" id="fresh">定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る</p>
+      </div>
+     </div>
+
+     <div class="aicol">
       <section class="card lg lg--text ai" id="ai" aria-live="polite">
         <div class="ai-head">
           <div>
             <h2><svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9.5l-4.7 1.9L12 16l-1.8-4.6L5.5 9.5l4.7-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>AI の示唆</h2>
-            <p class="cap" id="aicap">通常営業とレンタルスペースの流れから、それぞれの傾向・見通し・打ち手と、合わせた総評を Claude がまとめます。</p>
+            <p class="cap" id="aicap">通常営業・担当者・レンタルスペースそれぞれの傾向・見通し・打ち手と、合わせた総評を Claude がまとめます。</p>
           </div>
           <div class="ai-actions">
             <button type="button" class="btn plain" id="aistop" hidden>止める</button>
@@ -402,18 +460,7 @@ td a:hover{text-decoration:underline}
         </div>
         <div class="ai-body" id="aibody"></div>
       </section>
-
-      <section class="card lg lg--text chart"><h2 id="c1t">日ごとの売上</h2><p class="cap" id="c1c">営業日（6:00〜翌6:00）</p><div id="c1"></div></section>
-      <div class="grid2">
-        <section class="card lg lg--text chart"><h2 id="c2t">推移</h2><p class="cap" id="c2c"></p><div id="c2"></div></section>
-        <section class="card lg lg--text chart"><h2>曜日ごとの平均</h2><p class="cap" id="c3c">伝票のあった日の平均</p><div id="c3"></div></section>
-      </div>
-      <section class="card lg lg--text"><h2>内訳</h2><p class="cap" id="factscap">この期間</p><div class="facts num" id="facts"></div></section>
-      <section class="card lg lg--text" id="slipcard"><h2>伝票</h2><p class="cap">伝票 ID から Asana のタスクを開けます</p><div class="tablewrap" id="slips"></div></section>
-      <section class="card lg lg--text chart"><h2>レンタルスペースの推移</h2><p class="cap" id="r1c">利用日の月ごと・ゲストの支払額（予約通知から）</p><div id="r1"></div></section>
-      <section class="card lg lg--text"><h2>レンタルスペースの内訳</h2><p class="cap" id="rfactscap">この期間</p><div class="facts num" id="rfacts"></div></section>
-      <section class="card lg lg--text"><h2>レンタルスペースの月次確定値</h2><p class="cap">毎月1日に、前月分をプラットフォームごとに Asana へ記録したもの</p><div class="tablewrap" id="rmonths"></div></section>
-      <p class="foot" id="fresh">定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る</p>
+     </div>
     </div>
   </main>
 </div>
@@ -424,6 +471,7 @@ const SERVER = "Asana", TOOL = "get_tasks";
 const SLACK = "Slack", SLACK_TOOL = "slack_read_channel", RENT_CHANNEL = "C0C7T2ZDX7D";   // #notif_space-rent_null
 const RENTAL_PREFIX = "RS-";   // Asana のレンタルスペースの月次記録（伝票 ID が RS-IB-202610 など）
 const PROJECTS = { prod: "1219600211224482", test: "1219599891506891" };
+const STAFF_ADMINS = ["桝本崚允"];   // 担当者別の比較から除く（管理者。空白を除いた LINE の表示名）
 const OPT = "name,permalink_url,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
 const WD = ["月", "火", "水", "木", "金", "土", "日"];
 const DAY_GCTIME = 24 * 3600e3;
@@ -511,7 +559,8 @@ function parseTask(t) {
   return { date, amount, status, unpaid: f["未収残高"]?.number_value || 0,
            unpaidStatus: f["未収ステータス"]?.enum_value?.name || "なし",
            fee: f["決済手数料"]?.number_value || 0, square: f["Square決済額"]?.number_value || 0,
-           customer: (f["顧客名"]?.text_value || "").trim(), slipId: f["伝票ID"]?.text_value || "", url: t.permalink_url || "" };
+           customer: (f["顧客名"]?.text_value || "").trim(), staff: (f["担当（LINE）"]?.text_value || "").trim(),
+           slipId: f["伝票ID"]?.text_value || "", url: t.permalink_url || "" };
 }
 function payloadOf(res) {
   if (res && res.payload) return res.payload;
@@ -619,6 +668,26 @@ function weekdayAvg(a, b) {     // 伝票のあった日の、曜日ごとの平
   const acc = WD.map(() => ({ s: 0, n: 0 }));
   Object.entries(byDay).forEach(([d, v]) => { const i = wdi(d); acc[i].s += v; acc[i].n++; });
   return acc.map((x) => ({ avg: x.n ? x.s / x.n : 0, n: x.n }));
+}
+/* 担当者別（LINE で伝票を送った人）。管理者と、担当の記録が無い伝票は比較から除き、件数だけ別に数える */
+const isAdmin = (name) => STAFF_ADMINS.includes(name.replace(/[\s　]/g, ""));
+function staffOf(rows) {
+  const by = {}, admin = { sales: 0, count: 0 }, unknown = { sales: 0, count: 0 };
+  rows.forEach((r) => {
+    const x = !r.staff ? unknown : isAdmin(r.staff) ? admin : (by[r.staff] = by[r.staff] || { sales: 0, count: 0, days: new Set() });
+    x.sales += r.amount; x.count++; if (x.days) x.days.add(r.date);
+  });
+  Object.values(by).forEach((x) => { x.unit = x.count ? x.sales / x.count : null; x.days = x.days.size; });
+  return { by, admin, unknown };
+}
+const staffNames = () => [...new Set((state.rows || []).map((r) => r.staff).filter((s) => s && !isAdmin(s)))];
+/* 推移の区切り: 週は直近8週、月は直近6か月、年は年ごと */
+function staffBuckets(p, today) {
+  const out = [];
+  if (p.kind === "week") { const m0 = monday(p.start); for (let i = 7; i >= 0; i--) { const ws = add(m0, -7 * i); out.push({ a: ws, b: add(ws, 6), label: `${md(ws)}〜`, on: i === 0 }); } }
+  else if (p.kind === "month") { for (let i = 5; i >= 0; i--) { const m = addMonths(p.start, -i); out.push({ a: m, b: min(monthEnd(m), today), label: `${Number(m.slice(5, 7))}月`, on: i === 0 }); } }
+  else { const fy = Number(dataStart(today).slice(0, 4)); for (let y = Math.max(fy, Number(p.year) - 4); y <= Number(p.year); y++) out.push({ a: `${y}-01-01`, b: `${y}-12-31`, label: `${y}年`, on: String(y) === p.year }); }
+  return out;
 }
 function dataStart(today) {
   let first = today;
@@ -753,6 +822,7 @@ function render() {
 
   renderCharts(p, today, cur);
   renderFacts(p, today, cur, prev);
+  renderStaff(p, today, C);
   renderSlips(cur);
   renderRental(p, today);
   renderAI();
@@ -826,6 +896,7 @@ function renderOffline(p) {
   }
   ["c1", "c2", "c3"].forEach((id) => { $(id).innerHTML = `<p class="empty">Asana につながると表示されます。</p>`; });
   $("facts").textContent = ""; $("slips").textContent = "";
+  $("staff").innerHTML = `<p class="empty">Asana につながると表示されます。</p>`;
   renderRental(p, todayBiz());
 }
 function renderCharts(p, today, cur) {
@@ -892,6 +963,49 @@ function renderFacts(p, today, cur, prev) {
   $("factscap").textContent = `${md(p.start)}〜${md(cur.end)}`;
   const box = $("facts"); box.textContent = "";
   facts.forEach(([k, v]) => { const f = el("div", "fact"), a = el("span", "k"), b = el("span", "v"); a.textContent = k; b.textContent = v; f.append(a, b); box.append(f); });
+}
+function renderStaff(p, today, C) {
+  const box = $("staff"), pn = noun[p.kind], cur = staffOf(C.cur.rows), prev = staffOf(C.prev.rows);
+  const left = [];
+  if (cur.admin.count) left.push(`管理者（桝本 崚允）の入力 ${cur.admin.count}組・${yen(cur.admin.sales)}`);
+  if (cur.unknown.count) left.push(`担当の記録が無い伝票 ${cur.unknown.count}組・${yen(cur.unknown.sales)}`);
+  $("staffcap").textContent = `${md(p.start)}〜${md(C.cur.end)}・LINE で伝票を送った人ごと` + (left.length ? `。${left.join("、")}は除く` : "");
+  box.textContent = "";
+  const names = [...new Set([...Object.keys(cur.by), ...Object.keys(prev.by)])]
+    .sort((a, b) => (cur.by[b]?.sales || 0) - (cur.by[a]?.sales || 0) || (prev.by[b]?.sales || 0) - (prev.by[a]?.sales || 0));
+  if (!names.length) { box.innerHTML = `<p class="empty">この期間と${pn}に、担当者の伝票はありません。</p>`; return; }
+  const maxS = Math.max(1, ...names.map((n) => cur.by[n]?.sales || 0)), maxC = Math.max(1, ...names.map((n) => cur.by[n]?.count || 0));
+  const total = Object.values(cur.by).reduce((x, v) => x + v.sales, 0);
+  const buckets = staffBuckets(p, today), trendName = p.kind === "week" ? "直近8週" : p.kind === "month" ? "直近6か月" : "年ごと";
+  const head = el("div", "st-row st-head");
+  ["担当", "売上", "予約数", "客単価", trendName].forEach((t, i) => { const s = el("span"); s.textContent = t; if (i === 3) s.style.textAlign = "right"; head.append(s); });
+  box.append(head);
+  const span = (cls, t) => { const s = el("span", cls); s.textContent = t; return s; };
+  names.forEach((n) => {
+    const c = cur.by[n] || { sales: 0, count: 0, unit: null, days: 0 }, q = prev.by[n] || { sales: 0, count: 0, unit: null };
+    const row = el("div", "st-row");
+    const nm = el("div", "st-name"), b = el("b"); b.textContent = n; b.title = n;
+    nm.append(b, span("", `伝票のあった日 ${c.days}日`));
+    if (total) nm.append(span("", `担当者の売上の ${Math.round(c.sales / total * 100)}%`));
+    const metric = (lab, value, ratio, cls, detail) => {
+      const m = el("div", "st-m"), bar = el("div", "st-bar" + cls), fill = el("i");
+      fill.style.width = `${Math.max(value ? 3 : 0, ratio * 100)}%`; bar.append(fill);
+      m.append(span("st-mlabel", lab), bar, span("v", value), ...(detail ? [detail] : [])); return m;
+    };
+    const sd = el("span", "d"); sd.append(`${pn} ${yen(q.sales)}　`, C.perDayBasis ? "" : deltaNode(c.sales, q.sales));
+    const sales = metric("売上", yen(c.sales), c.sales / maxS, "", sd);
+    const cnt = metric("予約数", `${c.count}組`, c.count / maxC, " cnt", span("d", `${pn} ${q.count}組`));
+    const u = el("div", "st-u"); u.append(span("st-mlabel", "客単価"), span("v", yen(c.unit)), span("d", `${pn} ${yen(q.unit)}`));
+    // 推移（売上）の小さな棒
+    const vals = buckets.map((k) => sum(k.a, k.b).rows.filter((r) => r.staff === n).reduce((x, r) => x + r.amount, 0));
+    const vmax = Math.max(1, ...vals), W = 120, H = 30, bw = W / vals.length;
+    const sp = el("div", "st-spark");
+    sp.innerHTML = `<span class="st-mlabel">${esc(trendName)}の売上</span><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(n)}の${esc(trendName)}の売上">` +
+      vals.map((v, i) => { const h = v ? Math.max(2, v / vmax * (H - 2)) : 1; return `<rect class="${buckets[i].on ? "on" : ""}" x="${i * bw + bw * .18}" y="${H - h}" width="${bw * .64}" height="${h}" rx="1.5"><title>${esc(buckets[i].label)} ${yen(v)}</title></rect>`; }).join("") + "</svg>";
+    row.append(nm, sales, cnt, u, sp);
+    box.append(row);
+  });
+  if (C.perDayBasis) { const e = el("p", "empty"); e.textContent = `この週は${pn}と日数が違うため、売上の増減の%は出していません。`; box.append(e); }
 }
 /* この期間の伝票のうち、それより前にも来店のあるお客様の組数（顧客名で判定。名前はページの外に出さない） */
 function repeatStats(rows, start) {
@@ -979,16 +1093,35 @@ function insightData(p) {
                      note: "伝票の自動記録は 2026-10-17 に始まった。それより前の期間は伝票が無い・少ないことがある" },
   };
 }
-function insightPrompt(p) {
+/* 担当者別。Claude には名前を渡さず「担当A」のような記号で渡し、表示するときに名前へ戻す（対応表は示唆と一緒に保存） */
+function staffData(p) {
+  const today = todayBiz(), end = min(p.end, today), C = compare(p, today);
+  const total = {}; (state.rows || []).forEach((r) => { if (r.staff && !isAdmin(r.staff)) total[r.staff] = (total[r.staff] || 0) + r.amount; });
+  const names = staffNames().sort((a, b) => total[b] - total[a] || a.localeCompare(b)).slice(0, 26);
+  const map = {}, lab = {};
+  names.forEach((n, i) => { const k = `担当${String.fromCharCode(65 + i)}`; map[k] = n; lab[n] = k; });
+  const pack = (s) => Object.fromEntries(Object.entries(s.by).filter(([n]) => lab[n])
+    .map(([n, v]) => [lab[n], { sales: Math.round(v.sales), count: v.count, unit: v.unit == null ? null : Math.round(v.unit), days_with_slips: v.days }]));
+  const cur = staffOf(C.cur.rows), prev = staffOf(C.prev.rows);
+  const weekly = []; for (let i = 11; i >= 0; i--) { const ws = add(monday(end), -7 * i), s = staffOf(sum(ws, min(add(ws, 6), today)).rows);
+    Object.entries(s.by).forEach(([n, v]) => { if (lab[n]) weekly.push([ws, lab[n], Math.round(v.sales), v.count, v.days]); }); }
+  return { map, data: {
+    note: "担当＝LINE で伝票を送った人（接客や会計をした人とは限らない）。管理者の入力分と、担当の記録が無い伝票は除いた。days_with_slips＝その人の伝票があった日数（出勤日の目安）",
+    this_period: pack(cur), comparison: { name: noun[p.kind], ...pack(prev) },
+    excluded_this_period: { admin: { sales: Math.round(cur.admin.sales), count: cur.admin.count }, unknown: { sales: Math.round(cur.unknown.sales), count: cur.unknown.count } },
+    weekly_last_12: { columns: ["monday", "staff", "sales", "count", "days_with_slips"], rows: weekly },
+  } };
+}
+function insightPrompt(p, staff) {
   const today = todayBiz(), end = min(p.end, today);
   const combined = []; for (let i = 11; i >= 0; i--) { const m = addMonths(end, -i), me = min(monthEnd(m), today);
     combined.push([m.slice(0, 7), sum(m, me).sales, rentalIn(m, me).gross]); }
-  const data = { bar: insightData(p), rental: rentalData(p),
+  const data = { bar: insightData(p), staff: staff.data, rental: rentalData(p),
                  combined_monthly: { columns: ["month", "bar_sales", "rental_gross"], rows: combined } };
   return `あなたは予約制のバー「Bar null」の売上を読む経営アナリストです。この店には2つの売上がある。
-- 通常営業（bar）: 夜のバー営業。1伝票＝1組の会計
+- 通常営業（bar）: 夜のバー営業。1伝票＝1組の会計。担当者（staff）は LINE で伝票を送ったスタッフ
 - レンタルスペース（rental）: 営業していない時間に、インスタベース・スペースマーケット経由で店を貸す
-次の集計データ（JSON）だけを根拠に、「${label(p)}」について、通常営業・レンタルスペースそれぞれと、合わせた総評を日本語で示してください。
+次の集計データ（JSON）だけを根拠に、「${label(p)}」について、通常営業・担当者・レンタルスペースそれぞれと、合わせた総評を日本語で示してください。
 
 ルール:
 - データに無いこと（天気、イベント、競合、季節要因など）を事実として書かない。仮説なら「〜の可能性」と明記する。
@@ -999,18 +1132,21 @@ function insightPrompt(p) {
 - in_progress が true の期間は途中までの集計。
 - レンタルスペースは、時間帯・曜日・利用時間・用途・人数・初回の割合・予約の先行日数（lead_days）・プラットフォーム別の売上と手数料・これからの予約を見て、
   どの枠（曜日・時間帯）が埋まり・空いているか、単価や手数料の違い、通常営業と時間が重ならずに稼げているか、予約の見通しを読む。
+- 担当者は「担当A」のような記号でだけ呼ぶ（名前はデータに含めていない）。伝票のあった日数（days_with_slips）が人によって違うので、
+  売上の合計だけで優劣をつけず、1日あたり・組数・客単価・推移で比べる。件数が少ないときは断定しない。
+  人を責める書き方はせず、店として取れる打ち手（シフトの組み方、客単価を上げる提案の共有、得意な曜日の活用など）にする。
 - 総評では、2つを合わせた売上の構成と推移、互いの影響（例: レンタルが通常営業の時間を圧迫していないか、空き時間の活用度）、全体として優先すべき打ち手を示す。
 
 出力は次の形の JSON オブジェクトだけ（ほかの文章は書かない）:
-{"overall": {"headline": "総評を1文で（60字以内）", "evaluation": "合わせた評価（250字以内）",
+{"overall": {"headline": "総評を1文で（60字以内）", "evaluation": "合わせた評価（350字以内）",
              "actions": [打ち手と同じ形], "caveats": ["注意点（60字以内）"]},
- "bar": 欄, "rental": 欄}
+ "bar": 欄, "staff": 欄（outlook は null でよい）, "rental": 欄}
 欄 = {"headline": "1文で（60字以内）",
  "findings": [{"title": "傾向の見出し（20字以内）", "detail": "説明（120字以内）", "evidence": "根拠の数字（60字以内）"}],
  "outlook": {"summary": "今後の見通し（150字以内）", "next": {"label": "次の期間の名前（例: 来月）", "low": 数値, "high": 数値} または null},
  "actions": [{"title": "打ち手（20字以内）", "detail": "具体的な進め方（120字以内）", "priority": "高" または "中" または "低"}],
  "caveats": ["注意点（60字以内）"]}
-各欄の findings と actions は2〜4件、overall の actions は2〜3件、caveats は0〜3件。next はデータから幅を持って見積もれるときだけ（無理なら null）。
+各欄の findings は3〜5件、actions は2〜4件、overall の actions は2〜4件、caveats は0〜3件。next はデータから幅を持って見積もれるときだけ（無理なら null）。
 データが無い・少ない欄も省かず、その旨を headline と caveats に書く。
 
 データ:
@@ -1024,10 +1160,11 @@ async function generateAI(refresh) {
   state.aiRun = run; renderAI();
   const tick = setInterval(() => { if (state.aiRun === run) renderAI(); else clearInterval(tick); }, 1000);
   try {
-    const result = await sample.json(insightPrompt(p), { signal: ctl.signal, modelTier: "default",
+    const staff = staffData(p);
+    const result = await sample.json(insightPrompt(p, staff), { signal: ctl.signal, modelTier: "default",
       cache: refresh ? { gcTime: DAY_GCTIME, refresh: true } : { gcTime: DAY_GCTIME } });
     if (!result || typeof result !== "object" || !(result.overall || result.bar)) throw { code: "invalid_json" };
-    const doc = { env: state.env, key: p.key, label: label(p), result, basis: basisOf(p), generated_at: new Date().toISOString() };
+    const doc = { env: state.env, key: p.key, label: label(p), result, staff_map: staff.map, basis: basisOf(p), generated_at: new Date().toISOString() };
     state.insights[insightKey(p)] = doc;
     if (state.db && state.canWrite) state.db.doc(`insights/${insightKey(p)}`).set(doc).catch(() => {});
     state.aiError = null;
@@ -1074,7 +1211,8 @@ function renderAI() {
   renderInsight(body, doc, p);
 }
 function renderInsight(body, doc, p) {
-  const res = doc.result || {}, txt = (v, n) => String(v ?? "").slice(0, n);
+  const names = doc.staff_map || {};   // 「担当A」などを名前に戻す
+  const res = doc.result || {}, txt = (v, n) => String(v ?? "").replace(/担当[A-Z]/g, (k) => names[k] || k).slice(0, n);
   const legacy = !res.overall && !res.bar;   // 以前の示唆（通常営業だけ）
   const meta = el("div", "ai-meta");
   const now = basisOf(p), b = doc.basis || {};
@@ -1110,6 +1248,7 @@ function renderInsight(body, doc, p) {
   };
   if (legacy) { part("通常営業（以前の示唆。レンタルスペースを含みません）", res); return; }
   if (res.bar) part("通常営業", res.bar);
+  if (res.staff) part("担当者", res.staff);
   if (res.rental) part("レンタルスペース", res.rental);
 }
 function renderPart(g, r, { items, action, caveats, sec, txt }) {
@@ -1205,6 +1344,9 @@ const Lens = {
   },
 };
 
+// 右の列（AI の示唆）をツールバーの下に固定するため、ツールバーの高さを CSS に渡す
+const syncToolbar = () => document.documentElement.style.setProperty("--tb-h", `${$("toolbar").offsetHeight}px`);
+if (window.ResizeObserver) new ResizeObserver(syncToolbar).observe($("toolbar")); else syncToolbar();
 let resizeTimer;   // 図は幅に合わせて描き直す
 window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (state.rows) render(); }, 150); });
 $("aigen").addEventListener("click", () => generateAI(!!state.insights[insightKey(state.sel)]));
