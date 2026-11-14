@@ -143,7 +143,7 @@ uv run python sales/infra/setup.py secrets deploy
 ### 通知ごとの意味と最初にやること
 | 通知 | 意味 | まずやること |
 |---|---|---|
-| 【課金停止】 | Cloud Run が「billing is disabled」と応答。LINE の受付も定期処理もすべて止まっている | `gcloud billing projects describe barnull-sales`（福岡は `node-fukuoka-sales`）。false なら「お支払い」→「マイプロジェクト」で請求先アカウントをつなぎ直す（本人）。下の「止まったときの復旧」へ |
+| 【課金停止】 | Cloud Run が「billing is disabled」と応答。LINE の受付も定期処理もすべて止まっている。**原因はプロジェクトの利用額上限（spend cap）に達したこと**が多い（2026-10-28・11-13。月初にリセットされて自然に戻る。billingEnabled は true のまま） | Google Cloud の「お支払い」で「利用額上限が適用されたため…一時停止」の表示を確かめ、上限を解除・引き上げる（本人）。表示が無ければ `gcloud billing projects describe barnull-sales`（福岡は `node-fukuoka-sales`）が false でないか見て、請求先アカウントをつなぎ直す。下の「止まったときの復旧」へ |
 | 【停止】 | サービスが応答しない（応答なし・5xx） | Cloud Run のコンソールで該当サービスのリビジョンとログを見る。直前のデプロイが原因なら前のリビジョンにトラフィックを戻す |
 | 【定期処理の停止】 | 30分ごと（75 分）・毎日（26 時間）・毎週（8 日）の処理が動いていない | Cloud Scheduler の `sales-reconcile` などが「有効」か、sales-worker のログに 429・500 が無いか。福岡は Cloud Tasks のキューが一時停止していないか（`gcloud tasks queues describe`）。POS の伝票が来れば予約し直されるが、待たずに手で `/jobs/tick` を積む |
 | 【監視の異常】 | `/healthz` から状態を読めない（Firestore を読めない・古い版） | sales-webhook に `roles/datastore.viewer` があるか（下の「最初に一度だけ」）。デプロイ直後なら次の回まで待つ |

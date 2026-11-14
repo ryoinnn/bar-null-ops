@@ -87,9 +87,11 @@ def check_target(t: dict, now: datetime, latest_commit=None) -> list[dict]:
         status, body = http_get(url)
     if status is not None and status >= 500 and BILLING_TEXT in body.lower():
         return [{"key": f"{name}:billing", "title": "課金停止",
-                 "text": f"{name}: Cloud Run が「課金が無効」と応答しています。GCP の課金が止まり、処理がすべて止まっています。\n"
-                         "確かめ方: `gcloud billing projects describe <プロジェクト>` の billingEnabled。"
-                         "再有効化した後も、Cloud Run に反映されるまで時間がかかることがあります（2026-11-15 は 30 分以上）。"}]
+                 "text": f"{name}: Cloud Run が「課金が無効」と応答しています。処理がすべて止まっています。\n"
+                         "まず Google Cloud の「お支払い」で「利用額上限が適用されたため、サービスが一時停止」の表示を確かめる"
+                         "（2026-10-28・11-13 の停止の原因。billingEnabled は true のままでも止まる）。"
+                         "上限の解除・引き上げか、請求先アカウントのつなぎ直しは本人の作業。"
+                         "戻した後も Cloud Run に反映されるまで時間がかかることがある。"}]
     if status is None or status >= 500:
         why = f"応答なし（{body}）" if status is None else f"HTTP {status}"
         return [{"key": f"{name}:down", "title": "停止", "text": f"{name}: サービスが応答しません（{why}）。"}]
