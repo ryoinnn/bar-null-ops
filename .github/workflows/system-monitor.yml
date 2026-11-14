@@ -1,0 +1,85 @@
+# null システムの外部監視（sales/docs/monitoring_requirements.md、runbook「システム監視」）。
+# GCP の外（GitHub）から 15 分ごとに各サービスを叩き、止まっていたら Slack の #null_system-monitor に知らせる。
+# 公開リポジトリなので無料。ログは誰でも見られるため、URL や応答の本文は出さない（check.py）。
+# 必要な Secrets: SLACK_BOT_TOKEN（@barnull_sales の bot トークン）、MONITOR_TARGETS（監視先。runbook 参照）
+name: system-monitor
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "test: #test_barnull-sales に出す（試験用の状態を使う） / prod: 本番の状態のまま手動で1回動かす"
+        type: choice
+        options: [test, prod]
+        default: test
+      include_targets:
+        description: "本番の監視先（MONITOR_TARGETS）も見る"
+        type: boolean
+        default: false
+      extra_targets:
+        description: '試験用に足す対象（JSON の配列。例 [{"name":"試験","url":"https://127.0.0.1:9/","kind":"plain"}]）'
+        default: "[]"
+      expect_sha:
+        description: "試験用: デプロイの確認で「動いているべきコミット」を上書きする"
+        default: ""
+      consecutive:
+        description: "何回続いたら知らせるか（空なら 2）"
+        default: ""
+      renotify_min:
+        description: "リマインドの間隔（分。空なら 480）"
+        default: ""
+      dry:
+        description: "Slack に投稿せず内容をログに出す"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: system-monitor-${{ github.event.inputs.mode || 'prod' }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      MODE: ${{ github.event.inputs.mode || 'prod' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/monitor
+          sparse-checkout-cone-mode: false
+
+      - name: 前回の状態を読む
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: monitor-state-${{ env.MODE }}-${{ github.run_id }}
+          restore-keys: monitor-state-${{ env.MODE }}-
+
+      - name: 監視
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          MONITOR_TARGETS: ${{ (github.event_name == 'schedule' || github.event.inputs.include_targets == 'true' || github.event.inputs.mode == 'prod') && secrets.MONITOR_TARGETS || '[]' }}
+          MONITOR_EXTRA_TARGETS: ${{ github.event.inputs.extra_targets || '[]' }}
+          MONITOR_EXPECT_SHA: ${{ github.event.inputs.expect_sha }}
+          MONITOR_CONSECUTIVE: ${{ github.event.inputs.consecutive }}
+          MONITOR_RENOTIFY_MIN: ${{ github.event.inputs.renotify_min }}
+          MONITOR_DRY: ${{ github.event.inputs.dry == 'true' && '1' || '' }}
+          # 本番 #null_system-monitor / 試験 #test_barnull-sales。メンションは桝本
+          SLACK_CHANNEL: ${{ env.MODE == 'test' && 'C0C8E1NLRAM' || 'C0CHSLZA8RY' }}
+          SLACK_MENTION: U0A51TDCCEN
+          GITHUB_TOKEN: ${{ github.token }}
+          STATE_FILE: state/monitor_state.json
+        run: python3 .github/monitor/check.py
+
+      - name: 状態を残す
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: monitor-state-${{ env.MODE }}-${{ github.run_id }}

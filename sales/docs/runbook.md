@@ -29,6 +29,9 @@ Slack の通知は、本番が `#daily_barnull-sales`、週報が `#weekly_barnu
 1つのステップが失敗しても次のステップは動く。伝票1件の失敗も、他の伝票の処理を止めない。
 
 ## Slack に出る障害の通知と対応
+2026-11-15 から、下の【外部API障害】【処理エラー】【復旧】は `#null_system-monitor` に出る（2 回目の失敗で親メッセージ、8 時間ごとのリマインドと復旧はスレッド）。
+投稿できないとき（bot が未招待など）は今までどおり `#daily_barnull-sales` に出る。詳しくは「システム監視」。
+
 | 通知 | 意味 | まずやること |
 |---|---|---|
 | 【外部API障害】定期処理「X」が N回続けて失敗 | 連携先（Square・マネフォ・Slack・Asana など）の呼び出しが続けて失敗 | 「直近のエラー」を読む（下の表）。一時的なもの（429・5xx・通信エラー）なら待つ |
@@ -123,6 +126,64 @@ uv run python sales/infra/setup.py secrets deploy
    リージョン `us-central1`、名前 `github` で作る。GitHub の画面で Cloud Build アプリをこのリポジトリだけに許可する。
 3. 「リポジトリをリンク」で `bar-null-ops` をリンクする。
 4. `uv run python sales/infra/setup.py trigger`
+
+## システム監視（#null_system-monitor。2026-11-15 追加）
+要件は `docs/monitoring_requirements.md`。システム系の不具合（課金停止・停止・定期処理の停止・デプロイ失敗・外部API障害・認証切れ）は
+すべて `#null_system-monitor`（C0CHSLZA8RY、公開）に出る。業務の通知（伝票・週報・勤怠）は今までどおり各チャンネル。
+
+| 見張るもの | どこで | 間隔 |
+|---|---|---|
+| 外部監視 `system-monitor` | GitHub Actions（`.github/workflows/system-monitor.yml`、`.github/monitor/check.py`） | 15 分ごと |
+| 外部API障害・処理エラー | sales-worker の health（`health.py`） | 30 分ごとのジョブの中 |
+| 外部監視が動いているか | sales-worker のステップ `monitor_watch`（公開の GitHub API を読む） | 30 分ごと |
+
+通知の形: 異常が 2 回続いたら、桝本をメンションした親メッセージ。続く間は 8 時間ごとにスレッドへ「まだ続いています」。
+直ったらスレッドに【復旧】、親の先頭に【復旧済み】。1 回だけの失敗は何も出さない。
+
+### 通知ごとの意味と最初にやること
+| 通知 | 意味 | まずやること |
+|---|---|---|
+| 【課金停止】 | Cloud Run が「billing is disabled」と応答。LINE の受付も定期処理もすべて止まっている | `gcloud billing projects describe barnull-sales`（福岡は `node-fukuoka-sales`）。false なら「お支払い」→「マイプロジェクト」で請求先アカウントをつなぎ直す（本人）。下の「止まったときの復旧」へ |
+| 【停止】 | サービスが応答しない（応答なし・5xx） | Cloud Run のコンソールで該当サービスのリビジョンとログを見る。直前のデプロイが原因なら前のリビジョンにトラフィックを戻す |
+| 【定期処理の停止】 | 30分ごと（75 分）・毎日（26 時間）・毎週（8 日）の処理が動いていない | Cloud Scheduler の `sales-reconcile` などが「有効」か、sales-worker のログに 429・500 が無いか。福岡は Cloud Tasks のキューが一時停止していないか（`gcloud tasks queues describe`）。POS の伝票が来れば予約し直されるが、待たずに手で `/jobs/tick` を積む |
+| 【監視の異常】 | `/healthz` から状態を読めない（Firestore を読めない・古い版） | sales-webhook に `roles/datastore.viewer` があるか（下の「最初に一度だけ」）。デプロイ直後なら次の回まで待つ |
+| 【デプロイ失敗】 | main に push したコミットが 40 分たっても動いていない | Cloud Build の履歴（`gcloud builds list --region us-central1`）で失敗したステップを見る。`deploy-worker` の「container failed to start」でアプリのログが 1 行も無いときは、課金の反映待ちを疑う（2026-11-15 の例） |
+| 【外部API障害】【処理エラー】 | 上の「Slack に出る障害の通知と対応」と同じ（通知先がここに変わった） | 同上 |
+| 【処理エラー】定期処理「monitor_watch」 | 外部監視（GitHub Actions）が 3 時間以上動いていない、または続けて失敗（Slack のトークン切れなど） | GitHub の Actions →「system-monitor」。無効になっていれば「Enable workflow」。失敗ならログの「Slack の … に失敗」を見てトークンを更新 |
+| GitHub からのメール「system-monitor failed」 | 外部監視が Slack に投稿できなかった | Slack のトークン（GitHub の Secrets `SLACK_BOT_TOKEN`）と、bot がチャンネルにいるかを確かめる |
+
+### 止まったときの復旧（課金停止・長い停止の後）
+1. 課金を戻す（本人）。Cloud Run が普通に応答するまで待つ（30 分以上かかることがある）。
+   `curl https://<sales-webhook の URL>/healthz` が `{"ok": true, ...}` を返せば戻っている。
+2. 失敗したデプロイがあれば、Cloud Build のトリガー `sales-deploy` を「実行」し直す（main の最新が入る）。
+3. 定期処理は次の回から動く。止まっていた間の入金・突合は、30 分ごとの処理が過去の分も読み直すので、自然に追いつく。
+4. 停止中に届いた LINE のメッセージは、LINE の再送の期限を過ぎると戻らない。停止の期間をスタッフに伝え、伝票を送り直してもらう
+   （「LINE で送ったのに起票されない」）。
+5. すべての通知に【復旧】が付いたことを確かめる。
+
+### 最初に一度だけ（本人の作業。Claude は秘密情報を入力しない）
+1. Slack の `#null_system-monitor` で `/invite @barnull_sales`。
+2. sales-webhook が Firestore を読めるようにする（`/healthz` のため。読み取りだけ）:
+   ```powershell
+   gcloud projects add-iam-policy-binding barnull-sales --member=serviceAccount:sales-webhook@barnull-sales.iam.gserviceaccount.com --role=roles/datastore.viewer --condition=None
+   gcloud projects add-iam-policy-binding node-fukuoka-sales --member=serviceAccount:sales-webhook@node-fukuoka-sales.iam.gserviceaccount.com --role=roles/datastore.viewer --condition=None
+   ```
+3. GitHub の Secrets（PowerShell。トークンは画面に出さずにそのまま渡る）:
+   ```powershell
+   (gcloud secrets versions access latest --secret=billing-guard-config --project barnull-sales | ConvertFrom-Json).SLACK_BOT_TOKEN | gh secret set SLACK_BOT_TOKEN -R ryoinnn/bar-null-ops
+   gh secret set MONITOR_TARGETS -R ryoinnn/bar-null-ops --body '[{"name":"売上（Bar null）","url":"https://sales-webhook-755193406929.us-central1.run.app/healthz","kind":"sales","deploy":true},{"name":"売上（福岡）","url":"https://sales-webhook-685670396881.us-central1.run.app/healthz","kind":"sales"},{"name":"福岡 node-api","url":"https://node-api-864625751000.asia-northeast1.run.app/api/health","kind":"plain"}]'
+   ```
+4. LINE Developers →（Bar null の売上の）チャネル →「Messaging API設定」→「Webhookの再送」と「エラーの統計情報」を有効にする。
+   同じイベントが再送されても、イベント ID から作るタスク名で 1 件にまとまる（`tasks.py`）。
+
+### 監視そのものを止める・戻す
+- 外部監視を止める: GitHub の Actions →「system-monitor」→「…」→「Disable workflow」（3 時間たつと `monitor_watch` が知らせる。長く止めるときは先に一言書いておく）。
+- 戻す: 同じ画面で「Enable workflow」。
+- 監視先を変える: Secrets の `MONITOR_TARGETS` を上書きする（形は上の 3）。
+- 手で 1 回動かす・試験する: Actions →「system-monitor」→「Run workflow」。`mode=test` は `#test_barnull-sales` に出し、本番の状態を汚さない。
+  例: 停止の試験は `extra_targets` に `[{"name":"試験","url":"https://127.0.0.1:9/","kind":"plain"}]`、課金停止の模擬は
+  `[{"name":"試験","url":"https://example.invalid/","kind":"sales","simulate":"billing"}]`、`consecutive` に 1。
+- 手元で判定だけ見る: `MONITOR_DRY=1 MONITOR_TARGETS='[...]' python .github/monitor/check.py`（テスト: `python -m pytest .github/monitor -q`）。
 
 ## 課金停止が働いたとき（Slack に「【課金停止】」）
 1. Google Cloud コンソールの「お支払い」で、何に費用が出たかを確認する。

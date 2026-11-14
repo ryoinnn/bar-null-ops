@@ -18,8 +18,8 @@ import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from . import (attendance, deposits, health, labor_hooks, logs, overrides, payroll, pos_notify, reconcile, supplies,
-               unpaid)
+from . import (attendance, deposits, health, labor_hooks, logs, monitor, overrides, payroll, pos_notify, reconcile,
+               supplies, unpaid)
 from .deps import Deps
 from .errors import ItemErrors
 from .slip_ops import publish, sync
@@ -28,7 +28,9 @@ log = logging.getLogger(__name__)
 REPUBLISH_DAYS = 3
 
 
-def run_steps(deps: Deps, steps: list[tuple[str, Callable[[Deps], object]]]) -> bool:
+def run_steps(deps: Deps, steps: list[tuple[str, Callable[[Deps], object]]], job: str | None = None) -> bool:
+    """ステップを順に動かす。job（reconcile / daily / weekly）を渡すと、最後まで動いた時刻を meta/heartbeat に残す
+    （外部監視が /healthz で「定期処理が止まっていないか」を見る。ステップが失敗しても、ジョブ自体は動いたので残す）。"""
     ok = True
     for name, fn in steps:
         with logs.context(job=name):
@@ -40,6 +42,8 @@ def run_steps(deps: Deps, steps: list[tuple[str, Callable[[Deps], object]]]) -> 
                 log.exception("失敗")
                 health.record(deps, name, e)
                 ok = False
+    if job:
+        monitor.beat(deps, job)
     return ok
 
 
@@ -92,7 +96,9 @@ RECONCILE_STEPS = [("manual_overrides", overrides.apply), ("republish", republis
                    ("payroll", _labor(payroll.step)),
                    ("payroll_adjustments", _labor(payroll.adjustments)),
                    # 備品・消耗品（マネフォのカード → Asana。docs/profit/supplies_requirements.md）
-                   ("supplies", supplies.step)]
+                   ("supplies", supplies.step),
+                   # 外部監視（GitHub Actions）が動いているか（docs/monitoring_requirements.md の相互監視）
+                   ("monitor_watch", monitor.watch)]
 
 
 def weekly_report(deps: Deps) -> dict:

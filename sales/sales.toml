@@ -28,6 +28,7 @@ reply_ack = true               # 受け付けた @Bot メッセージに、引�
 channel_prod = "C0C96EJ013J"   # #daily_barnull-sales（旧 #barnull-sales。2026-10-17 に名前変更、ID は同じ）
 channel_test = "C0C8E1NLRAM"   # #test_barnull-sales
 alert_mention = "U0A51TDCCEN"  # 桝本
+monitor_channel_prod = "C0CHSLZA8RY"  # #null_system-monitor（公開。2026-11-15 作成）。外部API障害・処理エラー。投稿できなければ channel_prod に出す
 report_channel_prod = "C0C9KTM1R0X"  # #weekly_barnull-sales（売上週報の通知先。空なら channel_prod。DRY_RUN 中はテスト用チャンネル）
 
 [asana]
@@ -70,6 +71,10 @@ payer_match_confidence = 0.8        # 振込名義と顧客名が同じ人だと
 
 [report]
 artifact_url = "https://claude.ai/artifact/8BynYgvNxC4UyCQVGRUDnC"   # 売上レポート（週次）。週報の通知に載せる
+
+[monitor]
+# 外部監視（GitHub Actions の system-monitor）が動いているかを、reconcile のステップ monitor_watch で確かめる（相互監視）
+watch_repo = "ryoinnn/bar-null-ops"
 
 [claude]
 model_primary = "claude-haiku-5-5"

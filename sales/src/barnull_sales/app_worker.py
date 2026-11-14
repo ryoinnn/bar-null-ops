@@ -101,23 +101,23 @@ def job_tick() -> Response:
     return Response(status_code=200)
 
 
-def _run(steps) -> Response:
+def _run(steps, job: str) -> Response:
     # ステップの失敗は health が数えて知らせるので、200 を返す（Scheduler にやり直させると失敗を何重にも数えてしまう）。
     # Scheduler がやり直すのは、worker が別の処理中で受け付けられなかったとき（429）など
-    jobs.run_steps(deps(), steps)
+    jobs.run_steps(deps(), steps, job=job)
     return Response(status_code=200)
 
 
 @app.post("/jobs/reconcile")
 def job_reconcile() -> Response:
-    return _run(jobs.RECONCILE_STEPS)
+    return _run(jobs.RECONCILE_STEPS, "reconcile")
 
 
 @app.post("/jobs/daily")
 def job_daily() -> Response:
-    return _run(jobs.DAILY_STEPS)
+    return _run(jobs.DAILY_STEPS, "daily")
 
 
 @app.post("/jobs/weekly")
 def job_weekly() -> Response:
-    return _run(jobs.WEEKLY_STEPS)
+    return _run(jobs.WEEKLY_STEPS, "weekly")

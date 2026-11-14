@@ -46,12 +46,12 @@ def due(deps: Deps, now: datetime) -> list[str]:
 def run_tick(deps: Deps, now: datetime | None = None) -> dict:
     """30分ごとの回。突合と入金の確認 → 必要なら毎日・毎週 → 次の回を予約。"""
     now = now or datetime.now(UTC)
-    jobs.run_steps(deps, jobs.RECONCILE_STEPS)
+    jobs.run_steps(deps, jobs.RECONCILE_STEPS, job="reconcile")
     done = []
     meta = dict(deps.store.get_doc("meta", "schedule") or {})
     local = now.astimezone(deps.settings.tz)
     for name in due(deps, now):
-        jobs.run_steps(deps, jobs.DAILY_STEPS if name == "daily" else jobs.WEEKLY_STEPS)
+        jobs.run_steps(deps, jobs.DAILY_STEPS if name == "daily" else jobs.WEEKLY_STEPS, job=name)
         meta[name] = (local.date() if name == "daily" else (local - timedelta(days=local.weekday())).date()).isoformat()
         done.append(name)
     if done:

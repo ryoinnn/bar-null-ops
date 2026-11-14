@@ -35,7 +35,7 @@ steps:
       - --memory=512Mi
       - --timeout=600
       - ${_WORKER_SECRETS}
-      - --set-env-vars=ROLE=worker,SALES_TOML=/app/${_SALES_TOML}
+      - --set-env-vars=ROLE=worker,SALES_TOML=/app/${_SALES_TOML},GIT_SHA=${_TAG}   # GIT_SHA: /healthz の version（外部監視がデプロイの反映を確かめる）
 
   - id: deploy-webhook
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -52,7 +52,7 @@ steps:
       - --memory=512Mi
       - --cpu-boost
       - ${_WEBHOOK_SECRETS}
-      - --set-env-vars=ROLE=webhook,SALES_TOML=/app/${_SALES_TOML}
+      - --set-env-vars=ROLE=webhook,SALES_TOML=/app/${_SALES_TOML},GIT_SHA=${_TAG}
 
 substitutions:
   _DIR: sales                    # リポジトリの中の sales/（手で sales/ だけを送るときは "."）
