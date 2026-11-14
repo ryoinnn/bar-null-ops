@@ -15,6 +15,9 @@ html,body{overflow-x:clip}   /* 1px の端数で横スクロールが出ない�
 .subtabs a{padding:6px 12px;border-radius:var(--r-control);font-size:13.5px;font-weight:600;color:var(--label-2);text-decoration:none}
 .subtabs a:hover{background:var(--fill)}
 .subtabs a[aria-current="page"]{background:var(--accent-fill);color:var(--on-accent)}
+.subtabs .crumb{align-self:center;color:var(--label-3);padding:0 2px}
+.subtabs a.child{font-weight:550}
+.subtabs a.child[aria-current="page"]{background:var(--accent-soft);color:var(--accent-text)}
 .tenant{margin-left:auto;position:relative}
 .tenant-btn{display:inline-flex;align-items:center;gap:8px;padding:7px 12px 7px 14px;border:1px solid var(--separator);border-radius:var(--r-control);
   background:var(--fill);cursor:pointer;font-size:14px;font-weight:650}
@@ -75,16 +78,20 @@ a.tile:hover{transform:translateY(-1px)}
   /* ---------- ルート（ハッシュは英数字とハイフンだけ） ---------- */
   const TENANTS = {
     sales: { name: "売上管理", desc: "売上・予約・担当者・レンタル・利益と AI の示唆", first: "sales" },
-    cost: { name: "コスト管理", desc: "スタッフ管理・仕入管理・その他コスト", first: "cost-staff", gated: true },
+    cost: { name: "コスト管理", desc: "固定費・変動費（人件費・仕入・備品消耗品）", first: "cost", gated: true },
   };
   const ROUTES = {
     home: { tenant: null, title: "ホーム" },
     sales: { tenant: "sales", title: "売上管理", page: "pages/sales.html" },
-    "cost-staff": { tenant: "cost", title: "スタッフ管理", page: "pages/staff.html" },
-    "cost-purchase": { tenant: "cost", title: "仕入管理", page: "pages/purchase.html" },
-    "cost-other": { tenant: "cost", title: "その他コスト", page: "pages/other.html" },
+    /* コスト管理: 全体 → 固定費／変動費 → 変動費の内訳（人件費・仕入・備品消耗品）。全体・固定費・変動費は1つのページ（cost.html）の表示の切り替え */
+    cost: { tenant: "cost", title: "全体", page: "pages/cost.html", top: true },
+    "cost-fixed": { tenant: "cost", title: "固定費", page: "pages/cost.html", top: true },
+    "cost-var": { tenant: "cost", title: "変動費", page: "pages/cost.html", top: true },
+    "cost-staff": { tenant: "cost", title: "人件費", page: "pages/staff.html", parent: "cost-var" },
+    "cost-purchase": { tenant: "cost", title: "仕入", page: "pages/purchase.html", parent: "cost-var" },
+    "cost-supplies": { tenant: "cost", title: "備品・消耗品", page: "pages/supplies.html", parent: "cost-var" },
   };
-  const ALIAS = { cost: "cost-staff" };
+  const ALIAS = { "cost-other": "cost-fixed" };
 
   /* コスト管理は、閲覧だけの人には出さない（人件費・給与を扱うため。データ側の権限は各ページと db の rules が守る） */
   let costOK = false;
@@ -98,10 +105,11 @@ a.tile:hover{transform:translateY(-1px)}
   const loaded = {};   // key -> { box, promise }
   const el = (tag, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
 
+  const boxId = (key) => "pg-" + ROUTES[key].page.replace(/^pages\//, "").replace(/\.html$/, "");
   function fetchPage(key) {
-    const r = ROUTES[key];
-    if (loaded[key]) return loaded[key].promise;
-    const box = el("div", "page"); box.id = "pg-" + key; box.hidden = true; $("pages").append(box);
+    const r = ROUTES[key], pk = r.page;
+    if (loaded[pk]) return loaded[pk].promise;
+    const box = el("div", "page"); box.id = boxId(key); box.hidden = true; $("pages").append(box);
     const promise = fetch(r.page).then((res) => { if (!res.ok) throw new Error("HTTP " + res.status); return res.text(); }).then((html) => {
       const tpl = document.createElement("template"); tpl.innerHTML = html;
       tpl.content.querySelectorAll("script").forEach((old) => {   // template の script は動かないので、作り直して実行させる
@@ -109,10 +117,10 @@ a.tile:hover{transform:translateY(-1px)}
       });
       box.append(tpl.content);
     }).catch((err) => {
-      delete loaded[key]; box.remove();
+      delete loaded[pk]; box.remove();
       throw err;
     });
-    loaded[key] = { box, promise };
+    loaded[pk] = { box, promise };
     return promise;
   }
 
@@ -129,7 +137,7 @@ a.tile:hover{transform:translateY(-1px)}
       const c = el("div", "tile lg lg--text");
       const h = el("h2"); h.textContent = t.name; const p = el("p"); p.textContent = t.desc;
       const links = el("div", "links");
-      Object.entries(ROUTES).filter(([, r]) => r.tenant === id).forEach(([k, r]) => { const a = el("a"); a.href = "#" + k; a.textContent = r.title; links.append(a); });
+      Object.entries(ROUTES).filter(([, r]) => r.tenant === id && !r.parent).forEach(([k, r]) => { const a = el("a"); a.href = "#" + k; a.textContent = r.title; links.append(a); });
       c.append(h, p, links); tiles.append(c);
     });
     return box;
@@ -140,10 +148,13 @@ a.tile:hover{transform:translateY(-1px)}
     const r = ROUTES[key], tn = r.tenant ? TENANTS[r.tenant].name : "ホーム";
     $("tname").textContent = tn;
     const sub = $("subtabs"); sub.textContent = "";
-    if (r.tenant === "cost") {
-      Object.entries(ROUTES).filter(([, x]) => x.tenant === "cost").forEach(([k, x]) => {
-        const a = el("a"); a.href = "#" + k; a.textContent = x.title; if (k === key) a.setAttribute("aria-current", "page"); sub.append(a);
-      });
+    if (r.tenant === "cost") {   // 上の段（全体・固定費・変動費）と、変動費の中にいるときはその内訳
+      const link = (k, x, on) => { const a = el("a"); a.href = "#" + k; a.textContent = x.title; if (on) a.setAttribute("aria-current", "page"); return a; };
+      Object.entries(ROUTES).filter(([, x]) => x.tenant === "cost" && x.top).forEach(([k, x]) => sub.append(link(k, x, k === key || r.parent === k)));
+      if (r.parent) {
+        const sep = el("span", "crumb"); sep.textContent = "›"; sep.setAttribute("aria-hidden", "true"); sub.append(sep);
+        Object.entries(ROUTES).filter(([, x]) => x.parent === r.parent).forEach(([k, x]) => { const a = link(k, x, k === key); a.classList.add("child"); sub.append(a); });
+      }
     }
     sub.hidden = r.tenant !== "cost";
     const menu = $("tmenu"); menu.textContent = "";
@@ -178,12 +189,14 @@ a.tile:hover{transform:translateY(-1px)}
     if (key === "home" && !location.hash && !costOK) { await gate; if (mine !== seq) return; if (!costOK) key = "sales"; }   // 選べるのが売上管理だけの人は、ホームを飛ばす
     $("boot").hidden = true; $("shell").hidden = false;
     renderBar(key); syncBar();
-    const show = (k) => { document.querySelectorAll("#pages > .page").forEach((p) => { p.hidden = p.id !== "pg-" + k; }); };
-    if (key === "home") { homeView(); show("home"); window.scrollTo(0, 0); return; }
+    const show = (id) => { document.querySelectorAll("#pages > .page").forEach((p) => { p.hidden = p.id !== id; }); };
+    document.documentElement.dataset.route = key;   // 1つのページを複数のルートで使うとき、ページはこれと portal:route で表示を決める
+    if (key === "home") { homeView(); show("pg-home"); window.scrollTo(0, 0); return; }
     try {
       await fetchPage(key);
       if (mine !== seq) return;
-      show(key);
+      show(boxId(key));
+      window.dispatchEvent(new CustomEvent("portal:route", { detail: { key } }));
     } catch (err) {
       if (mine !== seq) return;
       show("none");

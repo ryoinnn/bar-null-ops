@@ -1,0 +1,392 @@
+<!-- コスト管理の上の3画面（全体・固定費・変動費のダッシュボード）。担当: A。index.html の殻が fetch して差し込む。
+     #cost / #cost-fixed / #cost-var の3つのルートで同じこのページを使い、殻が知らせるルート（data-route と portal:route）で表示を切り替える。
+     約束: id は「cost-」で始める／スタイルは .pg-cost の下（色のトークンだけ :root）／script は type="module"。
+     数える範囲は docs/profit/contract.md（人件費 §2-5 ＝ 給与の合計、固定費 ＝ db の fixedcosts/barnull、決済手数料 ＝ 伝票の「決済手数料」）。 -->
+<style>
+:root{ --c-labor:#2a78d6; --c-purchase:#D6124F; --c-supplies:#7c4dcc; --c-fee:#B25000; --c-fixed:rgba(110,110,122,.55); --c-rev:var(--label) }
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --c-labor:#3987e5; --c-purchase:#EE4A7C; --c-supplies:#9470e0; --c-fee:#C97800; --c-fixed:rgba(200,200,212,.40) }}
+:root[data-theme="dark"]{ --c-labor:#3987e5; --c-purchase:#EE4A7C; --c-supplies:#9470e0; --c-fee:#C97800; --c-fixed:rgba(200,200,212,.40) }
+.pg-cost{display:flex;flex-direction:column;gap:18px;max-width:1240px}
+.pg-cost .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:14px 18px}
+.pg-cost .toolbar h1{margin:0}
+.pg-cost .tb-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-left:auto}
+.pg-cost .mstep{display:inline-flex;align-items:center;gap:4px;padding:3px;border-radius:var(--r-control);background:var(--fill)}
+.pg-cost .mstep button{width:32px;height:32px;border:0;border-radius:8px;background:none;color:var(--label-2);cursor:pointer;font-size:16px}
+.pg-cost .mstep button:hover{background:var(--fill-2)}
+.pg-cost .mstep button[disabled]{opacity:.35;cursor:default}
+.pg-cost .mstep b{min-width:7.5em;text-align:center;font-size:14px}
+.pg-cost select{font:inherit;font-size:13.5px;color:var(--label);background:rgba(var(--lg-tint),.5);border:1px solid var(--lg-rim);border-radius:8px;padding:6px 8px}
+.pg-cost .view{display:flex;flex-direction:column;gap:18px}
+.pg-cost .kpis{grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}
+.pg-cost .kpi .v.na{color:var(--label-3)}
+.pg-cost .cov{display:flex;flex-wrap:wrap;gap:8px}
+.pg-cost .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:18px}
+.pg-cost .grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:14px}
+/* 遷移の箱 */
+.pg-cost .box{display:flex;flex-direction:column;gap:12px;min-width:0}
+.pg-cost .box-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pg-cost .box-head h2{display:flex;align-items:center;gap:8px}
+.pg-cost .box .big{font-size:clamp(22px,2.6vw,30px);font-weight:700;letter-spacing:-.02em}
+.pg-cost .box .sub{font-size:13px;color:var(--label-2)}
+.pg-cost .box .go{align-self:flex-start;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.pg-cost .box .go[aria-disabled="true"]{opacity:.55}
+.pg-cost .dot{display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
+.pg-cost .chip .dot{width:7px;height:7px;border-radius:50%}
+.pg-cost .cat{padding:18px}
+.pg-cost .cat .big{font-size:24px}
+/* 帯（内訳） */
+.pg-cost .band{display:flex;gap:2px;height:14px}
+.pg-cost .band i{display:block;min-width:3px}
+.pg-cost .band i:first-child{border-radius:4px 0 0 4px} .pg-cost .band i:last-child{border-radius:0 4px 4px 0} .pg-cost .band i:only-child{border-radius:4px}
+.pg-cost .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--label-2)}
+.pg-cost .legend span{display:inline-flex;align-items:center;gap:6px}
+.pg-cost .legend .rv{width:14px;height:0;border-top:2px solid var(--c-rev);border-radius:0}
+/* 推移の棒グラフ */
+.pg-cost .chart svg{display:block;width:100%;height:auto;overflow:visible}
+.pg-cost .chart text{fill:var(--label-2);font-family:var(--font);font-size:11px}
+.pg-cost .chart .gl{stroke:var(--separator);stroke-width:1}
+.pg-cost .chart .col{opacity:.5;transition:opacity .15s var(--ease)}
+.pg-cost .chart .col.on,.pg-cost .chart .col:hover{opacity:1}
+.pg-cost .chart .rv{stroke:var(--c-rev);stroke-width:2;stroke-linecap:round}
+.pg-cost .chart .lab{fill:var(--label);font-weight:650}
+.pg-cost details.tbl{margin-top:8px;font-size:13px}
+.pg-cost details.tbl summary{cursor:pointer;color:var(--label-2)}
+/* 横棒（固定費の項目） */
+.pg-cost .hb{display:flex;flex-direction:column;gap:10px}
+.pg-cost .hb-row{display:grid;grid-template-columns:minmax(80px,10em) minmax(0,1fr) auto;gap:10px;align-items:center;font-size:14px}
+.pg-cost .hb-row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pg-cost .hb-row .t{height:12px;border-radius:0 4px 4px 0;background:var(--c-fixed);min-width:2px}
+.pg-cost .hb-row .v{font-weight:650;text-align:right;white-space:nowrap}
+.pg-cost .hb-row .v small{display:block;font-weight:500;font-size:12px;color:var(--label-2)}
+/* 小さな推移 */
+.pg-cost .spark{display:block;width:100%;height:34px}
+.pg-cost .spark rect{opacity:.45} .pg-cost .spark rect.on{opacity:1}
+.pg-cost .note{margin:0;font-size:12.5px;color:var(--label-2)}
+@media (max-width: 560px){ .pg-cost .toolbar{padding:12px} .pg-cost .mstep b{min-width:6.5em} }
+</style>
+
+<div class="pad pg-cost" id="cost-root">
+  <header class="toolbar lg">
+    <div><h1 id="cost-title">コスト管理</h1><div class="sub" id="cost-sub">読み込んでいます</div></div>
+    <div class="tb-tools">
+      <div class="mstep" role="group" aria-label="対象の月">
+        <button type="button" id="cost-prev" aria-label="前の月">‹</button><b id="cost-month" class="num">—</b><button type="button" id="cost-next" aria-label="次の月">›</button>
+      </div>
+      <select id="cost-env" aria-label="読み込むプロジェクト"><option value="prod">本番</option><option value="test">テスト</option></select>
+    </div>
+  </header>
+  <div id="cost-notice"></div>
+
+  <!-- 全体 -->
+  <section class="view" id="cost-v-all" aria-label="コスト全体">
+    <section class="kpis" id="cost-k-all"></section>
+    <div class="cov" id="cost-cov-all"></div>
+    <section class="card lg lg--text chart"><h2>コストの推移</h2><p class="cap" id="cost-c-all-cap">直近6か月・月ごと</p><div id="cost-c-all"></div></section>
+    <div class="grid2" id="cost-boxes"></div>
+  </section>
+
+  <!-- 固定費 -->
+  <section class="view" id="cost-v-fixed" aria-label="固定費" hidden>
+    <section class="kpis" id="cost-k-fixed"></section>
+    <div class="grid2">
+      <section class="card lg lg--text"><h2>項目別</h2><p class="cap" id="cost-fx-cap">月額（税込）</p><div id="cost-fx-items"></div></section>
+      <section class="card lg lg--text chart"><h2>固定費の推移</h2><p class="cap">直近6か月・月額</p><div id="cost-c-fixed"></div></section>
+    </div>
+    <section class="card lg lg--text box"><div class="box-head"><h2>項目と金額の編集</h2></div>
+      <p class="note">固定費の項目と月額は、売上管理の右上の設定（持ち主だけ）で、適用開始月ごとに入力します。</p>
+      <a class="btn tinted go" href="#sales">売上管理を開く</a></section>
+  </section>
+
+  <!-- 変動費 -->
+  <section class="view" id="cost-v-var" aria-label="変動費" hidden>
+    <section class="kpis" id="cost-k-var"></section>
+    <div class="grid4" id="cost-cats"></div>
+    <section class="card lg lg--text chart"><h2>変動費の推移</h2><p class="cap">直近6か月・月ごと</p><div id="cost-c-var"></div></section>
+  </section>
+
+  <p class="foot" id="cost-foot">定義：固定費＝月額（売上管理の設定で入力。月の途中でも月額のまま表示）／変動費＝人件費（給与の合計。今月は見込み）＋仕入＋備品・消耗品＋決済手数料（Square）／売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値のある月だけ）／金額は税込</p>
+</div>
+
+<script type="module">
+/* ---------- 設定（読むプロジェクト。sales.html の PROJECTS・COST_PROJECTS と同じ ID を持つ） ---------- */
+const SLIPS = { prod: "1219600211224482", test: "1219599891506891" };
+const PAYROLL = { prod: "", test: "1220538739321087" };   // 給与（contract.md §2-3）。本番は本番化のときに足す
+const PURCHASE = { prod: [], test: ["1220538960472686"] }; // 仕入（C。contract.md §3）。本番は本番化のときに足す
+const SUPPLIES = { prod: [], test: [] };                  // 備品・消耗品（これから作る）
+const FIXED_DOC = "fixedcosts/barnull";
+const OPT = "name,permalink_url,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
+
+const $ = (id) => document.getElementById(id);
+const use = (n) => (window.claude && window.claude.use) ? window.claude.use(n) : Promise.resolve(null);
+const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
+const store = { get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} } };
+const yen = (v) => v == null ? "—" : "¥" + Math.round(v).toLocaleString("ja-JP");
+const man = (v) => v >= 10000 ? `${(v / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万` : Math.round(v).toLocaleString("ja-JP");
+const pc = (x) => x == null || !isFinite(x) ? "—" : `${(x * 100).toFixed(1)}%`;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* 月（YYYY-MM）。営業日は 6:00 で切り替わる */
+function todayBiz() { const j = new Date(Date.now() + 9 * 3600e3); if (j.getUTCHours() < 6) j.setUTCDate(j.getUTCDate() - 1); return j.toISOString().slice(0, 10); }
+const addM = (m, n) => { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1)); return d.toISOString().slice(0, 7); };
+const mLabel = (m) => `${+m.slice(0, 4)}年${+m.slice(5, 7)}月`;
+const mShort = (m) => `${+m.slice(5, 7)}月`;
+const daysIn = (m) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 0)).getUTCDate();
+
+const CATS = [   // 変動費の内訳（色は検証済みの順番。固定費はグレー）
+  { key: "labor", name: "人件費", color: "var(--c-labor)", route: "cost-staff" },
+  { key: "purchase", name: "仕入", color: "var(--c-purchase)", route: "cost-purchase" },
+  { key: "supplies", name: "備品・消耗品", color: "var(--c-supplies)", route: "cost-supplies" },
+  { key: "fee", name: "決済手数料", color: "var(--c-fee)", route: null },
+];
+const FIXED = { key: "fixed", name: "固定費", color: "var(--c-fixed)" };
+
+const st = { env: SLIPS[store.get("barnull-env")] ? store.get("barnull-env") : "prod", month: todayBiz().slice(0, 7), view: "cost",
+             slips: null, rentals: null, payroll: null, payrollState: "wait", purchase: null, purchaseState: "wait", fixed: null, fixedLoaded: false, error: null, mcp: undefined, db: null };
+$("cost-env").value = st.env;
+
+/* ---------- 読み込み ---------- */
+const fieldsOf = (t) => { const f = {}; (t.custom_fields || []).forEach((c) => { f[c.name] = c; }); return f; };
+const txt = (c) => (c?.text_value ?? c?.enum_value?.name ?? "").trim();
+const payloadOf = (res) => { if (res && res.payload) return res.payload; const t = (res?.content || []).find((c) => c.type === "text")?.text; try { return t ? JSON.parse(t) : {}; } catch (_) { return {}; } };
+async function readAll(id) {
+  const out = []; let offset = null;
+  for (let i = 0; i < 60; i++) {
+    const input = { project: id, limit: 100, opt_fields: OPT }; if (offset) input.offset = offset;
+    const p = payloadOf(await st.mcp.callTool("Asana", "get_tasks", input, { cache: { staleTime: 60000 } }));
+    out.push(...(p.data || [])); offset = p.next_page?.offset; if (!offset) break;
+  }
+  return out;
+}
+async function load() {
+  st.slips = null; st.rentals = null; st.payroll = null; st.payrollState = "wait"; st.purchase = null; st.purchaseState = "wait"; st.error = null; render();
+  if (!st.mcp) { render(); return; }
+  try {
+    const tasks = await readAll(SLIPS[st.env]);
+    const slips = {}, rentals = {};
+    tasks.forEach((t) => {
+      const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10); if (!date) return;
+      const status = txt(f["伝票ステータス"]); if (status === "対象外") return;
+      const m = date.slice(0, 7);
+      if ((f["伝票ID"]?.text_value || "").startsWith("RS-")) { rentals[m] = (rentals[m] || 0) + (f["入金予定額"]?.number_value || 0); return; }
+      const amt = f["伝票金額"]?.number_value; if (amt == null) return;
+      const x = slips[m] = slips[m] || { sales: 0, fee: 0, n: 0 }; x.sales += amt; x.fee += f["決済手数料"]?.number_value || 0; x.n++;
+    });
+    st.slips = slips; st.rentals = rentals;
+  } catch (e) { st.error = e; }
+  render();
+  try {
+    if (!PAYROLL[st.env]) { st.payrollState = "unset"; }
+    else {
+      const pay = {};
+      (await readAll(PAYROLL[st.env])).forEach((t) => {
+        const f = fieldsOf(t), m = txt(f["対象月"]); if (!/^\d{4}-\d{2}$/.test(m)) return;
+        const x = pay[m] = pay[m] || { total: 0, n: 0, est: false }; x.total += f["給与"]?.number_value ?? f["時給の分"]?.number_value ?? 0; x.n++;
+        if (txt(f["給与ステータス"]) === "見込み") x.est = true;
+      });
+      st.payroll = pay; st.payrollState = "ok";
+    }
+  } catch (_) { st.payrollState = "error"; }
+  render();
+  try {   // 仕入: 仕入記録ID が P- の伝票。対象外を除き、店舗が空のもの。金額は「仕入金額（税込）」（返品はマイナス）
+    if (!PURCHASE[st.env].length) { st.purchaseState = "unset"; }
+    else {
+      const pur = {};
+      for (const id of PURCHASE[st.env]) (await readAll(id)).forEach((t) => {
+        const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10);
+        if (!txt(f["仕入記録ID"]).startsWith("P-") || !date || txt(f["仕入ステータス"]) === "対象外" || txt(f["店舗"])) return;
+        const m = date.slice(0, 7); pur[m] = (pur[m] || 0) + (f["仕入金額（税込）"]?.number_value || 0);
+      });
+      st.purchase = pur; st.purchaseState = "ok";
+    }
+  } catch (_) { st.purchaseState = "error"; }
+  render();
+}
+
+/* ---------- 月ごとの集計 ---------- */
+function fixedOf(m) {
+  if (!st.fixedLoaded) return { s: "wait", total: null, items: [] };
+  const vs = (st.fixed && st.fixed.versions) || [];
+  if (!vs.length) return { s: "unset", total: null, items: [] };
+  let best = null; vs.forEach((v) => { if (v.from <= m && (!best || v.from > best.from)) best = v; });
+  if (!best || !best.items.length) return { s: "none", total: null, items: [] };
+  return { s: "ok", total: best.items.reduce((x, i) => x + (i.monthly || 0), 0), items: best.items, from: best.from };
+}
+function monthOf(m) {
+  const sl = st.slips ? (st.slips[m] || { sales: 0, fee: 0, n: 0 }) : null, rent = st.rentals ? st.rentals[m] : undefined;
+  const pay = st.payroll ? st.payroll[m] : null;
+  const c = {
+    labor: st.payrollState === "ok" ? (pay ? { s: pay.est ? "est" : "ok", v: pay.total } : { s: "none", v: null }) : { s: st.payrollState, v: null },
+    purchase: st.purchaseState === "ok" ? (st.purchase[m] != null ? { s: "ok", v: st.purchase[m] } : { s: "none", v: null }) : { s: st.purchaseState, v: null },
+    supplies: SUPPLIES[st.env].length ? { s: "wait", v: null } : { s: "soon", v: null },
+    fee: sl ? { s: "ok", v: sl.fee } : { s: st.error ? "error" : "wait", v: null },
+    fixed: (() => { const f = fixedOf(m); return { s: f.s, v: f.total, f }; })(),
+  };
+  const varKnown = CATS.reduce((x, k) => x + (c[k.key].v || 0), 0);
+  const known = varKnown + (c.fixed.v || 0);
+  const okS = (s) => s === "ok" || s === "est";
+  const complete = CATS.every((k) => okS(c[k.key].s)) && okS(c.fixed.s);
+  const revenue = sl ? sl.sales + (rent || 0) : null;
+  return { m, c, sales: sl ? sl.sales : null, rent, revenue, varKnown, fixed: c.fixed.v, known, complete, est: c.labor.s === "est" };
+}
+const STATE_TEXT = { ok: "記録済み", est: "見込み", none: "記録なし", unset: "未設定", soon: "準備中", wait: "読み込み中", error: "読めませんでした" };
+const COV = { ok: "ok", est: "ok" };
+
+/* ---------- 部品 ---------- */
+function kpi(label, value, sub, na) {
+  const k = el("div", "kpi lg lg--text"); k.append(el("span", "lb", label), el("span", "v num" + (na ? " na" : ""), value), el("span", "d", sub || "　")); return k;
+}
+function chip(name, s) { const c = el("span", "chip " + (COV[s] ? "ok" : "miss")); c.append(el("i", "dot"), `${name}：${STATE_TEXT[s] || s}`); return c; }
+function band(parts, total) {
+  const b = el("div", "band"); b.setAttribute("role", "img"); b.setAttribute("aria-label", parts.map((p) => `${p.name} ${yen(p.v)}`).join("、"));
+  parts.filter((p) => p.v > 0).forEach((p) => { const i = el("i"); i.style.flex = String(p.v / (total || 1)); i.style.background = p.color; i.title = `${p.name} ${yen(p.v)}（${pc(p.v / total)}）`; b.append(i); });
+  return b;
+}
+function legend(items, rev) {
+  const l = el("div", "legend");
+  items.forEach((p) => { const s = el("span"), d = el("i", "dot"); d.style.background = p.color; s.append(d, p.name); l.append(s); });
+  if (rev) { const s = el("span"); s.append(el("i", "dot rv"), "売上合計"); l.append(s); }
+  return l;
+}
+/* 月ごとの積み上げ棒（同じ円の軸に売上合計の目盛りを重ねる。軸は1本） */
+function stackChart(months, series, showRev) {
+  const W = 680, H = 230, L = 46, R = 8, T = 16, B = 26, iw = W - L - R, ih = H - T - B;
+  const tot = months.map((M) => series.reduce((x, s) => x + (s.get(M) || 0), 0));
+  const max = Math.max(1, ...tot, ...(showRev ? months.map((M) => M.revenue || 0) : [0]));
+  const nice = (() => { const p = Math.pow(10, Math.floor(Math.log10(max))); const n = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((k) => k * p >= max) * p; return n; })();
+  const y = (v) => T + ih - v / nice * ih, slot = iw / months.length, bw = Math.min(56, slot * .56);
+  let g = "";
+  for (let i = 0; i <= 4; i++) { const v = nice * i / 4, yy = y(v); g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${i ? man(v) : "0"}</text>`; }
+  months.forEach((M, i) => {
+    const x = L + slot * i + (slot - bw) / 2; let base = 0, segs = "";
+    const parts = series.map((s) => ({ s, v: s.get(M) || 0 })).filter((p) => p.v > 0);
+    parts.forEach((p, j) => {
+      const y1 = y(base + p.v), y0 = y(base), h = Math.max(1, y0 - y1 - (j < parts.length - 1 ? 2 : 0));
+      segs += `<rect x="${x}" y="${y1}" width="${bw}" height="${h}" rx="${j === parts.length - 1 ? 4 : 1.5}" fill="${p.s.color}"><title>${esc(mLabel(M.m))} ${esc(p.s.name)} ${yen(p.v)}</title></rect>`;
+      base += p.v;
+    });
+    const on = M.m === st.month;
+    let rv = "";
+    if (showRev && M.revenue) { const ry = y(M.revenue); rv = `<line class="rv" x1="${x - 6}" x2="${x + bw + 6}" y1="${ry}" y2="${ry}"><title>${esc(mLabel(M.m))} 売上合計 ${yen(M.revenue)}</title></line>`; }
+    const lab = on && tot[i] ? `<text class="lab" x="${x + bw / 2}" y="${y(tot[i]) - 6}" text-anchor="middle">${man(tot[i])}</text>` : "";
+    g += `<g class="col${on ? " on" : ""}">${segs}${rv}${lab}<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle"${on ? ' class="lab"' : ""}>${mShort(M.m)}</text></g>`;
+  });
+  const wrap = el("div");
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="月ごとの推移">${g}</svg>`;
+  wrap.append(legend(series, showRev));
+  // 表で見る
+  const d = el("details", "tbl"), s = el("summary", "", "表で見る"), tw = el("div", "tablewrap"), t = el("table", "rtable");
+  t.innerHTML = `<thead><tr><th>月</th>${series.map((x) => `<th class="n">${esc(x.name)}</th>`).join("")}<th class="n">合計</th>${showRev ? '<th class="n">売上合計</th>' : ""}</tr></thead><tbody>` +
+    months.map((M, i) => `<tr><td>${esc(mLabel(M.m))}</td>${series.map((x) => `<td class="n num">${x.get(M) == null ? "—" : yen(x.get(M))}</td>`).join("")}<td class="n num">${yen(tot[i])}</td>${showRev ? `<td class="n num">${yen(M.revenue)}</td>` : ""}</tr>`).join("") + "</tbody>";
+  tw.append(t); d.append(s, tw); wrap.append(d);
+  return wrap;
+}
+function spark(months, get, color) {
+  const vals = months.map((M) => get(M) || 0), mx = Math.max(1, ...vals), W = 120, H = 34, bw = W / vals.length;
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">` +
+    vals.map((v, i) => { const h = v ? Math.max(2, v / mx * (H - 2)) : 1; return `<rect class="${months[i].m === st.month ? "on" : ""}" x="${i * bw + bw * .18}" y="${H - h}" width="${bw * .64}" height="${h}" rx="2" fill="${color}"><title>${esc(mShort(months[i].m))} ${yen(v)}</title></rect>`; }).join("") + "</svg>";
+}
+
+/* ---------- 表示 ---------- */
+const VIEWS = { cost: ["cost-v-all", "コスト管理"], "cost-fixed": ["cost-v-fixed", "固定費"], "cost-var": ["cost-v-var", "変動費"] };
+function render() {
+  const view = VIEWS[st.view] ? st.view : "cost";
+  Object.entries(VIEWS).forEach(([k, [id]]) => { $(id).hidden = k !== view; });
+  $("cost-title").textContent = VIEWS[view][1];
+  $("cost-month").textContent = mLabel(st.month);
+  $("cost-next").disabled = st.month >= todayBiz().slice(0, 7);
+  const cur = st.month === todayBiz().slice(0, 7);
+  $("cost-sub").textContent = `${st.env === "test" ? "テスト用のデータ・" : ""}${mLabel(st.month)}${cur ? "（集計中）" : ""}`;
+  const nb = $("cost-notice"); nb.textContent = "";
+  if (st.mcp === null) { nb.append(noticeBox("Asana につながっていません", "claude.ai で Asana を接続すると、人件費・決済手数料・売上が表示されます。")); }
+  else if (st.error) { nb.append(noticeBox("Asana を読み込めませんでした", "時間をおいて開き直してください。")); }
+  const months = []; for (let i = 5; i >= 0; i--) months.push(monthOf(addM(st.month, -i)));
+  const M = months[months.length - 1];
+  if (view === "cost") renderAll(M, months); else if (view === "cost-fixed") renderFixed(M, months); else renderVar(M, months);
+}
+function noticeBox(title, body) { const d = el("div", "notice"); d.append(el("strong", "", title), body); return d; }
+const ratioText = (v, M) => M.revenue ? `売上合計の ${pc(v / M.revenue)}` : "売上合計がまだありません";
+
+function renderAll(M, months) {
+  const k = $("cost-k-all"); k.textContent = "";
+  k.append(
+    kpi("コスト合計", yen(M.known), M.complete ? (M.est ? "人件費は見込み" : "") : "記録済みの分だけ（未設定・準備中の費用を除く）"),
+    kpi("固定費", M.fixed == null ? "—" : yen(M.fixed), M.fixed == null ? STATE_TEXT[M.c.fixed.s] : ratioText(M.fixed, M), M.fixed == null),
+    kpi("変動費", yen(M.varKnown), ratioText(M.varKnown, M)),
+    kpi("売上に対するコスト", M.revenue ? pc(M.known / M.revenue) : "—", M.revenue ? `売上合計 ${yen(M.revenue)}` + (M.complete ? "" : "・記録済みの分") : "", !M.revenue));
+  const cv = $("cost-cov-all"); cv.textContent = "";
+  [...CATS, FIXED].forEach((c) => cv.append(chip(c.name, M.c[c.key].s)));
+  const series = [...CATS.map((c) => ({ ...c, get: (X) => X.c[c.key].v })), { ...FIXED, get: (X) => X.c.fixed.v }];
+  $("cost-c-all-cap").textContent = "直近6か月・月ごと。横線は売上合計";
+  const ch = $("cost-c-all"); ch.textContent = ""; ch.append(stackChart(months, series, true));
+  // 遷移の箱（固定費・変動費）
+  const bx = $("cost-boxes"); bx.textContent = "";
+  const fb = el("section", "card lg lg--text box"), fh = el("div", "box-head"), fh2 = el("h2"), fd = el("i", "dot"); fd.style.background = FIXED.color; fh2.append(fd, "固定費"); fh.append(fh2);
+  fb.append(fh, el("div", "big num", M.fixed == null ? "—" : yen(M.fixed)), el("div", "sub", M.fixed == null ? STATE_TEXT[M.c.fixed.s] : `月額・${M.c.fixed.f.items.length}項目・コストの ${pc(M.fixed / (M.known || 1))}`));
+  if (M.c.fixed.f.items.length) fb.append(band(M.c.fixed.f.items.map((i, n) => ({ name: i.name, v: i.monthly, color: `color-mix(in srgb, var(--c-fixed) ${100 - n * 12}%, transparent)` })), M.fixed));
+  const fa = el("a", "btn filled go", "固定費を見る"); fa.href = "#cost-fixed"; fb.append(fa);
+  const vb = el("section", "card lg lg--text box"), vh = el("div", "box-head"), vh2 = el("h2"); vh2.append("変動費"); vh.append(vh2);
+  const parts = CATS.map((c) => ({ ...c, v: M.c[c.key].v || 0 }));
+  vb.append(vh, el("div", "big num", yen(M.varKnown)), el("div", "sub", `人件費・仕入・備品消耗品・決済手数料（記録済みの分）`), band(parts, M.varKnown), legend(CATS));
+  const va = el("a", "btn filled go", "変動費を見る"); va.href = "#cost-var"; vb.append(va);
+  bx.append(fb, vb);
+}
+
+function renderFixed(M, months) {
+  const f = M.c.fixed.f, k = $("cost-k-fixed"); k.textContent = "";
+  k.append(
+    kpi("固定費（月額）", M.fixed == null ? "—" : yen(M.fixed), M.fixed == null ? STATE_TEXT[f.s] : `適用開始 ${mLabel(f.from)}`, M.fixed == null),
+    kpi("売上に対する割合", M.fixed != null && M.revenue ? pc(M.fixed / M.revenue) : "—", M.revenue ? `売上合計 ${yen(M.revenue)}` : "売上合計がまだありません", !(M.fixed != null && M.revenue)),
+    kpi("1日あたり", M.fixed == null ? "—" : yen(M.fixed / daysIn(M.m)), `${daysIn(M.m)}日で割った額`, M.fixed == null),
+    kpi("項目数", f.items.length ? `${f.items.length}項目` : "—", f.items.length ? `最大は ${[...f.items].sort((a, b) => b.monthly - a.monthly)[0].name}` : "", !f.items.length));
+  const box = $("cost-fx-items"); box.textContent = "";
+  if (!f.items.length) { box.append(el("p", "empty", f.s === "wait" ? "読み込み中です。" : "固定費がまだ入力されていません。売上管理の右上の設定から入力します。")); }
+  else {
+    const hb = el("div", "hb"), mx = Math.max(...f.items.map((i) => i.monthly));
+    [...f.items].sort((a, b) => b.monthly - a.monthly).forEach((i) => {
+      const r = el("div", "hb-row"), t = el("div"), bar = el("div", "t"); bar.style.width = `${Math.max(1, i.monthly / mx * 100)}%`; t.append(bar);
+      const v = el("div", "v num"); v.append(yen(i.monthly), el("small", "", pc(i.monthly / M.fixed)));
+      r.append(el("div", "n", i.name), t, v); r.title = `${i.name} 月額 ${yen(i.monthly)}`; hb.append(r);
+    });
+    box.append(hb);
+  }
+  $("cost-fx-cap").textContent = f.from ? `月額（税込）・${mLabel(f.from)}から` : "月額（税込）";
+  const ch = $("cost-c-fixed"); ch.textContent = ""; ch.append(stackChart(months, [{ ...FIXED, get: (X) => X.c.fixed.v }], false));
+}
+
+function renderVar(M, months) {
+  const k = $("cost-k-var"), lab = M.c.labor, pur = M.c.purchase; k.textContent = "";
+  k.append(
+    kpi("変動費（記録済みの分）", yen(M.varKnown), ratioText(M.varKnown, M)),
+    kpi("人件費率", lab.v != null && M.revenue ? pc(lab.v / M.revenue) : "—", lab.v != null ? `人件費 ${yen(lab.v)}${lab.s === "est" ? "（見込み）" : ""}` : `人件費：${STATE_TEXT[lab.s]}`, !(lab.v != null && M.revenue)),
+    kpi("原価率", pur.v != null && M.sales ? pc(pur.v / M.sales) : "—", pur.v != null ? "仕入 ÷ 通常営業の売上" : `仕入：${STATE_TEXT[pur.s]}`, pur.v == null),
+    kpi("決済手数料", yen(M.c.fee.v), M.sales ? `通常営業の売上の ${pc((M.c.fee.v || 0) / M.sales)}` : ""));
+  const box = $("cost-cats"); box.textContent = "";
+  CATS.forEach((c) => {
+    const x = M.c[c.key], card = el("section", "card lg lg--text box cat"), h = el("div", "box-head"), h2 = el("h2"), d = el("i", "dot"); d.style.background = c.color; h2.append(d, c.name);
+    h.append(h2, chip("", x.s)); h.lastChild.firstChild.nextSibling.textContent = STATE_TEXT[x.s];
+    card.append(h, el("div", "big num", x.v == null ? "—" : yen(x.v)), el("div", "sub", x.v != null ? ratioText(x.v, M) : c.key === "supplies" ? "これから作ります" : c.key === "purchase" ? "仕入の記録先が決まると表示されます" : STATE_TEXT[x.s]));
+    const sp = el("div"); sp.innerHTML = spark(months, (X) => X.c[c.key].v, c.color); card.append(sp);
+    if (c.route) { const a = el("a", "btn tinted go", `${c.name}の詳細`); a.href = "#" + c.route; card.append(a); }
+    else card.append(el("p", "note", "Square の決済手数料。伝票から自動で数えます"));
+    box.append(card);
+  });
+  const ch = $("cost-c-var"); ch.textContent = ""; ch.append(stackChart(months, CATS.map((c) => ({ ...c, get: (X) => X.c[c.key].v })), true));
+}
+
+/* ---------- 操作 ---------- */
+$("cost-prev").addEventListener("click", () => { st.month = addM(st.month, -1); render(); });
+$("cost-next").addEventListener("click", () => { if (st.month < todayBiz().slice(0, 7)) { st.month = addM(st.month, 1); render(); } });
+$("cost-env").addEventListener("change", (e) => { st.env = e.target.value; store.set("barnull-env", st.env); load(); });
+const setView = (k) => { if (VIEWS[k]) { st.view = k; render(); } };
+window.addEventListener("portal:route", (e) => setView(e.detail && e.detail.key));
+setView(document.documentElement.dataset.route);
+
+(async function start() {
+  render();
+  const [mcp, db] = await Promise.all([use("mcp"), use("db")]);
+  st.mcp = mcp; st.db = db;
+  if (db) db.doc(FIXED_DOC).onSnapshot((s) => { st.fixed = s.exists ? s.data() : null; st.fixedLoaded = true; render(); }, () => { st.fixedLoaded = true; render(); });
+  else st.fixedLoaded = true;
+  load();
+})();
+</script>

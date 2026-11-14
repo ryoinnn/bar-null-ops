@@ -698,7 +698,7 @@ function noticeBox(title, body) { const d = el("div", "notice"), s = el("strong"
 const COST_PROJECTS = {
   // 人件費（B。contract.md §2）: 勤怠と給与の2つを読む。ID は sales/asana_ids.json の labor.{test|prod}。本番は本番化のときに足す
   labor:    { prod: { attendance: "", payroll: "" }, test: { attendance: "1220538844505828", payroll: "1220538739321087" } },
-  purchase: { prod: [], test: [] },   // 「Bar null 仕入」（C）
+  purchase: { prod: [], test: ["1220538960472686"] },   // 「Bar null 仕入」（C。contract.md §3）。本番は本番化のときに足す
 };
 const FIXED_DOC = "fixedcosts/barnull";
 const COLORS = { purchase: "var(--accent)", labor: "var(--series-rent)", fee: "var(--warn)", fixed: "color-mix(in srgb, var(--label-2) 75%, transparent)", profit: "var(--green)" };
@@ -717,12 +717,12 @@ function parsePayroll(t) {      // 給与（1人 × 1か月）。contract.md §2
   return { month, sid: txt(f["スタッフID"]), name: txt(f["スタッフ名"]) || "（名前なし）", wagePart: f["時給の分"]?.number_value || 0,
            pay: f["給与"]?.number_value ?? null, status: txt(f["給与ステータス"]) };
 }
-function parsePurchase(t) {
-  const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10), status = f["状態"]?.enum_value?.name || "";
-  if (!date || status === "対象外" || (f["店舗"]?.text_value || "").trim()) return null;
-  return { date, status, kind: f["区分"]?.enum_value?.name || "その他", amount: f["金額（円）"]?.number_value ?? null };
+function parsePurchase(t) {   // 仕入の伝票（contract.md §3）: 仕入記録ID が P-、対象外でない、店舗が空。金額は税込（返品はマイナス）
+  const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10), status = txt(f["仕入ステータス"]);
+  if (!txt(f["仕入記録ID"]).startsWith("P-") || !date || status === "対象外" || txt(f["店舗"])) return null;
+  return { date, status: "数える", kind: "合計（税込）", amount: f["仕入金額（税込）"]?.number_value ?? null };
 }
-const COUNTED = { purchase: "取り込み済み" };
+const COUNTED = { purchase: "数える" };   // 仕入は「取り込み済み」「要確認」のどちらも数える（§3）
 async function readProject(mcp, id, parse) {
   const all = []; let offset = null;
   for (let i = 0; i < 40; i++) {
