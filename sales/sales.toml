@@ -92,7 +92,7 @@ effort = "low"
 [labor]
 # 勤怠・スタッフ台帳・給与（docs/profit/labor_requirements.md、labor_design.md）
 enabled = true
-dry_run = true                 # true: 勤怠・台帳・給与はテスト用の Asana と #test_barnull-sales に書く（売上は本番のまま）。確認後に false
+dry_run = false                # 2026-11-15 本番の LINE で確認して本番化（true: 勤怠・台帳・給与はテスト用の Asana と #test_barnull-sales に書く）
 slack_channel_prod = "C0CHSHBBDC2"  # #null_staff-management（非公開。2026-11-15 作成）
 cycle_start = "21:00"          # 勤怠サイクル 21:00〜翌9:00（日付はサイクルの開始日）
 cycle_end = "09:00"
