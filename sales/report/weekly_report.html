@@ -251,7 +251,7 @@ td a:hover{text-decoration:underline}
 .iconbtn svg{width:19px;height:19px;color:var(--label-2)}
 .iconbtn[aria-expanded="true"]{background:var(--accent-soft)}
 .iconbtn[aria-expanded="true"] svg{color:var(--accent-text)}
-.popover{position:fixed;right:24px;top:80px;width:300px;max-width:calc(100vw - 32px);border-radius:16px;padding:6px 16px;z-index:20;
+.popover{position:fixed;right:24px;top:80px;width:340px;max-width:calc(100vw - 32px);border-radius:16px;padding:6px 16px;z-index:20;
   display:flex;flex-direction:column;transform-origin:top right;animation:pop 180ms var(--ease-spring)}
 .popover .field{min-height:48px;font-size:14px;color:var(--label);border-bottom:1px solid var(--separator)}
 .popover .field:last-of-type{border-bottom:0}
@@ -304,6 +304,28 @@ td a:hover{text-decoration:underline}
   .st-mlabel{display:block;grid-column:1 / -1}
   .st-u{align-items:flex-start}
 }
+
+/* ---------- 利益 ---------- */
+.cov{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 -4px}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.chip.ok{color:var(--green)} .chip.miss{color:var(--warn)}
+.pdetail{display:flex;flex-direction:column;gap:18px;min-width:0}
+.pstack{margin:2px 0 14px;display:flex;flex-direction:column;gap:10px}
+.pstack .stack{height:18px}
+.ptable td.n,.ptable th.n{text-align:right}
+.ptable tr.tot td{font-weight:700}
+.kpi .d .loss{color:var(--red);font-weight:650}
+.fx-list{display:flex;flex-direction:column;gap:6px;padding:4px 0 8px;max-height:260px;overflow:auto}
+.fx-row{display:grid;grid-template-columns:minmax(0,1fr) 96px 30px;gap:6px;align-items:center}
+.fx-row input,.popover input[type=month]{background:rgba(var(--lg-tint),.5);border:1px solid var(--lg-rim);border-radius:8px;padding:6px 8px;
+  box-shadow:inset 0 1px 0 var(--lg-hi);min-width:0;width:100%}
+.fx-row input.amt{text-align:right}
+.fx-del{width:30px;height:30px;padding:0;display:grid;place-items:center;border:0;border-radius:8px;background:none;color:var(--label-2);cursor:pointer;font-size:18px;line-height:1}
+.fx-del:hover{background:var(--fill-2);color:var(--red)}
+.fx-actions{display:flex;gap:8px;justify-content:flex-end;padding:2px 0 6px}
+.fx-actions .btn{min-height:34px;padding:6px 14px}
+.popover{max-height:calc(100vh - 110px);overflow-y:auto;overflow-x:hidden}
+.popover .field.col{flex-direction:column;align-items:stretch;gap:4px;padding:8px 0}
 
 /* ---------- AI の示唆 ---------- */
 .ai{overflow:hidden}
@@ -473,6 +495,13 @@ td a:hover{text-decoration:underline}
       <p class="hint" id="lenshint">ガラスの縁で背景がわずかに曲がります（Chrome・Edge）。</p>
       <h3>データ</h3>
       <label class="field">読み込むプロジェクト<select id="env"><option value="prod">本番</option><option value="test">テスト</option></select></label>
+      <div id="fxbox" hidden>
+        <h3>固定費（月額・税込）</h3>
+        <label class="field col" for="fxfrom">適用開始月<input type="month" id="fxfrom"></label>
+        <div class="fx-list" id="fxlist"></div>
+        <div class="fx-actions"><button type="button" class="btn tinted" id="fxadd">項目を追加</button><button type="button" class="btn filled" id="fxsave">保存</button></div>
+        <p class="hint" id="fxhint">適用開始月を変えて保存すると、その月から新しい金額になります。過去の月はそのままです。</p>
+      </div>
     </div>
 
     <div class="content">
@@ -495,6 +524,16 @@ td a:hover{text-decoration:underline}
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">これからの予約</span><span class="v num">—</span><span class="d">　</span></div>
       </section>
 
+
+      <h2 class="sect" id="psect" hidden>利益<small>売上 − 変動費（仕入・人件費・決済手数料）− 固定費</small></h2>
+      <div class="cov" id="pcover" hidden></div>
+      <section class="kpis" id="pkpis" aria-label="利益の主要な数字" hidden>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">利益（発生ベース）</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">利益（入金ベース）</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">変動費</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">固定費（日割り）</span><span class="v num">—</span><span class="d">　</span></div>
+      </section>
+
       <div class="detail">
       <section class="card lg lg--text chart"><h2 id="c1t">日ごとの売上</h2><p class="cap" id="c1c">営業日（6:00〜翌6:00）</p><div id="c1"></div></section>
       <div class="grid2">
@@ -502,6 +541,12 @@ td a:hover{text-decoration:underline}
         <section class="card lg lg--text chart"><h2>曜日ごとの平均</h2><p class="cap" id="c3c">伝票のあった日の平均</p><div id="c3"></div></section>
       </div>
       <section class="card lg lg--text"><h2>担当者別の売上・予約数</h2><p class="cap" id="staffcap">LINE で伝票を送った人ごと</p><div class="staff num" id="staff"></div></section>
+      <div class="pdetail" id="pdetail" hidden>
+        <section class="card lg lg--text"><h2>利益の内訳</h2><p class="cap" id="pcap">この期間</p><div id="pstack"></div><div class="facts num" id="pfacts"></div></section>
+        <section class="card lg lg--text"><h2>固定費（日割り）</h2><p class="cap" id="fxcap">月額を日割りにした、この期間の分</p><div class="tablewrap" id="fxtable"></div></section>
+        <section class="card lg lg--text"><h2>担当者別の勤務時間と人件費</h2><p class="cap" id="lbcap">勤怠に記録された分</p><div class="tablewrap" id="lbtable"></div></section>
+        <p class="foot" id="pfoot">定義：利益＝売上合計（通常営業の伝票金額＋レンタルの店舗収益）−変動費（仕入＋人件費＋Square の決済手数料）−固定費（月額を日割り）／発生ベースは未収を含み、入金ベースは未収の残高を除く／原価率＝仕入÷通常営業の売上、人件費率＝人件費÷売上合計／損益分岐売上＝固定費÷（1−変動費率）／金額は税込、棚卸（在庫の増減）は反映しない／仕入・人件費は営業日で計上</p>
+      </div>
       <section class="card lg lg--text"><h2>内訳</h2><p class="cap" id="factscap">この期間</p><div class="facts num" id="facts"></div></section>
       <section class="card lg lg--text" id="slipcard"><h2>伝票</h2><p class="cap">伝票 ID から Asana のタスクを開けます</p><div class="tablewrap" id="slips"></div></section>
       <section class="card lg lg--text chart"><h2>レンタルスペースの推移</h2><p class="cap" id="r1c">利用日の月ごと・ゲストの支払額（予約通知から）</p><div id="r1"></div></section>
@@ -516,7 +561,7 @@ td a:hover{text-decoration:underline}
         <div class="ai-head">
           <div>
             <h2><svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9.5l-4.7 1.9L12 16l-1.8-4.6L5.5 9.5l4.7-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>AI の示唆</h2>
-            <p class="cap" id="aicap">通常営業・担当者・レンタルスペースそれぞれの傾向・見通し・打ち手と、合わせた総評を Claude がまとめます。</p>
+            <p class="cap" id="aicap">通常営業・担当者・レンタルスペース・利益とコストそれぞれの傾向・見通し・打ち手と、合わせた総評を Claude がまとめます。</p>
           </div>
           <div class="ai-actions">
             <button type="button" class="btn plain" id="aistop" hidden>止める</button>
@@ -890,6 +935,7 @@ function render() {
   renderStaff(p, today, C);
   renderSlips(cur);
   renderRental(p, today);
+  renderProfit(p, today);
   renderAI();
 }
 
@@ -963,6 +1009,7 @@ function renderOffline(p) {
   $("facts").textContent = ""; $("slips").textContent = "";
   $("staff").innerHTML = `<p class="empty">Asana につながると表示されます。</p>`;
   renderRental(p, todayBiz());
+  renderProfit(p, todayBiz());
 }
 function renderCharts(p, today, cur) {
   const end = min(p.end, today);
@@ -1100,6 +1147,282 @@ function renderSlips(cur) {
 }
 function noticeBox(title, body) { const d = el("div", "notice"), s = el("strong"); s.textContent = title; d.append(s, body); return d; }
 
+/* ======================= 利益（仕入・人件費・固定費） =======================
+   仕入（C）と人件費（B）は Asana の専用プロジェクトに記録される（docs/profit/contract.md）。
+   読むプロジェクトは COST_PROJECTS に書く（B・C が ID を確定したら足す）。空のあいだは「未設定」と表示し、利益は出さない。
+   固定費は本人が入力し、Artifact の db（fixedcosts/barnull）に保持する。
+   費用が「記録済み」でない期間は、利益を断定せず「—」にする（記録済みの分だけの参考値は添える）。
+   利益のセクションは、固定費を読める人（Editor 以上）にだけ見せる。 */
+const COST_PROJECTS = {
+  labor:    { prod: [], test: [] },   // 「Bar null 人件費（勤怠）」（額を別プロジェクトに分けたら両方入れる）
+  purchase: { prod: [], test: [] },   // 「Bar null 仕入」
+};
+const FIXED_DOC = "fixedcosts/barnull";
+const COLORS = { purchase: "var(--accent)", labor: "var(--series-rent)", fee: "var(--warn)", fixed: "color-mix(in srgb, var(--label-2) 75%, transparent)", profit: "var(--green)" };
+Object.assign(state, { cost: null, fixed: null, fixedLoaded: false, profitOK: false, isOwner: false, pinsights: {} });
+
+function parseLabor(t) {
+  const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10), status = f["状態"]?.enum_value?.name || "";
+  if (!date || status === "対象外" || (f["店舗"]?.text_value || "").trim()) return null;
+  return { date, status, staff: (f["担当者"]?.text_value || "").trim(), hours: f["勤務時間（h）"]?.number_value ?? null, cost: f["人件費（円）"]?.number_value ?? null };
+}
+function parsePurchase(t) {
+  const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10), status = f["状態"]?.enum_value?.name || "";
+  if (!date || status === "対象外" || (f["店舗"]?.text_value || "").trim()) return null;
+  return { date, status, kind: f["区分"]?.enum_value?.name || "その他", amount: f["金額（円）"]?.number_value ?? null };
+}
+const COUNTED = { labor: "確定", purchase: "取り込み済み" };
+async function loadCost(mcp, kind, parse) {
+  const ids = COST_PROJECTS[kind][state.env] || [];
+  if (!ids.length) return { unset: true, rows: [], pend: [], first: null };
+  const all = [];
+  for (const id of ids) {
+    let offset = null;
+    for (let i = 0; i < 40; i++) {
+      const input = { project: id, limit: 100, opt_fields: OPT };
+      if (offset) input.offset = offset;
+      const p = payloadOf(await mcp.callTool(SERVER, TOOL, input, { cache: { staleTime: 60000 } }));
+      (p.data || []).forEach((t) => { const r = parse(t); if (r) all.push(r); });
+      offset = p.next_page?.offset;
+      if (!offset) break;
+    }
+  }
+  const rows = all.filter((r) => r.status === COUNTED[kind]), pend = all.filter((r) => r.status !== COUNTED[kind]);
+  const first = all.reduce((a, r) => (!a || r.date < a) ? r.date : a, null);
+  return { unset: false, rows, pend, first };
+}
+async function loadCosts(mcp) {
+  const out = { labor: null, purchase: null };
+  for (const [kind, parse] of [["labor", parseLabor], ["purchase", parsePurchase]]) {
+    try { out[kind] = await loadCost(mcp, kind, parse); } catch (_) { out[kind] = { error: true, rows: [], pend: [], first: null }; }
+  }
+  state.cost = out; render();
+}
+
+/* 期間 a〜b の記録の状態: full（記録済み）・partial（一部のみ）・none（未記録）・unset（未設定）・error・wait */
+function coverage(kind, a, b) {
+  const c = state.cost && state.cost[kind];
+  if (!c) return { s: "wait" };
+  if (c.unset) return { s: "unset" };
+  if (c.error) return { s: "error" };
+  const rows = c.rows.filter((r) => r.date >= a && r.date <= b), pend = c.pend.filter((r) => r.date >= a && r.date <= b).length;
+  if (!rows.length) return { s: "none", pend };
+  if (c.first > a) return { s: "partial", from: c.first, pend };
+  return { s: "full", pend };
+}
+function fixedVersion(m) { let best = null; ((state.fixed && state.fixed.versions) || []).forEach((v) => { if (v.from <= m && (!best || v.from > best.from)) best = v; }); return best; }
+function fixedStats(a, b) {
+  if (!state.fixedLoaded) return { s: "wait", total: 0, items: [], monthly: 0 };
+  const versions = (state.fixed && state.fixed.versions) || [];
+  if (!versions.length) return { s: "unset", total: 0, items: [], monthly: 0 };
+  const by = new Map(); let total = 0, miss = 0, n = 0;
+  for (let d = a; d <= b; d = add(d, 1)) {
+    n++; const v = fixedVersion(ym(d));
+    if (!v || !v.items.length) { miss++; continue; }
+    const dim = Number(monthEnd(d).slice(8));
+    v.items.forEach((it) => { const x = by.get(it.name) || { name: it.name, monthly: 0, amount: 0 }; x.monthly = it.monthly; x.amount += it.monthly / dim; by.set(it.name, x); total += it.monthly / dim; });
+  }
+  const v0 = fixedVersion(ym(b));
+  return { s: miss === 0 ? "full" : miss === n ? "none" : "partial", total, items: [...by.values()], monthly: v0 ? v0.items.reduce((x, i) => x + i.monthly, 0) : 0 };
+}
+function laborIn(a, b) {
+  const c = state.cost && state.cost.labor, rows = ((c && c.rows) || []).filter((r) => r.date >= a && r.date <= b), by = {};
+  rows.forEach((r) => { const k = r.staff || "（担当者の記録なし）"; const x = by[k] = by[k] || { hours: 0, cost: 0, days: new Set() }; x.hours += r.hours || 0; x.cost += r.cost || 0; x.days.add(r.date); });
+  return { rows, by, workers: Object.keys(by).length, hours: rows.reduce((x, r) => x + (r.hours || 0), 0), cost: rows.reduce((x, r) => x + (r.cost || 0), 0), noCost: rows.filter((r) => r.cost == null).length };
+}
+function purchaseIn(a, b) {
+  const c = state.cost && state.cost.purchase, rows = ((c && c.rows) || []).filter((r) => r.date >= a && r.date <= b), kinds = {};
+  rows.forEach((r) => { kinds[r.kind] = (kinds[r.kind] || 0) + (r.amount || 0); });
+  return { rows, kinds, total: rows.reduce((x, r) => x + (r.amount || 0), 0), noAmount: rows.filter((r) => r.amount == null).length };
+}
+function profitOf(p, today) {
+  const a = p.start, b = min(p.end, today), bar = sum(a, b), rent = rentalIn(a, b);
+  const fee = bar.rows.reduce((x, r) => x + r.fee, 0);
+  const openUnpaid = bar.rows.filter((r) => r.unpaid > 0 && r.unpaidStatus !== "回収入金確認済み").reduce((x, r) => x + r.unpaid, 0);
+  const lab = laborIn(a, b), pur = purchaseIn(a, b), fx = fixedStats(a, b);
+  const cov = { purchase: coverage("purchase", a, b), labor: coverage("labor", a, b), fixed: { s: fx.s }, rental: { s: state.rental ? "full" : state.rentalError ? "error" : "wait" } };
+  if (cov.labor.s === "full" && lab.noCost) cov.labor = { s: "partial", why: `額の無い記録 ${lab.noCost}件` };
+  if (cov.purchase.s === "full" && pur.noAmount) cov.purchase = { s: "partial", why: `金額の無い記録 ${pur.noAmount}件` };
+  const revenue = bar.sales + rent.net, variable = pur.total + lab.cost + fee;
+  const missing = Object.entries({ purchase: "仕入", labor: "人件費", fixed: "固定費", rental: "レンタル収益" }).filter(([k]) => cov[k].s !== "full").map(([, v]) => v);
+  const complete = !missing.length, profit = revenue - variable - fx.total;
+  const varRate = revenue > 0 ? variable / revenue : null;
+  return { a, b, bar, rent, fee, openUnpaid, lab, pur, fx, cov, revenue, variable, missing, complete, profit,
+           profitCash: profit - openUnpaid, margin: revenue > 0 ? profit / revenue : null,
+           cogPct: bar.sales > 0 ? pur.total / bar.sales : null, laborPct: revenue > 0 ? lab.cost / revenue : null, varRate,
+           breakeven: complete && varRate != null && varRate < 1 ? fx.total / (1 - varRate) : null };
+}
+const pc = (x) => x == null ? "—" : `${(x * 100).toFixed(1)}%`;
+const COV_TEXT = (c) => ({ full: "記録済み", partial: c.from ? `一部のみ（${md(c.from)}〜）` : "一部のみ", none: "未記録", unset: "未設定", error: "読めませんでした", wait: "読み込み中" }[c.s]);
+const noRec = (c) => c.s === "none" || c.s === "unset" || c.s === "wait" || c.s === "error";
+
+function setPKpi(i, value, nodes) {
+  const k = $("pkpis").children[i]; k.querySelector(".v").textContent = value;
+  const d = k.querySelector(".d"); d.textContent = ""; d.append(...nodes);
+}
+function stackNode(P) {   // 売上の使いみちの帯と凡例
+  const wrap = el("div", "pstack");
+  if (!(P.revenue > 0)) { const e = el("p", "empty"); e.textContent = "この期間は売上がありません。"; wrap.append(e); return wrap; }
+  const segs = [["purchase", "仕入", P.pur.total], ["labor", "人件費", P.lab.cost], ["fee", "決済手数料", P.fee], ["fixed", "固定費", P.fx.total],
+                ["profit", "利益", P.complete && P.profit > 0 ? P.profit : 0]].filter((s) => s[2] > 0);
+  const used = segs.reduce((x, s) => x + s[2], 0), denom = Math.max(P.revenue, used) || 1;
+  const bar = el("div", "stack"); bar.setAttribute("role", "img"); bar.setAttribute("aria-label", "売上の使いみち");
+  segs.forEach(([k, t, v]) => { const i = el("i"); i.style.flex = String(v / denom); i.style.background = COLORS[k]; i.title = `${t} ${yen(v)}`; bar.append(i); });
+  const lg = el("div", "legend");
+  segs.forEach(([k, t, v]) => { const s = el("span"), sw = el("i", "sw"); sw.style.background = COLORS[k]; s.append(sw, `${t} ${yen(v)}（${pc(v / P.revenue)}）`); lg.append(s); });
+  wrap.append(bar, lg);
+  const note = !P.complete ? `記録済みの分だけの帯です（${P.missing.join("・")}は記録済みではありません）。` : P.profit < 0 ? `費用が売上を ${yen(-P.profit)} 上回っています。` : "";
+  if (note) { const n = el("p", "cap"); n.style.margin = "0"; n.textContent = note; wrap.append(n); }
+  return wrap;
+}
+function tableOf(heads, rows, total) {
+  const t = el("table", "rtable ptable"), tr = el("tr"), th = el("thead"), tb = el("tbody");
+  heads.forEach(([h, n]) => { const c = el("th", n ? "n" : ""); c.textContent = h; tr.append(c); }); th.append(tr); t.append(th);
+  [...rows, ...(total ? [total] : [])].forEach((r, ri) => {
+    const row = el("tr", total && ri === rows.length ? "tot" : "");
+    r.forEach((v, i) => { const td = el("td", heads[i][1] ? "n num" : ""); td.textContent = v; row.append(td); }); tb.append(row);
+  });
+  t.append(tb); return t;
+}
+function renderProfit(p, today) {
+  const show = state.profitOK;
+  ["psect", "pcover", "pkpis", "pdetail"].forEach((id) => { $(id).hidden = !show; });
+  $("fxbox").hidden = !state.isOwner;
+  if (!show) return;
+  if (!state.rows) { [0, 1, 2, 3].forEach((i) => setPKpi(i, "—", [i === 0 ? "Asana につながると表示されます" : "　"])); return; }
+  const P = profitOf(p, today), end = P.b;
+  const cv = $("pcover"); cv.textContent = "";
+  [["仕入", P.cov.purchase], ["人件費", P.cov.labor], ["固定費", P.cov.fixed], ["レンタル収益（速報）", P.cov.rental]].forEach(([n, c]) => {
+    const s = el("span", "chip " + (c.s === "full" ? "ok" : "miss")); s.append(el("i", "dot"), `${n}：${COV_TEXT(c)}`);
+    const note = [c.why, c.pend ? `未確定の記録 ${c.pend}件は数えていません` : ""].filter(Boolean).join("・"); if (note) s.title = note;
+    cv.append(s);
+  });
+  const miss = P.missing.join("・");
+  if (P.complete) {
+    const tag = el("span", P.profit < 0 ? "loss" : ""); tag.textContent = P.profit < 0 ? "赤字" : "黒字";
+    setPKpi(0, yen(P.profit), [tag, `　利益率 ${pc(P.margin)}・売上合計 ${yen(P.revenue)}`]);
+    setPKpi(1, yen(P.profitCash), [`未収 ${yen(P.openUnpaid)} を除く`]);
+  } else {
+    setPKpi(0, "—", [`断定できません（${miss}）`]);
+    setPKpi(1, "—", [`未収 ${yen(P.openUnpaid)} を除いた利益。同じ理由で出せません`]);
+  }
+  const parts = [`仕入 ${noRec(P.cov.purchase) ? "—" : yen(P.pur.total)}`, `人件費 ${noRec(P.cov.labor) ? "—" : yen(P.lab.cost)}`, `手数料 ${yen(P.fee)}`];
+  setPKpi(2, yen(P.variable), [P.complete ? `売上の ${pc(P.varRate)}` : "記録済みの分だけ", `　${parts.join("・")}`]);
+  const fxNone = ["unset", "wait", "none"].includes(P.fx.s);
+  setPKpi(3, fxNone ? "—" : yen(P.fx.total),
+    [P.fx.s === "unset" ? "右上の設定から入力します" : P.fx.s === "wait" ? "読み込み中" : P.fx.s === "none" ? "この期間は固定費の適用開始月より前です" : `月額の合計 ${yen(P.fx.monthly)} を日割り`]);
+
+  $("pcap").textContent = `${md(p.start)}〜${md(end)}`;
+  $("pstack").textContent = ""; $("pstack").append(stackNode(P));
+  const box = $("pfacts"); box.textContent = "";
+  const facts = [
+    ["通常営業の売上", yen(P.bar.sales)], ["レンタルの店舗収益", state.rental ? yen(P.rent.net) : "—"],
+    ["原価率（仕入÷通常営業の売上）", P.cov.purchase.s === "full" ? pc(P.cogPct) : `—（仕入 ${COV_TEXT(P.cov.purchase)}）`],
+    ["人件費率（人件費÷売上合計）", P.cov.labor.s === "full" ? pc(P.laborPct) : `—（人件費 ${COV_TEXT(P.cov.labor)}）`],
+    ["変動費率", P.complete ? pc(P.varRate) : "—"],
+    ["損益分岐売上（この期間）", P.breakeven != null ? `${yen(P.breakeven)}（売上は ${pc(P.revenue / P.breakeven)}）` : "—"],
+    ["決済手数料（Square）", yen(P.fee)], ["未収の残高", yen(P.openUnpaid)],
+    ...Object.entries(P.pur.kinds).map(([k, v]) => [`仕入：${k}`, yen(v)]),
+  ];
+  facts.forEach(([k, v]) => { const f = el("div", "fact"), a = el("span", "k"), b = el("span", "v"); a.textContent = k; b.textContent = v; f.append(a, b); box.append(f); });
+
+  const fb = $("fxtable"); fb.textContent = "";
+  if (P.fx.s === "unset" || P.fx.s === "wait") {
+    const e = el("p", "empty"); e.textContent = P.fx.s === "wait" ? "読み込み中です。" : "固定費が未入力です。右上の設定（管理者のみ）から、項目と月額を入力します。"; fb.append(e);
+  } else {
+    if (P.fx.s !== "full") { const e = el("p", "empty"); e.textContent = "この期間の一部は、固定費の適用開始月より前です。"; fb.append(e); }
+    if (P.fx.items.length) fb.append(tableOf([["項目"], ["月額", true], ["この期間", true]], P.fx.items.map((i) => [i.name, yen(i.monthly), yen(i.amount)]), ["合計", yen(P.fx.monthly), yen(P.fx.total)]));
+  }
+
+  const lb = $("lbtable"), lc = P.cov.labor; lb.textContent = "";
+  $("lbcap").textContent = lc.s === "full" ? "勤怠に記録された分（確定のみ）" : `人件費：${COV_TEXT(lc)}`;
+  if (!P.lab.workers) {
+    const e = el("p", "empty"); e.textContent = lc.s === "unset" ? "勤怠の記録先（Asana のプロジェクト）がまだ設定されていません。" : lc.s === "wait" ? "読み込み中です。" : lc.s === "error" ? "勤怠を読み込めませんでした。" : "この期間の勤怠は未記録です。"; lb.append(e);
+  } else {
+    const rows = Object.entries(P.lab.by).sort((x, y) => y[1].cost - x[1].cost).map(([n, v]) =>
+      [n, `${v.days.size}日`, `${v.hours.toFixed(1)}h`, `${(v.hours / v.days.size).toFixed(1)}h`, yen(v.cost), P.lab.cost ? pc(v.cost / P.lab.cost) : "—"]);
+    lb.append(tableOf([["担当"], ["勤務日数", true], ["勤務時間", true], ["1日あたり", true], ["人件費", true], ["割合", true]], rows,
+      ["合計", "", `${P.lab.hours.toFixed(1)}h`, "", yen(P.lab.cost), ""]));
+    if (lc.pend) { const e = el("p", "empty"); e.textContent = `未確定（勤務中・要確認）の記録 ${lc.pend}件は数えていません。`; lb.append(e); }
+  }
+}
+
+/* ---- 固定費の入力（設定の中。本人だけ） ---- */
+const fx = { draft: { from: "", items: [] }, dirty: false };
+const rid = () => Math.random().toString(36).slice(2, 9);
+function fxInit(force) {
+  if (fx.dirty && !force) return;
+  const m = ym(todayBiz()), v = fixedVersion(m);
+  fx.draft = { from: v ? v.from : m, items: (v ? v.items : []).map((i) => ({ ...i })) }; fx.dirty = false; fxRender();
+}
+function fxRender() {
+  const box = $("fxlist"); box.textContent = ""; $("fxfrom").value = fx.draft.from;
+  if (!fx.draft.items.length) { const e = el("p", "hint"); e.textContent = "項目がありません。「項目を追加」で、家賃・光熱費などを入れます。"; box.append(e); }
+  fx.draft.items.forEach((it) => {
+    const row = el("div", "fx-row"), n = el("input"), a = el("input", "amt"), d = el("button", "fx-del");
+    n.type = "text"; n.id = `fxn-${it.id}`; n.value = it.name || ""; n.maxLength = 40; n.placeholder = "項目名"; n.setAttribute("aria-label", "項目名"); n.dataset.id = it.id; n.dataset.k = "name";
+    a.type = "number"; a.id = `fxa-${it.id}`; a.min = "0"; a.step = "1000"; a.value = it.monthly ?? ""; a.placeholder = "月額"; a.setAttribute("aria-label", "月額（円）"); a.dataset.id = it.id; a.dataset.k = "monthly";
+    d.type = "button"; d.textContent = "×"; d.setAttribute("aria-label", "この項目を削除"); d.dataset.del = it.id;
+    row.append(n, a, d); box.append(row);
+  });
+}
+async function fxSave() {
+  const hint = $("fxhint"), d = fx.draft;
+  if (!state.db || !state.isOwner) return;
+  if (!/^\d{4}-\d{2}$/.test(d.from)) { hint.textContent = "適用開始月を入れてください。"; return; }
+  const items = d.items.map((i) => ({ id: i.id, name: String(i.name || "").trim().slice(0, 40), monthly: Math.round(Number(i.monthly)) }))
+    .filter((i) => i.name && Number.isFinite(i.monthly) && i.monthly >= 0);
+  const versions = (((state.fixed && state.fixed.versions) || []).filter((v) => v.from !== d.from)).concat([{ from: d.from, items }]).sort((x, y) => x.from.localeCompare(y.from));
+  $("fxsave").disabled = true;
+  try { await state.db.doc(FIXED_DOC).set({ versions, updated_at: new Date().toISOString() }); fx.dirty = false; hint.textContent = `保存しました（${d.from.replace("-", "年")}月から）。`; }
+  catch (_) { hint.textContent = "保存できませんでした。時間をおいて、もう一度お試しください。"; }
+  $("fxsave").disabled = false;
+}
+$("fxlist").addEventListener("input", (e) => {
+  const t = e.target, it = fx.draft.items.find((i) => i.id === t.dataset.id); if (!it) return;
+  it[t.dataset.k] = t.dataset.k === "monthly" ? (t.value === "" ? "" : Number(t.value)) : t.value; fx.dirty = true;
+});
+$("fxlist").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-del]"); if (!b) return;
+  fx.draft.items = fx.draft.items.filter((i) => i.id !== b.dataset.del); fx.dirty = true; fxRender();
+});
+$("fxfrom").addEventListener("change", (e) => { fx.draft.from = e.target.value; fx.dirty = true; });
+$("fxadd").addEventListener("click", () => { fx.draft.items.push({ id: rid(), name: "", monthly: "" }); fx.dirty = true; fxRender(); const l = $("fxlist").querySelector(".fx-row:last-child input"); if (l) l.focus(); });
+$("fxsave").addEventListener("click", fxSave);
+
+/* ---- AI に渡す利益・コストの集計（時給・個人別の人件費は含めない） ---- */
+function profitData(p) {
+  const today = todayBiz(), end = min(p.end, today), P = profitOf(p, today), r0 = (v) => Math.round(v);
+  const monthly = [];
+  for (let i = 5; i >= 0; i--) {
+    const m = addMonths(end, -i), M = profitOf(monthP(ym(m)), today);
+    monthly.push([ym(m), r0(M.revenue), M.cov.purchase.s === "full" ? r0(M.pur.total) : null, M.cov.labor.s === "full" ? r0(M.lab.cost) : null,
+                  r0(M.fee), M.cov.fixed.s === "full" ? r0(M.fx.total) : null, M.complete ? r0(M.profit) : null]);
+  }
+  return {
+    note: "利益＝売上合計（通常営業の売上＋レンタルの店舗収益）−変動費（仕入＋人件費＋決済手数料）−固定費（月額の日割り）。税込。棚卸は反映しない。coverage が full でない費用は未記録で、その期間の利益は断定できない（profit は null）",
+    coverage: Object.fromEntries(Object.entries(P.cov).map(([k, c]) => [k, c.s])),
+    this_period: { bar_sales: r0(P.bar.sales), rental_store_revenue: r0(P.rent.net), revenue_total: r0(P.revenue),
+      purchase: r0(P.pur.total), labor_cost: r0(P.lab.cost), card_fee: r0(P.fee), fixed_cost_prorated: r0(P.fx.total), variable_cost: r0(P.variable),
+      profit_accrual: P.complete ? r0(P.profit) : null, profit_cash_basis: P.complete ? r0(P.profitCash) : null, unpaid_outstanding: r0(P.openUnpaid),
+      cost_of_goods_pct: P.cogPct == null ? null : +(P.cogPct * 100).toFixed(1), labor_pct: P.laborPct == null ? null : +(P.laborPct * 100).toFixed(1),
+      variable_pct: P.varRate == null ? null : +(P.varRate * 100).toFixed(1), breakeven_sales: P.breakeven == null ? null : r0(P.breakeven),
+      labor_hours_total: P.lab.workers >= 2 ? +P.lab.hours.toFixed(1) : null },
+    fixed_cost_items: P.fx.items.map((i) => ({ name: i.name, monthly: r0(i.monthly), prorated: r0(i.amount) })),
+    purchase_by_kind: Object.fromEntries(Object.entries(P.pur.kinds).map(([k, v]) => [k, r0(v)])),
+    monthly_last_6: { columns: ["month", "revenue_total", "purchase", "labor_cost", "card_fee", "fixed_cost", "profit"], rows: monthly },
+  };
+}
+const costNow = (p) => { const P = profitOf(p, todayBiz()); return Math.round(P.pur.total + P.lab.cost + P.fx.total); };
+
+const PROFIT_RULES = `- 利益・コスト（profit）: 売上合計（通常営業＋レンタルの店舗収益）から、仕入・人件費・決済手数料・固定費（月額の日割り）を引いたものが利益。総評（overall）は売上の観点でまとめ、利益とコストは profit 欄に書く。
+  coverage が "full" でない費用は未記録で、その期間の利益は断定できない（profit_accrual は null）。その場合は、記録済みの費用だけで言えること（原価率・人件費率など）と何が未記録かを書き、黒字・赤字や利益額を言い切らない。
+  原価率・人件費率の良し悪しは、データの推移（直近6か月の比較）で判断する。業界の標準値を事実として断定しない。
+  損益分岐売上と今の売上の差、固定費と変動費のどちらが利益を左右しているか、仕入・人件費・決済手数料で見直せる所を打ち手にする。
+  個別のスタッフの人件費や時給には触れない（データにも含めていない）。profit 欄の outlook.next は null にする。
+`;
+function figProfit(p) { const P = profitOf(p, todayBiz()); return P.revenue > 0 ? fig("この期間の売上の使いみち", stackNode(P)) : null; }
+
 /* ======================= AI の示唆 =======================
    Claude に渡すのは集計した数字だけ（顧客名・伝票 ID は渡さない）。結果は共有のデータベースに残し、
    次に開いた人は Claude を使わずに読める。データが変わったら「作り直す」を出す。 */
@@ -1181,8 +1504,9 @@ function insightPrompt(p, staff) {
   const today = todayBiz(), end = min(p.end, today);
   const combined = []; for (let i = 11; i >= 0; i--) { const m = addMonths(end, -i), me = min(monthEnd(m), today);
     combined.push([m.slice(0, 7), sum(m, me).sales, rentalIn(m, me).gross]); }
+  const prof = state.profitOK ? profitData(p) : null;
   const data = { bar: insightData(p), staff: staff.data, rental: rentalData(p),
-                 combined_monthly: { columns: ["month", "bar_sales", "rental_gross"], rows: combined } };
+                 combined_monthly: { columns: ["month", "bar_sales", "rental_gross"], rows: combined }, ...(prof ? { profit: prof } : {}) };
   return `あなたは予約制のバー「Bar null」の売上を読む経営アナリストです。この店には2つの売上がある。
 - 通常営業（bar）: 夜のバー営業。1伝票＝1組の会計。担当者（staff）は LINE で伝票を送ったスタッフ
 - レンタルスペース（rental）: 営業していない時間に、インスタベース・スペースマーケット経由で店を貸す
@@ -1201,12 +1525,12 @@ function insightPrompt(p, staff) {
   売上の合計だけで優劣をつけず、1日あたり・組数・客単価・推移で比べる。件数が少ないときは断定しない。
   人を責める書き方はせず、店として取れる打ち手（シフトの組み方、客単価を上げる提案の共有、得意な曜日の活用など）にする。
 - 総評では、2つを合わせた売上の構成と推移、互いの影響（例: レンタルが通常営業の時間を圧迫していないか、空き時間の活用度）、全体として優先すべき打ち手を示す。
-
+${prof ? PROFIT_RULES : ""}
 出力は次の形の JSON オブジェクトだけ（ほかの文章は書かない）:
 {"overall": {"headline": "総評を1文で（60字以内）", "evaluation": "合わせた評価（350字以内）",
              "decisions": ["いま判断・確認すべきこと（60字以内）"],
              "actions": [打ち手と同じ形], "caveats": ["注意点（60字以内）"]},
- "bar": 欄, "staff": 欄（outlook は null でよい）, "rental": 欄}
+ "bar": 欄, "staff": 欄（outlook は null でよい）, "rental": 欄${prof ? ', "profit": 欄（利益・コスト。outlook は null）' : ""}}
 欄 = {"headline": "1文で（60字以内）",
  "findings": [{"title": "傾向の見出し（20字以内）", "detail": "説明（120字以内）", "evidence": "根拠の数字（60字以内）", "tone": "良い" または "注意" または "中立"}],
  "outlook": {"summary": "今後の見通し（150字以内）", "next": {"label": "次の期間の名前（例: 来月）", "low": 数値, "high": 数値} または null},
@@ -1232,8 +1556,14 @@ async function generateAI(refresh) {
     const result = await sample.json(insightPrompt(p, staff), { signal: ctl.signal, modelTier: "default",
       cache: refresh ? { gcTime: DAY_GCTIME, refresh: true } : { gcTime: DAY_GCTIME } });
     if (!result || typeof result !== "object" || !(result.overall || result.bar)) throw { code: "invalid_json" };
-    const doc = { env: state.env, key: p.key, label: label(p), result, staff_map: staff.map, basis: basisOf(p), generated_at: new Date().toISOString() };
+    const { profit, ...main } = result;   // 利益・コストの文章は、Editor 以上だけが読める別の文書に保存する
+    const doc = { env: state.env, key: p.key, label: label(p), result: main, staff_map: staff.map, basis: basisOf(p), generated_at: new Date().toISOString() };
     state.insights[insightKey(p)] = doc;
+    if (profit && typeof profit === "object" && state.profitOK) {
+      const pdoc = { env: state.env, key: p.key, label: label(p), result: profit, basis: { cost: costNow(p) }, generated_at: doc.generated_at };
+      state.pinsights[insightKey(p)] = pdoc;
+      if (state.db && state.canWrite) state.db.doc(`profit_insights/${insightKey(p)}`).set(pdoc).catch(() => {});
+    }
     if (state.db && state.canWrite) state.db.doc(`insights/${insightKey(p)}`).set(doc).catch(() => {});
     state.aiError = null;
   } catch (e) {
@@ -1315,6 +1645,11 @@ function renderInsight(body, doc, p) {
     g.append(h); groups.push([title, g]); return g;
   };
   if (res.overall) renderOverall(group("overall", "総評", "通常営業＋レンタルスペース"), res.overall, H);
+  const pdoc = state.profitOK ? state.pinsights[insightKey(p)] : null;
+  if (pdoc) {
+    renderPart(group("profit", "利益・コスト", "管理者・編集者だけに表示"), "profit", pdoc.result, H);
+    if (state.rows && pdoc.basis && pdoc.basis.cost != null && pdoc.basis.cost !== costNow(p) && !stale) { const s = el("span", "stale"); s.textContent = "　・仕入・人件費・固定費が更新されています"; meta.append(s); }
+  } else if (state.profitOK && !legacy) { meta.append("　利益・コストの示唆は、作り直すと加わります。"); }
   if (legacy) renderPart(group("bar", "通常営業", "以前の示唆（レンタルスペースを含みません）"), "bar", res, H);
   else {
     if (res.bar) renderPart(group("bar", "通常営業"), "bar", res.bar, H);
@@ -1489,14 +1824,14 @@ function renderOverall(g, o, H) {
 function renderPart(g, id, r, H) {
   r = r || {};
   headline(g, H, r.headline);
-  const f = id === "staff" ? figStaff(H.p) : id === "rental" ? figRental(H.p) : figBar(H.p);
+  const f = id === "staff" ? figStaff(H.p) : id === "rental" ? figRental(H.p) : id === "profit" ? figProfit(H.p) : figBar(H.p);
   if (f) g.append(f);
   const tones = (Array.isArray(r.findings) ? r.findings : []).reduce((m, x) => { const t = (TONE[x?.tone] || TONE["中立"]).label; m[t] = (m[t] || 0) + 1; return m; }, {});
   aiSec(g, "find", "見えている傾向", findingsList(r.findings, H), ["良い", "注意"].filter((k) => tones[k]).map((k) => `${k} ${tones[k]}件`).join("・"));
   if (r.outlook && r.outlook.summary) {
     const o = el("div", "ai-out"), t = el("p"); t.textContent = H.txt(r.outlook.summary, 600); o.append(t);
     const nx = r.outlook.next;
-    if (nx && Number.isFinite(Number(nx.low)) && Number.isFinite(Number(nx.high)) && state.rows && id !== "staff") {
+    if (nx && Number.isFinite(Number(nx.low)) && Number.isFinite(Number(nx.high)) && state.rows && id !== "staff" && id !== "profit") {
       const today = todayBiz(), end = min(H.p.end, today), live = inProgress(H.p, today);
       const value = id === "rental" ? (state.rental ? rentalIn(H.p.start, end).gross : null) : periodStats(H.p, today).sales;
       if (value != null) o.append(rangeChart({ label: `${label(H.p)}の実績${live ? "（途中）" : ""}`, value }, nx, H, id === "rental"));
@@ -1605,7 +1940,7 @@ async function recordSnapshots() {
 
 /* ======================= 読み込み ======================= */
 async function loadData() {
-  state.rows = null; state.error = null; render();
+  state.rows = null; state.error = null; state.cost = null; render();
   const mcp = await use("mcp");
   if (!mcp) { state.error = { title: "Asana につながっていません", body: "このページで Asana の伝票を読むには、claude.ai で Asana（0x0.co.jp のアカウント）を接続してください。" }; render(); return; }
   state.rental = null; state.rentalError = null;
@@ -1617,6 +1952,7 @@ async function loadData() {
   });
   try {
     state.rows = await loadAsana(mcp);
+    if (state.profitOK) loadCosts(mcp);
     $("fresh").textContent = `Asana から読み込み：${new Date().toLocaleString("ja-JP", { hour12: false })}　定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る`;
     render();
     recordSnapshots();
@@ -1641,7 +1977,7 @@ function setSettings(open) {   // ガラスが本文を透かすよう、ツー�
   $("settings").hidden = !open; $("settingsbtn").setAttribute("aria-expanded", String(open));
 }
 $("settingsbtn").addEventListener("click", (e) => { e.stopPropagation(); setSettings($("settings").hidden); });
-document.addEventListener("click", (e) => { if (!$("settings").hidden && !$("settings").contains(e.target)) setSettings(false); });
+document.addEventListener("click", (e) => { if (!$("settings").hidden && e.target.isConnected && !$("settings").contains(e.target)) setSettings(false); });
 window.addEventListener("scroll", () => { if (!$("settings").hidden) setSettings(false); }, { passive: true });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("settings").hidden) { setSettings(false); $("settingsbtn").focus(); } });
 $("navtoggle").addEventListener("click", () => {
@@ -1662,12 +1998,21 @@ Lens.init();
   use("sample").then((s) => { state.sample = s; renderAI(); });
   const [db, user] = await Promise.all([use("db"), use("user")]);
   state.db = db;
-  if (user) { const c = await user.can("data.write"); state.canWrite = c !== false; }
+  if (user) { const c = await user.can("data.write"); state.canWrite = c !== false; state.isOwner = user.isOwner(); state.profitOK = user.isOwner() || user.canEdit(); }
   if (db) {
     db.collection("weeks").onSnapshot((snap) => {
       const m = {}; snap.docs.forEach((d) => { const v = d.data(); if (v.env === "prod") m[v.start] = v; });
       state.snaps = m; render();
     }, () => {});
+    if (state.profitOK) {
+      db.doc(FIXED_DOC).onSnapshot((snap) => {
+        state.fixed = snap.exists ? snap.data() : null; state.fixedLoaded = true; fxInit(); render();
+      }, () => { state.fixedLoaded = true; render(); });
+      db.collection("profit_insights").onSnapshot((snap) => {
+        const m = {}; snap.docs.forEach((d) => { m[d.id] = d.data(); });
+        state.pinsights = { ...state.pinsights, ...m }; renderAI();
+      }, () => {});
+    }
     db.collection("insights").onSnapshot((snap) => {
       const m = {}; snap.docs.forEach((d) => { m[d.id] = d.data(); });
       state.insights = { ...state.insights, ...m }; renderAI();
