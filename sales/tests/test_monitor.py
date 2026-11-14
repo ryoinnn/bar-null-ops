@@ -155,7 +155,18 @@ def test_claude_key_invalid_on_line_event_goes_to_monitor_channel():
     assert r["status"] == "failed"
     mon = [p for p in deps.notifier.posts if p["channel"] == "CMON" and "処理できなかったメッセージ" in p["text"]]
     biz = [p for p in deps.notifier.posts if p["channel"] == "CPROD" and "処理できなかったメッセージ" in p["text"]]
-    assert len(mon) == 1 and len(biz) == 1 and "伝票" not in mon[0]["text"].split("原因")[0].replace("業務", "")
+    assert len(mon) == 1 and not biz                       # 一元化（2026-11-15 本人）: 業務のチャンネルには出さない
+    assert "invalid x-api-key" in mon[0]["text"]
+
+
+def test_line_group_notices_go_to_monitor_channel():
+    from helpers import event
+
+    from barnull_sales.process import handle_event
+
+    deps = live()
+    handle_event(event("2026-11-10 22:00", event_id="E10", group="Cother"), "unknown_group_message", deps)
+    assert deps.notifier.posts[-1]["channel"] == "CMON" and "処理対象ではない" in deps.notifier.posts[-1]["text"]
 
 
 # ---------------------------------------------------------------- 秘密情報の期限（2026-11-15 本人の依頼）

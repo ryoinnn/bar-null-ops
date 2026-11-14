@@ -33,6 +33,7 @@ channel_prod = "C0CBS997YRZ"   # #daily_node-sales（2026-10-25 作成）
 channel_test = "C0CBH4WHH9V"   # #test_node-sales
 alert_mention = "U0A51TDCCEN"  # 桝本
 report_channel_prod = "C0CC272MGUC"  # #weekly_node-sales
+monitor_channel_prod = "C0CHSLZA8RY"  # #null_system-monitor（システムの異常は全店舗ここに一元化。2026-11-15 本人）。dry_run 中は channel_test。投稿できなければ channel_prod
 
 [asana]
 workspace = "1211486340364770" # 0x0.co.jp

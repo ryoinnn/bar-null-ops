@@ -109,18 +109,9 @@ def _give_up(event: dict, event_id: str, deps: Deps, error: Exception) -> None:
     made = [x.slip_id for x in deps.store.find_slips("event_id", "==", event_id)]
     todo = (f"伝票 {'、'.join(made)} は作成済み（Slack・Asana は30分ごとのジョブが作る）。二重に起票しないでください。"
             if made else "手で起票・訂正してください。")
-    deps.notifier.post(s.slack_channel,
-                       f"{s.mention}【処理できなかったメッセージ】{s.tasks_max_attempts}回試しても処理できませんでした。"
-                       f"{todo}\n原因：{esc(str(error)[:300])}\n{texts.quote(text)}")
-    if s.monitor_channel != s.slack_channel:
-        # 監視のチャンネル（公開）にも短く出す。原文（顧客名・金額）は載せない
-        try:
-            deps.notifier.post(s.monitor_channel,f"{s.mention}【処理できなかったメッセージ】{s.store_name}: LINE のメッセージ1件を"
-                                     f"{s.tasks_max_attempts}回試しても処理できませんでした。原文と対応は業務のチャンネルの通知を見てください。\n"
-                                     f"原因：{esc(str(error)[:300])}")
-        except Exception:
-            log.exception("監視のチャンネルへの通知に失敗")
-
+    # システムの異常は #null_system-monitor に一元化（2026-11-15 本人）。業務のチャンネルと同じく公開なので、原文も載せる
+    health.post(deps, f"{s.mention}【処理できなかったメッセージ】{s.store_name}: LINE のメッセージを{s.tasks_max_attempts}回試しても"
+                      f"処理できませんでした。{todo}\n原因：{esc(str(error)[:300])}\n{texts.quote(text)}")
 
 def _group_name(deps: Deps, group_id: str) -> str:
     try:
@@ -144,8 +135,7 @@ def _join(event: dict, deps: Deps) -> dict:
     name = _group_name(deps, group_id)
     if _remember_group(deps, "line_groups", group_id, {"name": name, "joined_at": now_iso()}):
         allowed = group_id in deps.settings.allowed_group_ids
-        deps.notifier.post(deps.settings.slack_channel,
-                           f"LINE の Bot がグループ「{esc(name)}」に参加しました。\ngroupId: `{esc(group_id)}`\n"
+        health.post(deps, f"{deps.settings.store_name}: LINE の Bot がグループ「{esc(name)}」に参加しました。\ngroupId: `{esc(group_id)}`\n"
                            + ("処理対象のグループです。" if allowed else
                               "まだ処理対象ではありません（sales.toml の allowed_group_ids に追加すると処理します）。"))
     return {"status": "joined"}
@@ -155,7 +145,6 @@ def _unknown_group(event: dict, deps: Deps) -> dict:
     group_id = (event.get("source") or {}).get("groupId", "")
     if _remember_group(deps, "unknown_groups_notified", group_id, {"at": now_iso()}):
         name = _group_name(deps, group_id)
-        deps.notifier.post(deps.settings.slack_channel,
-                           f"処理対象ではない LINE グループ「{esc(name)}」で Bot へのメンションがありました（処理していません）。\n"
+        health.post(deps, f"{deps.settings.store_name}: 処理対象ではない LINE グループ「{esc(name)}」で Bot へのメンションがありました（処理していません）。\n"
                            f"groupId: `{esc(group_id)}`")
     return {"status": "ignored_group"}

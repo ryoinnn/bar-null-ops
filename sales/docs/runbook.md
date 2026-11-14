@@ -129,7 +129,8 @@ uv run python sales/infra/setup.py secrets deploy
 
 ## システム監視（#null_system-monitor。2026-11-15 追加）
 要件は `docs/monitoring_requirements.md`。システム系の不具合（課金停止・停止・定期処理の停止・デプロイ失敗・外部API障害・認証切れ）は
-すべて `#null_system-monitor`（C0CHSLZA8RY、公開）に出る。業務の通知（伝票・週報・勤怠）は今までどおり各チャンネル。
+すべて `#null_system-monitor`（C0CHSLZA8RY、公開）に出る（2026-11-15 本人の指示で一元化。福岡も同じ）。
+業務の通知（伝票のスレッド、★決済未確認、【伝票なし】、未収のリマインド、【要確認】、勤怠の承認・給与、週報）は今までどおり各チャンネル。
 
 | 見張るもの | どこで | 間隔 |
 |---|---|---|
@@ -151,7 +152,8 @@ uv run python sales/infra/setup.py secrets deploy
 | 【外部API障害】【処理エラー】 | 上の「Slack に出る障害の通知と対応」と同じ（通知先がここに変わった） | 同上 |
 | 【認証切れ】 | 連携先（Claude・Square・マネフォ・Asana・Slack・LINE）が 401・403。待っても直らないので 1 回目から出る。LINE の伝票の処理（process_event）でも出る（2026-11-10 の Claude のキー無効の例） | 新しいトークン・APIキーを発行し「秘密情報の更新」。Square は「Square の許可をやり直す」 |
 | 【期限が近い】【期限切れ】 | sales.toml の `[[monitor.expiry]]` に載せた鍵の期限の 30日前・7日前・前日・期限切れ（毎日 10:05 のステップ secret_expiry） | 通知の「更新の手順」に従って発行し直し、`expires` を新しい期限に書き換えて push |
-| 【処理できなかったメッセージ】 | LINE のメッセージを 10 回試しても処理できなかった（原文は業務のチャンネルの同じ通知に載る。ここには原因だけ） | 業務のチャンネルの通知に従って起票し直す |
+| 【処理できなかったメッセージ】 | LINE のメッセージを 10 回試しても処理できなかった（原文つき。2026-11-15 から業務のチャンネルには出さない） | 通知に従って起票し直す（伝票が作成済みなら二重に起票しない） |
+| LINE の Bot の参加・処理対象ではないグループ | 運用の通知（2026-11-15 からここ） | 処理するなら sales.toml の allowed_group_ids に追加 |
 | 【処理エラー】定期処理「monitor_watch」 | 外部監視（GitHub Actions）が 3 時間以上動いていない、または続けて失敗（Slack のトークン切れなど） | GitHub の Actions →「system-monitor」。無効になっていれば「Enable workflow」。失敗ならログの「Slack の … に失敗」を見てトークンを更新 |
 | GitHub からのメール「system-monitor failed」 | 外部監視が Slack に投稿できなかった | Slack のトークン（GitHub の Secrets `SLACK_BOT_TOKEN`）と、bot がチャンネルにいるかを確かめる |
 
