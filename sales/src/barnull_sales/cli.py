@@ -10,6 +10,11 @@
   supplies-setup --env test|prod [--dry-run]   プロジェクト・セクション・欄を作る（非公開）
   supplies-sync [--env test|prod] [--since YYYY-MM-DD] [--dry-run]   手元で1回同期する（初回の取り込みや確認用）
 
+固定費（経営ダッシュボード → Asana「Bar null 固定費」。手元で必要なときだけ実行。定期実行はしない）:
+  fixed-setup --env test|prod [--dry-run]    固定費のプロジェクト・セクション・欄を作る（非公開）
+  fixed-import --env test|prod [--dry-run]   経営ダッシュボードの固定費を、金額の変わり目ごとにまとめて写す（冪等）
+  fixed-show --env test|prod [--until YYYY-MM] [--months N]   月ごとの固定費を計算して表示する（確認用）
+
 仕入（NOS → Asana「Bar null 仕入」。Playwright を使うので `uv run --group purchase barnull-sales ...`）:
   purchase-setup --env test|prod [--dry-run]   仕入のプロジェクト・セクション・欄を作る（非公開）
   purchase-login         ブラウザの画面を開き、本人が NOS にログインする（ログイン状態を PC に保存）
@@ -84,6 +89,52 @@ def cmd_supplies_sync(args: argparse.Namespace) -> None:
     tracker = AsanaSuppliesTracker(secret("ASANA_PAT"), s.asana_ids, env)
     st = supplies.sync(tracker, txns, start.isoformat(), end.isoformat(), cfg, dry_run=args.dry_run, log_fn=print)
     print(f"明細 {len(txns)}件 / 新規 {st.created}（¥{st.new_amount:,}）・更新 {st.updated}・変化なし {st.unchanged}・対象外 {st.excluded}")
+
+
+def cmd_fixed_setup(args: argparse.Namespace) -> None:
+    from .asana import AsanaAPI
+    from .fixed_asana import setup
+
+    s = settings()
+    setup(AsanaAPI(secret("ASANA_PAT")), workspace=s.asana_workspace, team_name=s.asana_team_name, env=args.env,
+          ids_path=config_path().parent / "asana_ids.json", dry_run=args.dry_run)
+
+
+def cmd_fixed_import(args: argparse.Namespace) -> None:
+    """経営ダッシュボードの固定費を読み、金額の変わり目ごとにまとめて「Bar null 固定費」に写す（冪等。何度実行しても同じ）。"""
+    from . import fixed
+    from .asana import AsanaAPI
+    from .fixed_asana import AsanaFixedTracker, read_dashboard
+
+    token = secret("ASANA_PAT")
+    rows = read_dashboard(AsanaAPI(token))
+    plan = fixed.plan_from_dashboard(rows)
+    print(f"経営ダッシュボードの固定費 {len(rows)}件（金額あり {sum(r['amount'] is not None for r in rows)}件）"
+          f" → {len(plan.records)}タスク")
+    if plan.unknown:
+        print("知らない項目（写さない。fixed.py の _ITEMS に足す）:", "、".join(plan.unknown))
+    for c in plan.conflicts:
+        print("同じ月に金額が2つ（あとの値を使う）:", c)
+    tracker = AsanaFixedTracker(token, settings().asana_ids, args.env)
+    st = fixed.sync(tracker, plan.records, dry_run=args.dry_run)
+    print(f"作成 {st.created}・更新 {st.updated}・変化なし {st.unchanged}・対象外 {st.excluded}")
+
+
+def cmd_fixed_show(args: argparse.Namespace) -> None:
+    """「Bar null 固定費」から、月ごとの固定費を計算して表示する（確認用。書き込まない）。"""
+    from . import fixed
+    from .fixed_asana import AsanaFixedTracker
+
+    tasks = AsanaFixedTracker(secret("ASANA_PAT"), settings().asana_ids, args.env).list_tasks()
+    for i in range(args.months - 1, -1, -1):
+        m = fixed.add_months(args.until, -i)
+        a = fixed.month_amounts(tasks, m)
+        if not a:
+            print(f"{m}  未設定")
+            continue
+        print(f"{m}  合計 ¥{sum(v['amount'] for v in a.values()):,}")
+        for n, v in sorted(a.items(), key=lambda x: -x[1]["amount"]):
+            print(f"    {v['category']:<8} {n:<20} ¥{v['amount']:>10,}{'（実績）' if v['kind'] == '実績' else ''}")
 
 
 def cmd_purchase_login(args: argparse.Namespace) -> None:
@@ -286,6 +337,19 @@ def main() -> None:
     sy.add_argument("--since", help="読む期間の始まり（YYYY-MM-DD。省略時は lookback_days 前。初回は 2026-08-01）")
     sy.add_argument("--dry-run", action="store_true", help="Asana に書かない（マネフォは読む）")
     sy.set_defaults(func=cmd_supplies_sync)
+    fs = sub.add_parser("fixed-setup")
+    fs.add_argument("--env", choices=["test", "prod"], required=True)
+    fs.add_argument("--dry-run", action="store_true")
+    fs.set_defaults(func=cmd_fixed_setup)
+    fi = sub.add_parser("fixed-import")
+    fi.add_argument("--env", choices=["test", "prod"], required=True)
+    fi.add_argument("--dry-run", action="store_true", help="「Bar null 固定費」に書かない（経営ダッシュボードは読む）")
+    fi.set_defaults(func=cmd_fixed_import)
+    fw = sub.add_parser("fixed-show")
+    fw.add_argument("--env", choices=["test", "prod"], required=True)
+    fw.add_argument("--until", default=time.strftime("%Y-%m"), help="最後の月（YYYY-MM。既定は今月）")
+    fw.add_argument("--months", type=int, default=6)
+    fw.set_defaults(func=cmd_fixed_show)
     sub.add_parser("purchase-login").set_defaults(func=cmd_purchase_login)
     sub.add_parser("purchase-set-login").set_defaults(func=cmd_purchase_set_login)
     pf = sub.add_parser("purchase-fetch")
