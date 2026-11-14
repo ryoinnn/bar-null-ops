@@ -93,7 +93,7 @@ payroll_since = "2026-12"      # この月より前の給与は計算しない�
 
 [purchase]
 # 仕入（NOS の仕入実績一覧 → Asana「Bar null 仕入」。docs/profit/purchasing_requirements.md）。本人の PC で毎週月曜 9:30 に実行
-dry_run = true                 # true: テスト用の Asana と #test_barnull-sales に書く。本人の確認後に false
+dry_run = false                # true: テスト用の Asana と #test_barnull-sales に書く（2026-11-15 本人の了承で本番に切り替え）
 initial_since = "2026-08-01"   # 初回（purchase-fetch --initial）に読む期間の始まり
 model = "claude-haiku-5-5"     # 商品名の表示名を作るモデル（Haiku の最新版。2026-11-15 本人指定）。取得そのものは Claude を使わない
 

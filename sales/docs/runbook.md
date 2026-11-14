@@ -187,6 +187,7 @@ uv run barnull-sales report --env prod --date 2026-10-19                # 週報
   ログは `sales/samples/purchases/logs/`（どれも git に入れない）。
 - NOS のセッションはすぐ切れる（`/oms/error?timeout`）。資格情報マネージャー（barnull-sales の NOS_ACCOUNT・NOS_PASSWORD）で自動でログインし直す。
 - 結果は Slack（`[purchase] dry_run = true` のあいだは #test_barnull-sales、本番は #daily_barnull-sales）に毎回知らせる。
+- 2026-11-15 本番化: 本番プロジェクト `1220540183336163`、`dry_run = false`、8/1〜の35伝票を取り込み済み。商品マスタ29件はテストで本人が確定した表示名・区分を写した
 
 ### 最初に一度だけ
 1. `cd sales; uv sync --group purchase`（Playwright を入れる。ブラウザはリポジトリ直下の予約対応と共用）
