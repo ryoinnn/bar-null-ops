@@ -51,7 +51,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: .github/monitor
+          sparse-checkout: |
+            .github/monitor
+            sales/sales.toml
           sparse-checkout-cone-mode: false
 
       - name: 前回の状態を読む

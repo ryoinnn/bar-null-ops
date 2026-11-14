@@ -123,3 +123,28 @@ def test_main_exit_code(monkeypatch, tmp_path):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_expiry_backup_only_when_worker_is_down(tmp_path, monkeypatch):
+    f = tmp_path / "sales.toml"
+    f.write_text('[[monitor.expiry]]\nname = "Claude キー"\nexpires = "2026-11-20T04:00:00+09:00"\nrenew = "set_secret.py"\n',
+                 encoding="utf-8")
+    monkeypatch.setenv("MONITOR_EXPIRY_FILE", str(f))
+    s = FakeSlack()
+    assert check.expiry_backup({}, [], s, NOW) == {} and not s.posts                 # worker が元気なら worker に任せる
+    down = [{"key": "売上:billing"}]
+    st = check.expiry_backup({}, down, s, NOW)
+    assert "【期限が近い】" in s.posts[-1]["text"] and "外部監視から" in s.posts[-1]["text"] and list(st.values()) == [7]
+    assert check.expiry_backup(st, down, s, NOW + timedelta(hours=1)) == st and len(s.posts) == 1
+
+
+def test_expiry_state_is_not_treated_as_problem(monkeypatch, tmp_path):
+    monkeypatch.setenv("MONITOR_TARGETS", json.dumps([{"name": "n", "url": "u", "kind": "plain"}]))
+    monkeypatch.setenv("STATE_FILE", str(tmp_path / "s.json"))
+    monkeypatch.setenv("MONITOR_EXPIRY_FILE", str(tmp_path / "none.toml"))
+    (tmp_path / "s.json").write_text(json.dumps({"_expiry": {"k|t": 7}}), encoding="utf-8")
+    monkeypatch.setattr(check, "http_get", lambda url, headers=None: (200, "ok"))
+    calls = []
+    monkeypatch.setattr(check.Slack, "call", lambda self, m, p: calls.append(p) or {"ok": True, "ts": "1"})
+    assert check.main() == 0 and not calls                                          # 「復旧」を誤って出さない
+    assert json.loads((tmp_path / "s.json").read_text(encoding="utf-8"))["_expiry"] == {"k|t": 7}

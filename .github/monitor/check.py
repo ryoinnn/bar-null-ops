@@ -220,6 +220,38 @@ def notify(state: dict, problems: list[dict], slack: Slack, now: datetime) -> di
     return new_state
 
 
+EXPIRY_STAGES = (30, 7, 1, 0)       # sales/src/barnull_sales/monitor.py と同じ
+WORKER_DOWN = (":down", ":billing", ":health", ":job:daily")
+
+
+def expiry_backup(state: dict, problems: list[dict], slack: Slack, now: datetime) -> dict:
+    """秘密情報の期限（sales/sales.toml の [[monitor.expiry]]）の予備の通知。ふだんは worker の毎日のステップ secret_expiry が
+    知らせるので、売上の worker が動いていない（停止・課金停止・毎日の処理が古い）ときだけ、ここから知らせる（二重に出さない）。
+    戻り値: 知らせた段階 {鍵|期限: 段階}。"""
+    import tomllib
+
+    path = Path(os.environ.get("MONITOR_EXPIRY_FILE", "sales/sales.toml"))
+    if not path.exists() or not any(p["key"].endswith(WORKER_DOWN) for p in problems):
+        return state
+    items = tomllib.loads(path.read_text(encoding="utf-8")).get("monitor", {}).get("expiry", [])
+    mention = f"<@{os.environ['SLACK_MENTION']}> " if os.environ.get("SLACK_MENTION") else ""
+    state = dict(state)
+    for item in items:
+        exp = datetime.fromisoformat(str(item["expires"]))
+        exp = exp if exp.tzinfo else exp.replace(tzinfo=JST)
+        key, left = f"{item['name']}|{exp.isoformat()}", exp - now
+        stage = next((d for d in reversed(EXPIRY_STAGES) if left <= timedelta(days=d)), None)
+        if stage is None or (key in state and state[key] <= stage):
+            continue
+        head = (f"【期限切れ】{item['name']} の有効期限（{jst(exp)}）を過ぎています。" if stage == 0 else
+                f"【期限が近い】{item['name']} の有効期限は {jst(exp)}（あと{max(left.days, 0)}日）です。")
+        if slack.post(f"{mention}{head}（売上の worker が止まっているため、外部監視から知らせています）\n"
+                      f"更新の手順: {item.get('renew', 'runbook「秘密情報の更新」')}"):
+            state[key] = stage
+            print(f"期限の通知（予備）: 段階 {stage}")
+    return state
+
+
 def main() -> int:
     now = datetime.now(UTC)
     targets = json.loads(os.environ.get("MONITOR_TARGETS") or "[]")
@@ -232,7 +264,8 @@ def main() -> int:
     path = Path(os.environ.get("STATE_FILE", "state/monitor_state.json"))
     state = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     slack = Slack()
-    new_state = notify(state, problems, slack, now)
+    new_state = notify({k: v for k, v in state.items() if not k.startswith("_")}, problems, slack, now)
+    new_state["_expiry"] = expiry_backup(state.get("_expiry") or {}, problems, slack, now)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(new_state, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"対象 {len(targets)} 件、異常 {len(problems)} 件")
