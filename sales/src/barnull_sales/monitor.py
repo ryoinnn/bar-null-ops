@@ -4,6 +4,8 @@
 - snapshot: sales-webhook の GET /healthz が返す状態（時刻と状態だけ。金額・名前・エラー本文は返さない）。
 - watch: 外部監視（GitHub Actions の system-monitor）が動いているかを、公開の GitHub API で確かめる（相互監視）。
   3時間以上動いていない、または続けて失敗している（Slack に出せていない）なら例外にして、health が通知する。
+- expiry: 期限のある秘密情報（[[monitor.expiry]]）を、30日前・7日前・前日・期限切れの時点で知らせる（毎日のジョブ）。
+  どの段階まで知らせたかは meta/secret_expiry に残す（ジョブが1日止まっても、次の回で知らせ漏れない）。
 """
 
 from __future__ import annotations
@@ -85,3 +87,37 @@ def _fetch_runs(repo: str) -> list[dict] | None:
         return []                             # ワークフローがまだ無い
     r.raise_for_status()
     return r.json().get("workflow_runs") or []
+
+
+EXPIRY_STAGES = (30, 7, 1, 0)      # 残り日数がこれ以下になったら、その段階で1回知らせる（0 は期限切れ）
+
+
+def expiry(deps: Deps, now: datetime | None = None) -> list[str]:
+    """期限の近い秘密情報を知らせる。戻り値: 知らせた鍵の名前。"""
+    from . import health
+    from .texts import esc
+
+    s = deps.settings
+    if not s.monitor_expiry:
+        return []
+    now = now or datetime.now(UTC)
+    done = dict(deps.store.get_doc("meta", "secret_expiry") or {})
+    sent = []
+    for item in s.monitor_expiry:
+        name, expires = item["name"], datetime.fromisoformat(str(item["expires"]))
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=s.tz)
+        key = f"{name}|{expires.isoformat()}"           # 期限を書き換えたら（発行し直したら）最初から数え直す
+        left = expires - now
+        stage = next((d for d in reversed(EXPIRY_STAGES) if left <= timedelta(days=d)), None)
+        if stage is None or (key in done and done[key] <= stage):
+            continue
+        when = expires.astimezone(s.tz).strftime("%Y-%m-%d %H:%M")
+        head = (f"【期限切れ】{esc(name)} の有効期限（{when}）を過ぎています。使っている処理は失敗します。" if stage == 0 else
+                f"【期限が近い】{esc(name)} の有効期限は {when}（あと{max(left.days, 0)}日{'未満' if left.days < 1 else ''}）です。")
+        health.post(deps, f"{s.mention}{head}\n更新の手順: {esc(item.get('renew', 'runbook「秘密情報の更新」'))}")
+        done[key] = stage
+        sent.append(name)
+    if sent:
+        deps.store.set_doc("meta", "secret_expiry", done)
+    return sent

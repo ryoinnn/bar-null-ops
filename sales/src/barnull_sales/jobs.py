@@ -110,5 +110,6 @@ def weekly_report(deps: Deps) -> dict:
 
 
 DAILY_STEPS = [("deposit_alerts", deposits.deposit_alerts), ("unpaid_reminders", unpaid.reminders),
-               ("delete_old_events", delete_old_events)]
+               ("delete_old_events", delete_old_events),
+               ("secret_expiry", monitor.expiry)]   # 期限のある秘密情報（[[monitor.expiry]]）
 WEEKLY_STEPS = [("weekly_report", weekly_report)]

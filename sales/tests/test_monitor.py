@@ -156,3 +156,35 @@ def test_claude_key_invalid_on_line_event_goes_to_monitor_channel():
     mon = [p for p in deps.notifier.posts if p["channel"] == "CMON" and "処理できなかったメッセージ" in p["text"]]
     biz = [p for p in deps.notifier.posts if p["channel"] == "CPROD" and "処理できなかったメッセージ" in p["text"]]
     assert len(mon) == 1 and len(biz) == 1 and "伝票" not in mon[0]["text"].split("原因")[0].replace("業務", "")
+
+
+# ---------------------------------------------------------------- 秘密情報の期限（2026-11-15 本人の依頼）
+def test_secret_expiry_stages():
+    item = {"name": "Claude API キー", "expires": "2027-11-22T04:00:00+09:00", "renew": "set_secret.py ANTHROPIC_API_KEY"}
+    deps = live(monitor_expiry=(item,))
+    exp = datetime(2027, 11, 21, 19, 0, tzinfo=UTC)
+    assert monitor.expiry(deps, now=exp - timedelta(days=40)) == []
+    assert monitor.expiry(deps, now=exp - timedelta(days=29)) == ["Claude API キー"]
+    p = deps.notifier.posts[-1]
+    assert p["channel"] == "CMON" and "<@UALERT>" in p["text"] and "【期限が近い】" in p["text"]
+    assert "2027-11-22 04:00" in p["text"] and "set_secret.py ANTHROPIC_API_KEY" in p["text"]
+    assert monitor.expiry(deps, now=exp - timedelta(days=28)) == []           # 同じ段階は1回だけ
+    assert monitor.expiry(deps, now=exp - timedelta(days=3)) == ["Claude API キー"]   # 7日前（1日遅れても知らせる）
+    assert monitor.expiry(deps, now=exp - timedelta(hours=10)) == ["Claude API キー"]  # 前日
+    assert monitor.expiry(deps, now=exp + timedelta(hours=1)) == ["Claude API キー"]
+    assert "【期限切れ】" in deps.notifier.posts[-1]["text"]
+    assert monitor.expiry(deps, now=exp + timedelta(days=2)) == []
+    # 発行し直して期限を書き換えたら、数え直す
+    deps.settings = deps.settings.__class__(**{**deps.settings.__dict__,
+                                              "monitor_expiry": ({**item, "expires": "2028-11-22T04:00:00+09:00"},)})
+    assert monitor.expiry(deps, now=exp + timedelta(days=2)) == []
+    assert monitor.expiry(deps, now=exp + timedelta(days=340)) == ["Claude API キー"]
+
+
+def test_sales_toml_expiry_parses():
+    from barnull_sales.config import load_settings
+
+    s = load_settings()
+    assert any("Claude" in x["name"] for x in s.monitor_expiry)
+    for x in s.monitor_expiry:
+        datetime.fromisoformat(str(x["expires"]))

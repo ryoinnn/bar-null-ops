@@ -180,6 +180,7 @@ class Settings:
     line_enabled: bool = True                # LINE から伝票を受け付けるか（[line] が無ければ受け付けない）
     slack_monitor_channel_prod: str = ""     # システム監視の通知先（[slack] monitor_channel_prod。#null_system-monitor）
     monitor_watch_repo: str = ""             # 外部監視（GitHub Actions）が動いているかを見るリポジトリ（[monitor] watch_repo）
+    monitor_expiry: tuple = ()               # 期限のある秘密情報（[[monitor.expiry]]。名前・期限・更新手順。キー本体は持たない）
     keyring_service: str = "barnull-sales"   # 手元で秘密情報を読む資格情報マネージャーの名前
     # 秘密情報を1つのシークレットにまとめる店舗（福岡。[gcp] secret）。Square のトークンも同じシークレットに入れ、
     # Cloud Run では起動時に環境変数ではなく API で読む（版を1つに保ち、Secret Manager の無料枠に収めるため）
@@ -242,6 +243,7 @@ def load_settings(path: Path | None = None) -> Settings:
         slack_alert_mention=s.get("alert_mention", ""), slack_report_channel_prod=s.get("report_channel_prod", ""),
         slack_monitor_channel_prod=s.get("monitor_channel_prod", ""),
         monitor_watch_repo=c.get("monitor", {}).get("watch_repo", ""),
+        monitor_expiry=tuple(c.get("monitor", {}).get("expiry", [])),
         asana_workspace=a["workspace"], asana_team_name=a["team_name"],
         asana_project_name_prod=a["project_name_prod"], asana_project_name_test=a["project_name_test"],
         model_primary=cl["model_primary"], model_fallback=cl["model_fallback"], effort=cl["effort"],
