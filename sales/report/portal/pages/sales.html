@@ -695,7 +695,7 @@ function noticeBox(title, body) { const d = el("div", "notice"), s = el("strong"
 const COST_PROJECTS = {
   // 人件費（B。contract.md §2）: 勤怠と給与の2つを読む。ID は sales/asana_ids.json の labor.{test|prod}。本番は本番化のときに足す
   labor:    { prod: { attendance: "", payroll: "" }, test: { attendance: "1220538844505828", payroll: "1220538739321087" } },
-  purchase: { prod: [], test: ["1220538960472686"] },
+  purchase: { prod: ["1220540183336163"], test: ["1220538960472686"] },
   supplies: { prod: ["1220539775332256"], test: ["1220539120594121"] },   // 「Bar null 備品消耗品」（D。contract.md §3b）   // 「Bar null 仕入」（C。contract.md §3）。本番は本番化のときに足す
 };
 // 固定費（E。contract.md §3c）。計算は sales/src/barnull_sales/fixed.py と同じにする（cost.html にも同じ計算がある）
