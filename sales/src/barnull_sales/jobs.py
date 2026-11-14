@@ -30,7 +30,7 @@ REPUBLISH_DAYS = 3
 
 def run_steps(deps: Deps, steps: list[tuple[str, Callable[[Deps], object]]], job: str | None = None) -> bool:
     """ステップを順に動かす。job（reconcile / daily / weekly）を渡すと、最後まで動いた時刻を meta/heartbeat に残す
-    （外部監視が /healthz で「定期処理が止まっていないか」を見る。ステップが失敗しても、ジョブ自体は動いたので残す）。"""
+    （外部監視が /health で「定期処理が止まっていないか」を見る。ステップが失敗しても、ジョブ自体は動いたので残す）。"""
     ok = True
     for name, fn in steps:
         with logs.context(job=name):

@@ -3,8 +3,8 @@
 GCP の外から各サービスを叩き、止まっていたら Slack の #null_system-monitor に知らせる（sales/docs/monitoring_requirements.md）。
   - 課金停止: 本文に「billing is disabled」         → 【課金停止】
   - 停止:     応答なし・5xx                          → 【停止】
-  - 定期処理: /healthz の jobs が古い                → 【定期処理の停止】
-  - 状態:     /healthz を読めない（ok=false など）    → 【監視の異常】
+  - 定期処理: /health の jobs が古い                → 【定期処理の停止】
+  - 状態:     /health を読めない（ok=false など）    → 【監視の異常】
   - デプロイ: main の最新コミットが 40 分たっても動いていない → 【デプロイ失敗】
 同じ異常が CONSECUTIVE 回続いたら、本人をメンションした親メッセージを出す。続く間は RENOTIFY_MIN 分ごとにスレッドへ
 リマインド、直ったらスレッドに【復旧】を書き、親の先頭に【復旧済み】を付ける。
@@ -15,7 +15,7 @@ Slack に投稿できなかったら終了コード 1（GitHub から本人に�
 
 環境変数:
   MONITOR_TARGETS  JSON の配列（GitHub の Secrets）。要素: {"name": 表示名, "url": 叩く URL,
-                   "kind": "sales"（/healthz。jobs と version を見る）か "plain"（応答だけ見る）, "deploy": true/false}
+                   "kind": "sales"（/health。jobs と version を見る）か "plain"（応答だけ見る）, "deploy": true/false}
   MONITOR_EXTRA_TARGETS  試験用に足す対象（同じ形。手動実行の入力から）
   SLACK_BOT_TOKEN, SLACK_CHANNEL, SLACK_MENTION（ユーザー ID）
   GITHUB_TOKEN, GITHUB_REPOSITORY（デプロイの確認に使う）
@@ -104,7 +104,7 @@ def check_target(t: dict, now: datetime, latest_commit=None) -> list[dict]:
     if not isinstance(h, dict) or not h.get("ok") or h.get("jobs") is None:
         why = f"HTTP {status}" if not isinstance(h, dict) else "Firestore を読めない（ok=false）"
         return [{"key": f"{name}:health", "title": "監視の異常",
-                 "text": f"{name}: /healthz から状態を読めません（{why}）。定期処理が動いているか確かめられません。"}]
+                 "text": f"{name}: /health から状態を読めません（{why}）。定期処理が動いているか確かめられません。"}]
     out = []
     for job, at in (h.get("jobs") or {}).items():
         limit = JOB_MAX_AGE.get(job)

@@ -1,7 +1,7 @@
 """システム監視の GCP 側（docs/monitoring_requirements.md）。
 
 - beat: 定期ジョブ（reconcile / daily / weekly）が最後まで動いた時刻を meta/heartbeat に残す（ジョブ1回につき1回の書き込み）。
-- snapshot: sales-webhook の GET /healthz が返す状態（時刻と状態だけ。金額・名前・エラー本文は返さない）。
+- snapshot: sales-webhook の GET /health が返す状態（時刻と状態だけ。金額・名前・エラー本文は返さない）。
 - watch: 外部監視（GitHub Actions の system-monitor）が動いているかを、公開の GitHub API で確かめる（相互監視）。
   3時間以上動いていない、または続けて失敗している（Slack に出せていない）なら例外にして、health が通知する。
 - expiry: 期限のある秘密情報（[[monitor.expiry]]）を、30日前・7日前・前日・期限切れの時点で知らせる（毎日のジョブ）。
@@ -34,7 +34,7 @@ def beat(deps: Deps, job: str, now: datetime | None = None) -> None:
 
 
 def snapshot(store) -> dict:
-    """/healthz の中身。Firestore を読めなければ jobs は None（外部監視が「状態を読めない」と判断する）。"""
+    """/health の中身。Firestore を読めなければ jobs は None（外部監視が「状態を読めない」と判断する）。"""
     out: dict = {"ok": True, "version": os.environ.get("GIT_SHA", ""), "jobs": None, "failing": None}
     try:
         beats = store.get_doc("meta", "heartbeat") or {}
@@ -42,7 +42,7 @@ def snapshot(store) -> dict:
         out["jobs"] = {k: beats[k] for k in ("reconcile", "daily", "weekly") if k in beats}
         out["failing"] = sorted(k for k, v in health.items() if isinstance(v, dict) and v.get("failures"))
     except Exception:
-        log.exception("/healthz: Firestore を読めない")
+        log.exception("/health: Firestore を読めない")
         out["ok"] = False
     return out
 

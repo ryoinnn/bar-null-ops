@@ -23,12 +23,13 @@ logs.setup()
 log = logging.getLogger("sales-webhook")
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 MAX_BODY = 1_000_000      # LINE の Webhook は小さい。これより大きい本文は読まずに断る
-HEALTH_CACHE_SEC = 60     # /healthz の結果を覚えておく秒数（連打されても Firestore の読みが増えない）
+HEALTH_CACHE_SEC = 60     # /health の結果を覚えておく秒数（連打されても Firestore の読みが増えない）
 _health: dict = {"at": 0.0, "body": None}
 
 
-@app.get("/healthz")
-def healthz() -> Response:
+# /healthz にしない: Cloud Run は末尾が z のパスを予約していて、アプリに届かず 404 になる（2026-11-15 に確認）
+@app.get("/health")
+def health() -> Response:
     """外部監視（GitHub Actions の system-monitor）用。認証なし。時刻と状態だけを返す（docs/monitoring_requirements.md）。
     Firestore を読むには sales-webhook に roles/datastore.viewer が要る（無ければ ok=false・jobs=null を返す）。"""
     import time

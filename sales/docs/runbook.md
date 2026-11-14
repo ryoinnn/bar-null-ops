@@ -146,7 +146,7 @@ uv run python sales/infra/setup.py secrets deploy
 | 【課金停止】 | Cloud Run が「billing is disabled」と応答。LINE の受付も定期処理もすべて止まっている。**原因はプロジェクトの利用額上限（spend cap）に達したこと**が多い（2026-10-28・11-13。月初にリセットされて自然に戻る。billingEnabled は true のまま） | Google Cloud の「お支払い」で「利用額上限が適用されたため…一時停止」の表示を確かめ、上限を解除・引き上げる（本人）。表示が無ければ `gcloud billing projects describe barnull-sales`（福岡は `node-fukuoka-sales`）が false でないか見て、請求先アカウントをつなぎ直す。下の「止まったときの復旧」へ |
 | 【停止】 | サービスが応答しない（応答なし・5xx） | Cloud Run のコンソールで該当サービスのリビジョンとログを見る。直前のデプロイが原因なら前のリビジョンにトラフィックを戻す |
 | 【定期処理の停止】 | 30分ごと（75 分）・毎日（26 時間）・毎週（8 日）の処理が動いていない | Cloud Scheduler の `sales-reconcile` などが「有効」か、sales-worker のログに 429・500 が無いか。福岡は Cloud Tasks のキューが一時停止していないか（`gcloud tasks queues describe`）。POS の伝票が来れば予約し直されるが、待たずに手で `/jobs/tick` を積む |
-| 【監視の異常】 | `/healthz` から状態を読めない（Firestore を読めない・古い版） | sales-webhook に `roles/datastore.viewer` があるか（下の「最初に一度だけ」）。デプロイ直後なら次の回まで待つ |
+| 【監視の異常】 | `/health` から状態を読めない（Firestore を読めない・古い版） | sales-webhook に `roles/datastore.viewer` があるか（下の「最初に一度だけ」）。デプロイ直後なら次の回まで待つ |
 | 【デプロイ失敗】 | main に push したコミットが 40 分たっても動いていない | Cloud Build の履歴（`gcloud builds list --region us-central1`）で失敗したステップを見る。`deploy-worker` の「container failed to start」でアプリのログが 1 行も無いときは、課金の反映待ちを疑う（2026-11-15 の例） |
 | 【外部API障害】【処理エラー】 | 上の「Slack に出る障害の通知と対応」と同じ（通知先がここに変わった） | 同上 |
 | 【認証切れ】 | 連携先（Claude・Square・マネフォ・Asana・Slack・LINE）が 401・403。待っても直らないので 1 回目から出る。LINE の伝票の処理（process_event）でも出る（2026-11-10 の Claude のキー無効の例） | 新しいトークン・APIキーを発行し「秘密情報の更新」。Square は「Square の許可をやり直す」 |
@@ -157,7 +157,7 @@ uv run python sales/infra/setup.py secrets deploy
 
 ### 止まったときの復旧（課金停止・長い停止の後）
 1. 課金を戻す（本人）。Cloud Run が普通に応答するまで待つ（30 分以上かかることがある）。
-   `curl https://<sales-webhook の URL>/healthz` が `{"ok": true, ...}` を返せば戻っている。
+   `curl https://<sales-webhook の URL>/health` が `{"ok": true, ...}` を返せば戻っている。
 2. 失敗したデプロイがあれば、Cloud Build のトリガー `sales-deploy` を「実行」し直す（main の最新が入る）。
 3. 定期処理は次の回から動く。止まっていた間の入金・突合は、30 分ごとの処理が過去の分も読み直すので、自然に追いつく。
 4. 停止中に届いた LINE のメッセージは、LINE の再送の期限を過ぎると戻らない。停止の期間をスタッフに伝え、伝票を送り直してもらう
@@ -165,10 +165,11 @@ uv run python sales/infra/setup.py secrets deploy
 5. すべての通知に【復旧】が付いたことを確かめる。
 
 ### 最初に一度だけ（本人の作業。Claude は秘密情報を入力しない）
+- 状態の道は `/health`（`/healthz` は Cloud Run が予約していてアプリに届かない）。福岡の売上は再デプロイ（`setup.py deploy`）までは `/health` が無いので、`MONITOR_TARGETS` では `"kind":"plain"`（応答と課金停止だけを見る）にしてある。
 - PowerShell で「スクリプトの実行が無効」と出るときは、`gcloud` を `gcloud.cmd` に置き換える（実行ポリシーは変えなくてよい）。
 - 2026-11-15: 1〜4 はすべて済み（招待・IAM・Secrets 2 つ・LINE の再送とエラーの統計情報）。
 1. Slack の `#null_system-monitor` で `/invite @barnull_sales`。
-2. sales-webhook が Firestore を読めるようにする（`/healthz` のため。読み取りだけ）:
+2. sales-webhook が Firestore を読めるようにする（`/health` のため。読み取りだけ）:
    ```powershell
    gcloud projects add-iam-policy-binding barnull-sales --member=serviceAccount:sales-webhook@barnull-sales.iam.gserviceaccount.com --role=roles/datastore.viewer --condition=None
    gcloud projects add-iam-policy-binding node-fukuoka-sales --member=serviceAccount:sales-webhook@node-fukuoka-sales.iam.gserviceaccount.com --role=roles/datastore.viewer --condition=None
@@ -176,7 +177,7 @@ uv run python sales/infra/setup.py secrets deploy
 3. GitHub の Secrets（PowerShell。トークンは画面に出さずにそのまま渡る）:
    ```powershell
    (gcloud secrets versions access latest --secret=billing-guard-config --project barnull-sales | ConvertFrom-Json).SLACK_BOT_TOKEN | gh secret set SLACK_BOT_TOKEN -R ryoinnn/bar-null-ops
-   gh secret set MONITOR_TARGETS -R ryoinnn/bar-null-ops --body '[{"name":"売上（Bar null）","url":"https://sales-webhook-755193406929.us-central1.run.app/healthz","kind":"sales","deploy":true},{"name":"売上（福岡）","url":"https://sales-webhook-685670396881.us-central1.run.app/healthz","kind":"sales"},{"name":"福岡 node-api","url":"https://node-api-864625751000.asia-northeast1.run.app/api/health","kind":"plain"}]'
+   gh secret set MONITOR_TARGETS -R ryoinnn/bar-null-ops --body '[{"name":"売上（Bar null）","url":"https://sales-webhook-755193406929.us-central1.run.app/health","kind":"sales","deploy":true},{"name":"売上（福岡）","url":"https://sales-webhook-685670396881.us-central1.run.app/health","kind":"sales"},{"name":"福岡 node-api","url":"https://node-api-864625751000.asia-northeast1.run.app/api/health","kind":"plain"}]'
    ```
 4. LINE Developers →（Bar null の売上の）チャネル →「Messaging API設定」→「Webhookの再送」と「エラーの統計情報」を有効にする。
    同じイベントが再送されても、イベント ID から作るタスク名で 1 件にまとまる（`tasks.py`）。

@@ -22,25 +22,25 @@
 
 ### (1) GCP の外からの死活監視
 - GitHub Actions のワークフロー `system-monitor`（`.github/workflows/system-monitor.yml`）が **15 分ごと** に次を叩く。
-  - 売上（Bar null）`sales-webhook` の `GET /healthz`（新設。認証なし）
-  - 福岡の売上 `sales-webhook` の `GET /healthz`（同じコード）
+  - 売上（Bar null）`sales-webhook` の `GET /health`（新設。認証なし）
+  - 福岡の売上 `sales-webhook` の `GET /health`（同じコード）
   - 福岡の `node-api` の `GET /api/health`（既存。本番）
 - 判定（2 回続いたら通知。GitHub の定時実行は数分〜十数分遅れることがあるため）:
   | 結果 | 見出し |
   |---|---|
   | 応答の本文に `billing is disabled` | 【課金停止】（観点 2） |
   | 10 秒で応答なし、または 5xx | 【停止】サービスが応答しない |
-  | `/healthz` の `jobs.reconcile` が 75 分より古い（福岡は tick が 75 分より古い） | 【定期処理の停止】Scheduler・worker・連鎖の停止 |
+  | `/health` の `jobs.reconcile` が 75 分より古い（福岡は tick が 75 分より古い） | 【定期処理の停止】Scheduler・worker・連鎖の停止 |
   | `jobs.daily` が 26 時間より古い、`jobs.weekly` が 8 日より古い | 同上 |
   | デプロイの未反映（観点 3） | 【デプロイ失敗】 |
-- `/healthz` は **状態と時刻だけ** を返す（金額・名前・URL・エラー本文は返さない）。Firestore の読みは結果を 60 秒覚えておき、連打されても増えない。
+- `/health` は **状態と時刻だけ** を返す（金額・名前・URL・エラー本文は返さない）。Firestore の読みは結果を 60 秒覚えておき、連打されても増えない。
   - 返すもの: `ok`、`version`（デプロイしたコミットの短い ID）、`jobs`（reconcile / daily / weekly の最後の完了時刻）、`failing`（失敗が続いているステップ名だけ）
 - 定期処理の完了時刻は、`jobs.run_steps` の最後に Firestore の `meta/heartbeat` に 1 回書く（30 分に 1 回の書き込み。無料枠に収まる）。
 - **監視が止まったときの見張り（相互監視）**: worker の reconcile のステップ `monitor_watch` が、公開の GitHub API で
   `system-monitor` の定時実行を読む。3 時間以上動いていない、または続けて失敗している（Slack に出せていない）なら health が通知する。
   GitHub 側が止まっても GCP 側が、GCP 側が止まっても GitHub 側が気づく。
-  （当初案の「/healthz が呼ばれた時刻を Firestore に書く」は、公開の webhook に書き込み権限が要るためやめた）
-- `/healthz` が Firestore を読むため、sales-webhook に **`roles/datastore.viewer`**（読み取りだけ）を付ける（IAM の変更なので本人）。
+  （当初案の「/health が呼ばれた時刻を Firestore に書く」は、公開の webhook に書き込み権限が要るためやめた）
+- `/health` が Firestore を読むため、sales-webhook に **`roles/datastore.viewer`**（読み取りだけ）を付ける（IAM の変更なので本人）。
 - 監視先の URL は GitHub の Secrets（`MONITOR_TARGETS`）に置き、公開のコードやログに出さない。ログには「OK / 停止 / 課金停止」などの分類だけを出す。
 
 ### (2) 課金の状態
@@ -55,7 +55,7 @@
   - 上限をいくらにするか、何に費用が出ているかは本人と B が確認中。
 
 ### (3) デプロイ失敗（Cloud Build）
-- `cloudbuild.yaml` で `GIT_SHA=${SHORT_SHA}` を worker と webhook の環境変数に入れる。`/healthz` の `version` で、今動いているコミットが分かる。
+- `cloudbuild.yaml` で `GIT_SHA=${SHORT_SHA}` を worker と webhook の環境変数に入れる。`/health` の `version` で、今動いているコミットが分かる。
 - 外部監視が GitHub の API で `main` の最新コミット（トリガーと同じく `sales/**` から `sales/report/**`・`sales/docs/**`・`sales/README.md` を除く）を調べる。
   そのコミットから **40 分たっても webhook の `version` が一致しなければ**【デプロイ失敗】を通知する（Cloud Build の画面へのリンクつき）。
   webhook はビルドの最後に入るので、一致すれば worker も成功している。
@@ -71,7 +71,7 @@
 ### (5) ポータルで古いと分かる表示
 - ポータル（`sales/report/portal/`）は A（#null_dev_sales-report）だけが編集する。ここでは仕様を決め、依頼文を渡す（`docs/monitoring_portal_request.md`）。
 - 要件: 各ページで「最後の記録の日時」を出す。基準より古ければ警告の帯を出す。あわせて `#null_system-monitor` に未復旧の通知があれば「システム異常あり」の帯を出す。
-  読み取りはポータルが既に使っている Asana / Slack のコネクタで行う（`/healthz` はポータルから読めない前提）。
+  読み取りはポータルが既に使っている Asana / Slack のコネクタで行う（`/health` はポータルから読めない前提）。
 
 ### 外部 API 障害・認証切れ（GCP 内の既存の通知）
 - `health.py` の【外部API障害 / 処理エラー】の投稿先を `#null_system-monitor` にする（dry_run のあいだは #test）。
@@ -104,7 +104,7 @@
 | 追加するもの | 費用 |
 |---|---|
 | GitHub Actions（公開リポジトリ） | 無料（時間の上限なし） |
-| Cloud Run への `/healthz`（15 分ごと × 2 店舗 = 192 回/日） | 無料枠内（月 200 万リクエスト） |
+| Cloud Run への `/health`（15 分ごと × 2 店舗 = 192 回/日） | 無料枠内（月 200 万リクエスト） |
 | Firestore（heartbeat の書き込み 約 150 回/日、読み 約 400 回/日） | 無料枠内（書き 2 万・読み 5 万/日） |
 | Cloud Scheduler | **増やさない**（無料枠 3 本は使い切り） |
 | Cloud Build の Pub/Sub | 使わない |

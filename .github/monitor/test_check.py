@@ -20,7 +20,7 @@ def health(**jobs_ago_min):
                        "jobs": {k: (NOW - timedelta(minutes=v)).isoformat() for k, v in jobs_ago_min.items()}})
 
 
-SALES = {"name": "売上", "url": "https://x/healthz", "kind": "sales", "deploy": True}
+SALES = {"name": "売上", "url": "https://x/health", "kind": "sales", "deploy": True}
 
 
 def keys(problems):
@@ -49,7 +49,7 @@ def test_stale_jobs_and_unreadable_health(monkeypatch):
     assert keys(check.check_target(SALES, NOW)) == ["売上:job:reconcile", "売上:job:daily"]
     stub(monkeypatch, 200, json.dumps({"ok": False, "jobs": None}))
     assert keys(check.check_target(SALES, NOW)) == ["売上:health"]
-    stub(monkeypatch, 404, "{}")                             # /healthz が無い（古い版）
+    stub(monkeypatch, 404, "{}")                             # /health が無い（古い版）
     assert keys(check.check_target(SALES, NOW)) == ["売上:health"]
 
 

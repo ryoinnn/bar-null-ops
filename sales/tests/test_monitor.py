@@ -1,4 +1,4 @@
-"""システム監視の GCP 側: 通知先・スレッドでのリマインド・heartbeat・/healthz の中身・外部監視の見張り。"""
+"""システム監視の GCP 側: 通知先・スレッドでのリマインド・heartbeat・/health の中身・外部監視の見張り。"""
 
 from __future__ import annotations
 
@@ -104,7 +104,7 @@ def test_watch_external_monitor():
                                                  run(ago_min=35, conclusion="failure")], now=NOW) == "ok"
 
 
-def test_healthz_endpoint(monkeypatch):
+def test_health_endpoint(monkeypatch):
     from fastapi.testclient import TestClient
 
     from barnull_sales import app_webhook
@@ -114,7 +114,7 @@ def test_healthz_endpoint(monkeypatch):
     store.set_doc("meta", "heartbeat", {"reconcile": "2026-11-15T12:00:00+00:00"})
     monkeypatch.setattr("barnull_sales.store.FirestoreStore", lambda project: store)
     app_webhook._health["body"] = None
-    r = TestClient(app_webhook.app).get("/healthz")
+    r = TestClient(app_webhook.app).get("/health")
     assert r.status_code == 200 and r.json()["jobs"] == {"reconcile": "2026-11-15T12:00:00+00:00"}
 
 
