@@ -100,7 +100,7 @@ def test_dry_run_writes_nothing():
 
 def test_step_gates_by_interval_and_backfills_first():
     deps = make_deps()
-    deps.settings = replace(deps.settings, supplies=CFG)
+    deps.settings = replace(deps.settings, supplies=replace(CFG, notify=True))
     deps.supplies = FakeSupplies()
     deps.bank.cards = [tx("a", "2026-08-03", 1000), tx("b", "2026-11-14", 2000)]
     now = datetime(2026, 11, 15, 3, 0, tzinfo=UTC)
@@ -117,3 +117,12 @@ def test_step_is_noop_when_disabled_and_runs_in_job():
     deps = make_deps()
     assert supplies.step(deps) == {"skipped": True}
     assert "supplies" in [n for n, _ in jobs.RECONCILE_STEPS]
+
+
+def test_step_does_not_notify_by_default():
+    deps = make_deps()
+    deps.settings = replace(deps.settings, supplies=CFG)       # notify=False（既定。2026-11-15 本人）
+    deps.supplies = FakeSupplies()
+    deps.bank.cards = [tx("a", "2026-11-14", 2000)]
+    assert supplies.step(deps, datetime(2026, 11, 15, 3, 0, tzinfo=UTC))["created"] == 1
+    assert not deps.notifier.posts

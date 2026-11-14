@@ -121,7 +121,8 @@ class SuppliesConfig:
     fetch_interval_hours: float = 3
     exclude_patterns: tuple[str, ...] = ("NIGITA", "ニギタ")    # 摘要にこれを含む明細は対象外（NIGITA は仕入）
     tool_patterns: tuple[str, ...] = ()                         # 摘要にこれを含む明細の区分を「ツール・サブスク」にする
-    high_value: int = 100000             # この額以上の1件は Slack の知らせに「高額」と載せる
+    high_value: int = 100000             # この額以上の1件は「高額」（Slack の知らせ・ポータル）
+    notify: bool = False                 # 取り込みの結果を Slack に知らせるか（2026-11-15 本人: 不要。失敗は health が知らせる）
 
     @property
     def asana_env(self) -> str:

@@ -108,4 +108,5 @@ backfill_from = "2026-08-01"   # 初回に読む期間の始まり
 lookback_days = 60
 exclude_patterns = ["NIGITA", "ニギタ"]   # 摘要にこれを含む明細は対象外（NIGITA は仕入に入る）
 tool_patterns = ["ANTHROPIC", "OPENAI", "CHATGPT", "SLACK", "GITHUB", "NOTION", "ADOBE", "GOOGLE", "SHUTTERSTOCK"]   # 区分を「ツール・サブスク」にする
-high_value = 100000            # この額以上の1件は Slack の知らせに「高額」と載せる
+high_value = 100000            # この額以上の1件を「高額」とする（ポータルに件数が出る）
+notify = false                 # 取り込みの結果を Slack に知らせない（2026-11-15 本人。失敗だけは既存の障害通知が知らせる）

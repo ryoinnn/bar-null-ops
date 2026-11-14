@@ -153,7 +153,7 @@ def step(deps: Deps, now: datetime | None = None, force: bool = False) -> dict:
     st = sync(deps.supplies, txns, since.isoformat(), today.isoformat(), cfg, log_fn=log.info)
     deps.store.set_doc("meta", "supplies", {"last_fetch": now.isoformat(), "count": len(txns)})
     text = summary(st, cfg, since.isoformat(), today.isoformat(), len(txns))
-    if text:
+    if text and cfg.notify:
         channel = s.slack_channel_test if cfg.dry_run else s.slack_channel_prod
         deps.notifier.post(channel, text)
     return {"txns": len(txns), "created": st.created, "updated": st.updated, "excluded": st.excluded}
