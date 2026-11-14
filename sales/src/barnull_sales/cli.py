@@ -85,6 +85,8 @@ class _FakeExtractor:
                 cur["customer_name"] = m[1]
             elif m := re.match(r"金額[:：]\s*([\d,]+)", line):
                 cur["amount"] = int(m[1].replace(",", ""))
+            elif m := re.match(r"プロモーター(?:フラグ)?[:：]\s*(.*?)(様|さま|さん)?$", line):
+                cur["promoter_name"] = "" if m[1] in ("なし", "") else m[1]
             elif m := re.match(r"備考[:：]?\s*(.*)", line):
                 cur["note"] = "" if m[1] in ("なし", "") else m[1]
         if cur:
@@ -93,7 +95,8 @@ class _FakeExtractor:
             return Parsed(kind="other", confidence=0.9)
         return Parsed(kind="slip_content", confidence=0.9,
                       entries=[Entry(month=e.get("month"), day=e.get("day"), customer_name=e.get("customer_name"),
-                                     amount=e.get("amount"), note=e.get("note", "")) for e in entries])
+                                     amount=e.get("amount"), note=e.get("note", ""),
+                                     promoter_name=e.get("promoter_name", "")) for e in entries])
 
 
 def cmd_try(args: argparse.Namespace) -> None:

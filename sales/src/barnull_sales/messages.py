@@ -98,7 +98,10 @@ def correction(deps: Deps, msg: Msg, parsed: Parsed, on_accepted: Callable[[], N
     elif len(candidates) > 1 and candidates[0].event_id != candidates[1].event_id:
         candidates = candidates[:1]          # 顧客名が無ければ、直前のメッセージの伝票（1件だけのとき）
     new_amount, new_name = c.get("new_amount"), c.get("new_customer_name")
-    if len(candidates) != 1 or (new_amount is None and not new_name):
+    new_promoter = c.get("new_promoter_name")      # None: 訂正なし／空文字: 外す
+    if new_promoter is not None:
+        new_promoter = new_promoter.strip()
+    if len(candidates) != 1 or (new_amount is None and not new_name and new_promoter is None):
         review(deps, "訂正（対象の伝票を決められない）", msg)
         return {"status": "review_correction"}
     slip = candidates[0]
@@ -115,6 +118,9 @@ def correction(deps: Deps, msg: Msg, parsed: Parsed, on_accepted: Callable[[], N
     name_changed = bool(new_name) and new_name != slip.customer_name
     if name_changed:
         changes.append(f"顧客名 {esc(slip.customer_name)}様 → {esc(new_name)}様")
+    promoter_changed = new_promoter is not None and norm_person(new_promoter) != norm_person(slip.promoter_name)
+    if promoter_changed:
+        changes.append(f"プロモーター {esc(slip.promoter_name) or 'なし'} → {esc(new_promoter) or 'なし'}")
     if not changes:
         on_accepted()
         post(deps, slip, f"訂正の連絡がありましたが、内容は変わりません（{who(msg.sender)}さん）")
@@ -133,6 +139,8 @@ def correction(deps: Deps, msg: Msg, parsed: Parsed, on_accepted: Callable[[], N
             resolve_alerts(s, *PAYMENT_ALERTS, Alert.UNPAID_MISMATCH)
         if name_changed:
             s.customer_name = new_name
+        if promoter_changed:
+            s.promoter_name = new_promoter
 
     save(deps, slip, fn, "訂正：" + "、".join(changes), event_id=msg.event_id)
     on_accepted()

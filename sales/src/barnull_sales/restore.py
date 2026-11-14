@@ -45,6 +45,7 @@ def task_to_slip(task: dict) -> Slip | None:
         sender_line_user_id=None, sender_display_name=f.get("sender"), sent_at=created, raw_text=raw,
         business_date=f.get("business_date"), business_date_source="message" if f.get("business_date") else "inferred",
         customer_name=f.get("customer"), slip_amount=f.get("slip_amount"), note="",
+        promoter_name=f.get("promoter") or "",
         unpaid_amount=unpaid_remaining, unpaid_remaining=unpaid_remaining,
         unpaid_status=f.get("unpaid") or Unpaid.NONE,
         expected_square_amount=(f["slip_amount"] - unpaid_remaining) if f.get("slip_amount") is not None else None,

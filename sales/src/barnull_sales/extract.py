@@ -43,9 +43,10 @@ SCHEMA = {
                     "unpaid_amount": _nullable({"type": "integer"}),
                     "unpaid_due_text": {"type": "string"},
                     "payment_hint": {"type": "string"},
+                    "promoter_name": {"type": "string"},
                 },
                 "required": ["month", "day", "customer_name", "amount", "note", "unpaid_amount",
-                             "unpaid_due_text", "payment_hint"],
+                             "unpaid_due_text", "payment_hint", "promoter_name"],
                 "additionalProperties": False,
             },
         },
@@ -55,9 +56,11 @@ SCHEMA = {
                 "target_customer_name": _nullable({"type": "string"}),
                 "new_amount": _nullable({"type": "integer"}),
                 "new_customer_name": _nullable({"type": "string"}),
+                "new_promoter_name": _nullable({"type": "string"}),
                 "description": {"type": "string"},
             },
-            "required": ["target_customer_name", "new_amount", "new_customer_name", "description"],
+            "required": ["target_customer_name", "new_amount", "new_customer_name", "new_promoter_name",
+                         "description"],
             "additionalProperties": False,
         }),
         "collection_report": _nullable({
@@ -101,10 +104,12 @@ kind の決め方:
 - note は備考の原文（無い・「なし」なら空文字）。
 - 備考に未収（後払い）の金額があれば unpaid_amount、回収予定日の記述があれば unpaid_due_text。
 - 支払方法の手がかり（カード、現金、割り勘、振込など）があれば payment_hint に短く書く。
+- 「プロモーターフラグ：〇〇」（「プロモーター：」も同じ）の行があれば、その名前を promoter_name に入れる（敬称は除く）。無い・空・「なし」なら空文字。
 - 「未収分」「未収の回収」「〜さんの未収」など、以前の会計の未収金（後払い）が支払われた・回収したことを伝える内容は、
   日付や金額が書かれていても unpaid_collection_report にする（新しい会計の slip_content にしない。売上が二重になるため）。
 - kind が slip_content 以外なら entries は空。対応する correction / collection_report / cash_deposit だけを埋め、ほかは null。
-- correction の target_customer_name は訂正する伝票の顧客名（書かれていなければ null）、new_amount は訂正後の金額、new_customer_name は顧客名の訂正があれば訂正後の名前。
+- correction の target_customer_name は訂正する伝票の顧客名（書かれていなければ null）、new_amount は訂正後の金額、new_customer_name は顧客名の訂正があれば訂正後の名前、
+  new_promoter_name はプロモーターフラグの訂正があれば訂正後の名前（外すなら空文字、訂正が無ければ null）。
 - confidence は分類と値の取り出しの自信（0〜1）。"""
 
 
@@ -118,6 +123,7 @@ class Entry:
     unpaid_amount: int | None = None
     unpaid_due_text: str = ""
     payment_hint: str = ""
+    promoter_name: str = ""      # 伝票の「プロモーターフラグ：」（プロモーター経由の売上。空なら無し）
 
 
 @dataclass

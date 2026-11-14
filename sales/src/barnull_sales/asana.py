@@ -35,6 +35,7 @@ FIELDS = {
     "payment_id": ("Square payment ID", "text", None),
     "slack_url": ("Slackスレッド", "text", None),
     "manual": ("手動上書き", "enum", MANUAL_OPTIONS),
+    "promoter": ("プロモーター", "text", None),     # 2026-11-14 追加（contract.md §2-2）
 }
 # POS の伝票の店舗（福岡）だけが使う欄。asana-setup で、LINE を使わない店舗のときだけ作る
 POS_FIELDS = {
@@ -91,6 +92,8 @@ class AsanaTracker:
             f["sender"]: slip.sender_display_name or "",
             f["slip_id"]: slip.slip_id,
         }
+        if f.get("promoter"):   # 欄を作る前（asana-setup の前）は書かない
+            values[f["promoter"]] = slip.promoter_name or ""
         if slip.business_date:
             values[f["business_date"]] = {"date": slip.business_date}
         if slip.slip_amount is not None:

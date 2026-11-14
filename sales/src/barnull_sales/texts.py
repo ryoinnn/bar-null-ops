@@ -72,6 +72,8 @@ def slack_parent(slip: Slip) -> str:
             lines.append(f"受け取り：{receipts}")
     else:
         lines.append(f"担当：{who(slip.sender_display_name)}（LINE）")
+    if slip.promoter_name:
+        lines.append(f"プロモーター：{esc(slip.promoter_name)}")
     lines.append(f"ステータス：{slip.status}" + ("（完了）" if slip.closed_at and not slip.cancelled else ""))
     if slip.payment_ids:
         fee = slip.square.get("fee")
@@ -117,6 +119,7 @@ def asana_notes(slip: Slip) -> str:
         f"未収: {yen(slip.unpaid_amount) if slip.unpaid_amount else 'なし'} {slip.unpaid_due_text}".rstrip(),
         f"Square で期待する金額: {yen(slip.expected_square_amount)}",
         f"担当（{'POS' if slip.source == 'pos' else 'LINE'}）: {slip.sender_display_name or '不明'}",
+        *([f"プロモーター: {slip.promoter_name}"] if slip.promoter_name else []),
         "",
         "POS の伝票:" if slip.source == "pos" else "LINE の原文:",
         slip.raw_text,

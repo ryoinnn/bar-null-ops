@@ -96,6 +96,7 @@ class Slip:
     unpaid_status: str = Unpaid.NONE              # derive が決める
     unpaid_due_text: str = ""
     payment_hint: str = ""
+    promoter_name: str = ""                       # プロモーター経由の売上ならその名前（伝票の「プロモーターフラグ：」）
     expected_square_amount: int | None = None     # 伝票金額 − 未収
     status: str = Status.DRAFTED                  # derive が決める
     status_history: list[dict] = field(default_factory=list)
@@ -239,6 +240,7 @@ def build_slip(*, slip_id: str, event_id: str, index: int, entry: Entry, group_i
         customer_name=entry.customer_name, slip_amount=entry.amount, note=entry.note or "",
         unpaid_amount=unpaid, unpaid_remaining=unpaid,
         unpaid_due_text=entry.unpaid_due_text or "", payment_hint=entry.payment_hint or "",
+        promoter_name=(entry.promoter_name or "").strip(),
         expected_square_amount=max(entry.amount - unpaid, 0) if entry.amount is not None else None,
         dry_run=settings.dry_run,
     )
