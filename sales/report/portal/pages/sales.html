@@ -708,13 +708,13 @@ const txt = (c) => (c?.text_value ?? c?.enum_value?.name ?? "").trim();
 function parseAttendance(t) {   // 勤怠（1人 × 1稼働日）。contract.md §2-1
   const f = fieldsOf(t), date = f["稼働日"]?.date_value?.date?.slice(0, 10);
   if (!date || txt(f["勤怠ステータス"]) === "対象外" || txt(f["店舗"])) return null;
-  return { date, name: txt(f["スタッフ名"]) || txt(f["LINE名"]) || "（名前なし）", line: txt(f["LINE名"]),
+  return { date, sid: txt(f["スタッフID"]), name: txt(f["スタッフ名"]) || txt(f["LINE名"]) || "（名前なし）", line: txt(f["LINE名"]),
            hours: f["稼働時間（h）"]?.number_value || 0, wage: f["時給の額"]?.number_value ?? null };
 }
 function parsePayroll(t) {      // 給与（1人 × 1か月）。contract.md §2-3
   const f = fieldsOf(t), month = txt(f["対象月"]);
   if (!/^\d{4}-\d{2}$/.test(month)) return null;
-  return { month, name: txt(f["スタッフ名"]) || "（名前なし）", wagePart: f["時給の分"]?.number_value || 0,
+  return { month, sid: txt(f["スタッフID"]), name: txt(f["スタッフ名"]) || "（名前なし）", wagePart: f["時給の分"]?.number_value || 0,
            pay: f["給与"]?.number_value ?? null, status: txt(f["給与ステータス"]) };
 }
 function parsePurchase(t) {
@@ -798,23 +798,28 @@ function fixedStats(a, b) {
   return { s: miss === 0 ? "full" : miss === n ? "none" : "partial", total, items: [...by.values()], monthly: v0 ? v0.items.reduce((x, i) => x + i.monthly, 0) : 0 };
 }
 /* 人件費（contract.md §2-5）: 月の人件費 ＝ 給与の合計。月の一部だけの期間は、勤怠の「時給の額」を稼働日で数え、
-   バック・調整（給与 − 時給の分）は日割りで足す。給与の記録が無い月は、勤怠の時給の分だけ（一部のみの扱い）。 */
+   バック・調整（給与 − 時給の分）は日割りで足す。給与の記録が無い月は、勤怠の時給の分だけ（一部のみの扱い）。
+   人ごとの照合は「スタッフID」（名前を直しても変わらない）。無い記録だけスタッフ名で照合する。表示名は、いちばん新しい記録の名前。 */
+const staffKey = (r) => r.sid ? "id:" + r.sid : "nm:" + r.name;
 function laborIn(a, b) {
   const c = state.cost && state.cost.labor, att = ((c && c.att) || []).filter((r) => r.date >= a && r.date <= b), by = {};
-  const get = (n) => by[n] = by[n] || { days: new Set(), hours: 0, wage: 0, back: 0, cost: 0 };
-  att.forEach((r) => { const x = get(r.name); x.days.add(r.date); x.hours += r.hours; x.wage += r.wage || 0; });
+  const get = (r, when) => {
+    const x = by[staffKey(r)] = by[staffKey(r)] || { name: r.name, when: "", days: new Set(), hours: 0, wage: 0, back: 0, cost: 0 };
+    if (when >= x.when) { x.name = r.name; x.when = when; } return x;
+  };
+  att.forEach((r) => { const x = get(r, r.date); x.days.add(r.date); x.hours += r.hours; x.wage += r.wage || 0; });
   let cost = 0;
   monthsIn(a, b).forEach((m) => {
     const me = monthEnd(m), ma = m > a ? m : a, mb = min(me, b), whole = ma === m && mb === me;
     const part = (diff(ma, mb) + 1) / Number(me.slice(8));
-    const wageOf = {}; att.filter((r) => r.date >= ma && r.date <= mb).forEach((r) => { wageOf[r.name] = (wageOf[r.name] || 0) + (r.wage || 0); });
+    const wageOf = {}; att.filter((r) => r.date >= ma && r.date <= mb).forEach((r) => { const k = staffKey(r); wageOf[k] = (wageOf[k] || 0) + (r.wage || 0); });
     const pays = ((c && c.pay) || []).filter((r) => r.month === ym(m));
     pays.forEach((r) => {
-      const x = get(r.name), w = wageOf[r.name] || 0, extra = (r.pay ?? r.wagePart) - r.wagePart;
+      const k = staffKey(r), x = get(r, r.month + "-31"), w = wageOf[k] || 0, extra = (r.pay ?? r.wagePart) - r.wagePart;
       const v = whole ? (r.pay ?? r.wagePart) : w + extra * part;
-      x.back += v - w; x.cost += v; cost += v; delete wageOf[r.name];
+      x.back += v - w; x.cost += v; cost += v; delete wageOf[k];
     });
-    Object.entries(wageOf).forEach(([n, w]) => { get(n).cost += w; cost += w; });   // 給与の記録が無い人・月は時給の分だけ
+    Object.entries(wageOf).forEach(([k, w]) => { by[k].cost += w; cost += w; });   // 給与の記録が無い人・月は時給の分だけ
   });
   const hours = att.reduce((x, r) => x + r.hours, 0);
   return { rows: att, by, workers: Object.values(by).filter((v) => v.cost > 0 || v.hours > 0).length, hours, cost, noCost: 0 };
@@ -929,7 +934,7 @@ function renderProfit(p, today) {
     const e = el("p", "empty"); e.textContent = lc.s === "unset" ? "勤怠・給与の記録先（Asana のプロジェクト）が、この環境ではまだ設定されていません。" : lc.s === "wait" ? "読み込み中です。" : lc.s === "error" ? "勤怠・給与を読み込めませんでした。" : "この期間の勤怠・給与は未記録です。"; lb.append(e);
   } else {
     const list = Object.entries(P.lab.by).filter(([, v]) => v.cost > 0 || v.hours > 0).sort((x, y) => y[1].cost - x[1].cost);
-    const rows = list.map(([n, v]) => [n, `${v.days.size}日`, `${v.hours.toFixed(1)}h`, yen(v.wage), yen(v.back), yen(v.cost), P.lab.cost ? pc(v.cost / P.lab.cost) : "—"]);
+    const rows = list.map(([, v]) => [v.name, `${v.days.size}日`, `${v.hours.toFixed(1)}h`, yen(v.wage), yen(v.back), yen(v.cost), P.lab.cost ? pc(v.cost / P.lab.cost) : "—"]);
     const tw = list.reduce((x, [, v]) => x + v.wage, 0), tb = list.reduce((x, [, v]) => x + v.back, 0);
     lb.append(tableOf([["スタッフ"], ["稼働日数", true], ["稼働時間", true], ["時給の分", true], ["バック・調整", true], ["人件費", true], ["割合", true]], rows,
       ["合計", "", `${P.lab.hours.toFixed(1)}h`, yen(tw), yen(tb), yen(P.lab.cost), ""]));
