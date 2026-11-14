@@ -15,6 +15,7 @@ class Notifier(Protocol):
     def post(self, channel: str, text: str, thread_ts: str | None = None, broadcast: bool = False) -> str: ...
     def update(self, channel: str, ts: str, text: str) -> None: ...
     def permalink(self, channel: str, ts: str) -> str | None: ...
+    def reactions(self, channel: str, ts: str) -> dict[str, list[str]]: ...
 
 
 class SlackNotifier:
@@ -46,3 +47,8 @@ class SlackNotifier:
         except ExternalAPIError as e:
             log.warning("permalink の取得に失敗: %s", e)
             return None
+
+    def reactions(self, channel: str, ts: str) -> dict[str, list[str]]:
+        """メッセージに付いたリアクション {絵文字名: [ユーザー ID]}（権限 reactions:read が要る）。"""
+        body = self._call("reactions.get", {"channel": channel, "timestamp": ts, "full": "true"}, get=True)
+        return {r["name"]: list(r.get("users") or []) for r in (body.get("message") or {}).get("reactions") or []}

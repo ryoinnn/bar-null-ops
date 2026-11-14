@@ -64,3 +64,9 @@ artifact_url = "https://claude.ai/artifact/test"
 model_primary = "claude-haiku-5-5"
 model_fallback = "claude-sonnet-5-5"
 effort = "low"
+
+[labor]
+enabled = true
+dry_run = false
+slack_channel_prod = "CSTAFF"
+payroll_since = "2026-01"

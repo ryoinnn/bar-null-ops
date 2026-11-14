@@ -1,6 +1,7 @@
 """手元で使うコマンド（sales フォルダで `uv run barnull-sales ...`）。
 
   asana-setup --env test|prod [--dry-run]   Asana のプロジェクト・セクション・カスタムフィールドを作る（asana_ids.json に保存）
+  asana-setup-labor --env test|prod [--dry-run]   勤怠・スタッフ台帳・給与のプロジェクトと欄を作る（非公開）
   restore-from-asana --env test|prod [--dry-run]   Firestore を失ったとき、Asana のタスクから伝票の状態を作り直す
   try "メッセージ" [--real-slack] [--real-asana] [--real-claude]
         @Bot メッセージ1通の処理を手元で試す（既定はすべて偽物。--real-* で本物を使う。Slack と Asana はテスト先）
@@ -25,6 +26,15 @@ def cmd_asana_setup(args: argparse.Namespace) -> None:
     setup(AsanaAPI(secret("ASANA_PAT")), workspace=s.asana_workspace, team_name=s.asana_team_name,
           project_name=name, env=args.env, ids_path=config_path().parent / "asana_ids.json", dry_run=args.dry_run,
           pos=not s.line_enabled)
+
+
+def cmd_asana_setup_labor(args: argparse.Namespace) -> None:
+    from .asana import AsanaAPI
+    from .labor_asana import setup
+
+    s = settings()
+    setup(AsanaAPI(secret("ASANA_PAT")), workspace=s.asana_workspace, team_name=s.asana_team_name, env=args.env,
+          ids_path=config_path().parent / "asana_ids.json", dry_run=args.dry_run)
 
 
 def _firestore_with_gcloud():
@@ -74,6 +84,11 @@ class _FakeExtractor:
 
         from .extract import Entry, Parsed
 
+        if m := re.search(r"勤務開始[:：]\s*(\d{1,2}[:：]\d{2}).*?勤務終了[:：]\s*(\d{1,2}[:：]\d{2})", text, re.S):
+            d = re.search(r"日付[:：]\s*(\d+)/(\d+)", text)
+            return Parsed(kind="attendance", confidence=0.9, attendance={
+                "month": int(d[1]) if d else None, "day": int(d[2]) if d else None,
+                "start": m[1].replace("：", ":"), "end": m[2].replace("：", ":")})
         entries, cur = [], {}
         for line in text.splitlines():
             line = line.strip("・ ")
@@ -103,10 +118,11 @@ def cmd_try(args: argparse.Namespace) -> None:
     from .asana import AsanaTracker
     from .deps import Deps
     from .extract import ClaudeExtractor
+    from .labor_asana import AsanaLaborTracker
     from .process import handle_event
     from .slack import SlackNotifier
     from .store import MemoryStore
-    from .testing import FakeNotifier, FakeTracker
+    from .testing import FakeLaborTracker, FakeNotifier, FakeTracker
 
     s = replace(settings(), dry_run=True, allowed_group_ids=("Ctest",))
     deps = Deps(
@@ -115,6 +131,8 @@ def cmd_try(args: argparse.Namespace) -> None:
                    if args.real_claude else _FakeExtractor()),
         notifier=SlackNotifier(secret("SLACK_BOT_TOKEN")) if args.real_slack else FakeNotifier(),
         tracker=AsanaTracker(secret("ASANA_PAT"), s.asana_ids, "test") if args.real_asana else FakeTracker(),
+        labor=(AsanaLaborTracker(secret("ASANA_PAT"), s.asana_ids, "test")
+               if args.real_asana and "test" in s.asana_ids.get("labor", {}) else FakeLaborTracker()),
     )
     text = f"{s.bot_mention_name} {args.text}"
     event = {"type": "message", "webhookEventId": f"try-{int(time.time())}", "timestamp": int(time.time() * 1000),
@@ -137,6 +155,10 @@ def main() -> None:
     a.add_argument("--env", choices=["test", "prod"], required=True)
     a.add_argument("--dry-run", action="store_true")
     a.set_defaults(func=cmd_asana_setup)
+    al = sub.add_parser("asana-setup-labor")
+    al.add_argument("--env", choices=["test", "prod"], required=True)
+    al.add_argument("--dry-run", action="store_true")
+    al.set_defaults(func=cmd_asana_setup_labor)
     r = sub.add_parser("restore-from-asana")
     r.add_argument("--env", choices=["test", "prod"], required=True)
     r.add_argument("--dry-run", action="store_true")

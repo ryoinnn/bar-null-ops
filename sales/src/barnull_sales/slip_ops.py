@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from . import texts
+from . import labor_hooks, texts
 from .deps import Deps
 from .slips import Slip, derive, now_iso
 
@@ -36,10 +36,12 @@ def save(deps: Deps, slip: Slip, fn: Callable[[Slip], None], reason: str, *, eve
     event_id を渡すと、状態が変わらなくても履歴に残す（同じ LINE メッセージを二度適用しないための目印）。
     """
     closed = False
+    sales_before: dict | None = None
 
     def apply(s: Slip) -> None:
-        nonlocal closed
+        nonlocal closed, sales_before
         before, was_closed, remaining = s.status, s.closed_at, s.unpaid_remaining
+        sales_before = labor_hooks.sales_key(s)
         fn(s)
         derive(s)
         if s.source == "pos" and s.unpaid_remaining < remaining:
@@ -55,6 +57,8 @@ def save(deps: Deps, slip: Slip, fn: Callable[[Slip], None], reason: str, *, eve
     deps.store.update_slip(slip, apply)
     # ログには理由の見出しだけ（「訂正：金額 …」の後ろには顧客名や金額が入るため）
     log.info("保存: %s（%s）", reason.split("：")[0], slip.status, extra={"slip_id": slip.slip_id})
+    if sales_before != labor_hooks.sales_key(slip):
+        labor_hooks.on_slip_changed(deps, sales_before, slip)
     if notify:
         sync(deps, slip)
         if closed:

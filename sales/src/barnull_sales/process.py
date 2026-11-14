@@ -83,7 +83,8 @@ def _to_msg(event: dict, event_id: str, deps: Deps) -> Msg:
             log.warning("表示名の取得に失敗", exc_info=True)
     return Msg(event_id=event_id, group_id=group_id, message_id=m.get("id", ""), user_id=user_id, sender=sender,
                text=strip_mention(m, deps.settings.bot_mention_name),
-               sent_at=datetime.fromtimestamp(event.get("timestamp", 0) / 1000, tz=UTC))
+               sent_at=datetime.fromtimestamp(event.get("timestamp", 0) / 1000, tz=UTC),
+               reply_token=event.get("replyToken"), quote_token=m.get("quoteToken"))
 
 
 def _ack(event: dict, deps: Deps) -> bool:

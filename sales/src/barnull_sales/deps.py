@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from .asana import TaskTracker
     from .config import Settings
     from .extract import Extractor
+    from .labor_asana import LaborTracker
     from .line import LineClient
     from .mf import BankLedgerSource
     from .pos_notify import PosClient
@@ -29,3 +30,4 @@ class Deps:
     payouts: PayoutSource | None = None     # Square の振込
     bank: BankLedgerSource | None = None    # マネフォの銀行明細
     pos: PosClient | None = None            # POS（福岡）へ知らせる先
+    labor: LaborTracker | None = None       # Asana の勤怠・スタッフ台帳・給与（[labor]）

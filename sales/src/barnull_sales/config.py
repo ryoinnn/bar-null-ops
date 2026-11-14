@@ -72,6 +72,43 @@ class FollowupConfig:
     payer_match_confidence: float = 0.8
 
 
+def _hm(s: str) -> time:
+    h, m = (int(x) for x in s.split(":"))
+    return time(h, m)
+
+
+@dataclass(frozen=True)
+class LaborConfig:
+    """勤怠・スタッフ台帳・給与（[labor]。docs/profit/labor_design.md）。"""
+    enabled: bool = False
+    dry_run: bool = True                 # true: 勤怠・台帳・給与はテスト用の Asana と Slack に書く（売上の dry_run とは別）
+    slack_channel_prod: str = ""         # #null_staff-management
+    cycle_start: str = "21:00"           # 勤怠サイクル 21:00〜翌9:00
+    cycle_end: str = "09:00"
+    deadline_extra_days: int = 1         # 営業日 D の勤務は、D+1+この日数 の cycle_end まで（既定 D+2 9:00）
+    max_shift_hours: float = 15          # これを超える勤務は読み間違いとみなす
+    payroll_weekday: int = 2             # 給与の計算: 翌月の最初のこの曜日（0=月。2=水）
+    payroll_time: str = "17:00"
+    confirm_day: int = 10                # 給与の確定: 翌月のこの日
+    confirm_time: str = "09:00"
+    payroll_since: str = ""              # この月（YYYY-MM）より前の給与は計算しない
+    approve_emoji: tuple[str, ...] = ("white_check_mark", "heavy_check_mark", "o")
+    reject_emoji: tuple[str, ...] = ("x", "negative_squared_cross_mark")
+    approval_remind_days: float = 7
+
+    @property
+    def cycle_start_time(self) -> time:
+        return _hm(self.cycle_start)
+
+    @property
+    def cycle_end_time(self) -> time:
+        return _hm(self.cycle_end)
+
+    @property
+    def asana_env(self) -> str:
+        return "test" if self.dry_run else "prod"
+
+
 @dataclass(frozen=True)
 class Settings:
     dry_run: bool
@@ -112,6 +149,14 @@ class Settings:
     # 秘密情報を1つのシークレットにまとめる店舗（福岡。[gcp] secret）。Square のトークンも同じシークレットに入れ、
     # Cloud Run では起動時に環境変数ではなく API で読む（版を1つに保ち、Secret Manager の無料枠に収めるため）
     secret_name: str = ""
+    labor: LaborConfig = LaborConfig()
+
+    @property
+    def labor_channel(self) -> str:
+        """勤怠の Slack（#null_staff-management。dry_run のあいだ・未設定のあいだはテスト用チャンネル）。"""
+        if self.labor.dry_run or not self.labor.slack_channel_prod:
+            return self.slack_channel_test
+        return self.labor.slack_channel_prod
 
     @property
     def slack_channel(self) -> str:
@@ -164,6 +209,7 @@ def load_settings(path: Path | None = None) -> Settings:
         store_name=st.get("name", "Bar null"), line_enabled=ln is not None,
         keyring_service=st.get("keyring_service", KEYRING_SERVICE),
         secret_name=g.get("secret", ""),
+        labor=_pick(LaborConfig, c.get("labor", {})),
     )
 
 

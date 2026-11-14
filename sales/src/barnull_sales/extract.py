@@ -16,7 +16,7 @@ from .http import ExternalAPIError
 
 log = logging.getLogger(__name__)
 
-KINDS = ("slip_content", "correction", "unpaid_collection_report", "cash_deposit_report", "other")
+KINDS = ("slip_content", "correction", "unpaid_collection_report", "cash_deposit_report", "attendance", "other")
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 MIN_CONFIDENCE = 0.6
 
@@ -83,8 +83,19 @@ SCHEMA = {
             "required": ["customer_names", "total_amount", "deposit_date_text"],
             "additionalProperties": False,
         }),
+        "attendance": _nullable({
+            "type": "object",
+            "properties": {
+                "month": _nullable({"type": "integer"}),
+                "day": _nullable({"type": "integer"}),
+                "start": {"type": "string"},
+                "end": {"type": "string"},
+            },
+            "required": ["month", "day", "start", "end"],
+            "additionalProperties": False,
+        }),
     },
-    "required": ["kind", "confidence", "entries", "correction", "collection_report", "cash_deposit"],
+    "required": ["kind", "confidence", "entries", "correction", "collection_report", "cash_deposit", "attendance"],
     "additionalProperties": False,
 }
 
@@ -95,6 +106,7 @@ kind の決め方:
 - correction: 直前に送った伝票の内容の訂正（金額・顧客名・日付など）
 - unpaid_collection_report: 未収金（後払い）を回収した、振込があった、という報告
 - cash_deposit_report: 現金の売上を銀行に入金した報告（複数日分をまとめて入金した、など）
+- attendance: スタッフの勤怠（「日付：」「勤務開始：」「勤務終了：」など、働いた日と開始・終了の時刻）。金額や顧客名は無い
 - other: 上のどれでもない
 
 値のルール:
@@ -107,7 +119,9 @@ kind の決め方:
 - 「プロモーターフラグ：〇〇」（「プロモーター：」も同じ）の行があれば、その名前を promoter_name に入れる（敬称は除く）。無い・空・「なし」なら空文字。
 - 「未収分」「未収の回収」「〜さんの未収」など、以前の会計の未収金（後払い）が支払われた・回収したことを伝える内容は、
   日付や金額が書かれていても unpaid_collection_report にする（新しい会計の slip_content にしない。売上が二重になるため）。
-- kind が slip_content 以外なら entries は空。対応する correction / collection_report / cash_deposit だけを埋め、ほかは null。
+- kind が slip_content 以外なら entries は空。対応する correction / collection_report / cash_deposit / attendance だけを埋め、ほかは null。
+- attendance の month・day は「日付：」の月日（書かれていなければ null）。start・end は時刻を "HH:MM"（24時間制）で書く。
+  「21時」は "21:00"、「3時半」は "03:30"、「27:00」「翌3時」は書かれたとおり "27:00" / "03:00"。読めなければ空文字。午前・午後の推測はしない。
 - correction の target_customer_name は訂正する伝票の顧客名（書かれていなければ null）、new_amount は訂正後の金額、new_customer_name は顧客名の訂正があれば訂正後の名前、
   new_promoter_name はプロモーターフラグの訂正があれば訂正後の名前（外すなら空文字、訂正が無ければ null）。
 - confidence は分類と値の取り出しの自信（0〜1）。"""
@@ -134,6 +148,7 @@ class Parsed:
     correction: dict | None = None
     collection_report: dict | None = None
     cash_deposit: dict | None = None
+    attendance: dict | None = None
     model: str = ""
     usage: dict = field(default_factory=dict)
 
@@ -148,7 +163,8 @@ class Parsed:
             correction = {**correction, "new_amount": _amount(correction.get("new_amount"))}
         return cls(kind=data["kind"], confidence=float(data.get("confidence", 0)), entries=entries,
                    correction=correction, collection_report=data.get("collection_report"),
-                   cash_deposit=data.get("cash_deposit"), model=model or data.get("model", ""),
+                   cash_deposit=data.get("cash_deposit"), attendance=data.get("attendance"),
+                   model=model or data.get("model", ""),
                    usage=usage or data.get("usage") or {})
 
     def to_json(self) -> dict:

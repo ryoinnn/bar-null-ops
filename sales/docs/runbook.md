@@ -146,3 +146,33 @@ uv run pytest                                   # テスト（tests/sales.test.t
 uv run barnull-sales try "日付：10/5 顧客名：テストさま 金額：1,000"    # 1通の処理（既定ですべて偽物）
 uv run barnull-sales report --env prod --date 2026-10-19                # 週報の文面を表示するだけ
 ```
+
+## 勤怠・スタッフ台帳・給与（2026-11-14 追加）
+要件は `docs/profit/labor_requirements.md`、作りは `docs/profit/labor_design.md`、データの約束は `docs/profit/contract.md` §2。
+設定は `sales.toml` の `[labor]`。`dry_run = true` のあいだは、勤怠・台帳・給与をテスト用の Asana と `#test_barnull-sales` に書く（売上は本番のまま）。
+
+### 定期処理（30分ごとの sales-reconcile に追加したステップ）
+| ステップ | 内容 |
+|---|---|
+| `staff_sync` | Asana の台帳を読み、Firestore（`staff/`）に写す。時給が変わったら履歴に足し、今月・前月の勤怠と給与を直す |
+| `attendance_approvals` | 期限外の勤怠の承認依頼（Slack）に付いた桝本の ✅／❌ を読んで反映する。承認したら LINE で知らせる（プッシュ送信） |
+| `attendance_overrides` | 勤怠タスクの「勤怠の手動上書き」（時間を反映／対象外）を取り込む |
+| `attendance_resync` | Slack・Asana への反映に失敗した勤怠・台帳をやり直す |
+| `payroll` | 翌月の第1水曜 17:00 を過ぎたら前月分を計算、10日 9:00 を過ぎたら確定（どちらも1回だけ） |
+| `payroll_adjustments` | 給与タスクの「調整額」「調整の理由」を取り込む。反映に失敗した給与をやり直す |
+
+### よくある対応
+- **新しいスタッフ**: 初めて勤怠を送ると、台帳に仮のタスクができて Slack に「台帳に無い人」と出る。そのタスクに本名・区分・入社日・時給・バック率を入れる
+  （LINE名は自動で入る。新しいタスクを別に作らないこと。二重になる）。勤怠を送らないプロモーターは、台帳にタスクを作って LINE名（伝票の「プロモーターフラグ」に書かれる名前）を入れる。
+- **時給を変える**: 台帳の「時給」と「時給の適用開始日」を入れる。適用開始日より前の勤務は前の時給のまま。
+- **勤怠を直す（管理者）**: 勤怠タスクの「勤務開始」「勤務終了」を書き換え（`22:00` のような書き方でよい）、「勤怠の手動上書き」を「時間を反映」にする。取り消すなら「対象外」。
+- **期限外の勤怠**: Slack の承認依頼に ✅（承認）か ❌（却下）を付ける。桝本のリアクションだけが数えられる。7日たっても無ければもう一度知らせる。
+- **確定した給与を変える**: 給与タスクの「調整額」（マイナス可）と「調整の理由」を入れる。確定後は売上が変わっても自動では計算し直さず、Slack に「確定後の変更」と出る。
+- 給与の額・時給は Slack とログには出ない。Asana の非公開プロジェクト（管理者2人だけ）で見る。
+
+### 最初に一度だけ
+1. Slack: チャンネル `#null_staff-management` を作り、`/invite @barnull_sales`。チャンネル ID を `[labor] slack_channel_prod` に入れる。
+2. Slack アプリ（api.slack.com/apps → barnull_sales → OAuth & Permissions）: Bot Token Scopes に `reactions:read` を足し、「Reinstall to Workspace」。
+   トークンが変わったら「秘密情報の更新」（`SLACK_BOT_TOKEN`）。
+3. Asana: `uv run python -m barnull_sales.cli asana-setup-labor --env prod`（本番のプロジェクトを作る）。3つのプロジェクトに岡本さんをメンバーとして追加する。
+4. `[labor] dry_run = false` にして push。

@@ -36,6 +36,8 @@ class Msg:
     sender: str | None      # LINE の表示名
     text: str               # メンションを除いた本文
     sent_at: datetime
+    reply_token: str | None = None   # LINE の返信トークン（勤怠の「承認待ち」の返信に使う）
+    quote_token: str | None = None   # 引用に使う（承認の連絡で元のメッセージを引用する）
 
 
 def review(deps: Deps, title: str, msg: Msg) -> None:
@@ -44,6 +46,10 @@ def review(deps: Deps, title: str, msg: Msg) -> None:
 
 def handle(deps: Deps, msg: Msg, parsed: Parsed | None, on_accepted: Callable[[], None]) -> dict:
     """on_accepted: メッセージを受け付けた（伝票に反映できた）ときに呼ぶ。LINE に「OK」スタンプを返す。"""
+    if parsed is not None and parsed.kind == "attendance":
+        from . import attendance
+
+        return attendance.handle(deps, msg, parsed, on_accepted)
     if parsed is None or parsed.kind == "other" or (parsed.kind == "slip_content" and not parsed.entries):
         review(deps, "解析できないメッセージ", msg)
         return {"status": "unparsed"}
@@ -68,6 +74,10 @@ def create_slips(deps: Deps, msg: Msg, parsed: Parsed, on_accepted: Callable[[],
     on_accepted()   # 伝票を保存できたので、LINE に「OK」を返す
     for slip in slips:
         publish(deps, slip)
+    from . import labor_hooks
+
+    for slip in slips:
+        labor_hooks.on_slip_changed(deps, None, slip)
     try:
         match_now(deps, slips)
     except Exception:

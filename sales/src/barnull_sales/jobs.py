@@ -3,6 +3,7 @@
 | ジョブ                  | いつ           | ステップ                                                               |
 |------------------------|----------------|-----------------------------------------------------------------------|
 | /jobs/reconcile        | 30分ごと        | manual_overrides → republish → resync → reconcile → deposits → pos_notify |
+|                        |                | → staff_sync → attendance_approvals → attendance_overrides → attendance_resync → payroll → payroll_adjustments |
 | /jobs/daily            | 毎日 10:05      | deposit_alerts → unpaid_reminders → delete_old_events                 |
 | /jobs/weekly           | 毎週月曜 9:10   | weekly_report                                                         |
 
@@ -17,7 +18,7 @@ import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from . import deposits, health, logs, overrides, pos_notify, reconcile, unpaid
+from . import attendance, deposits, health, labor_hooks, logs, overrides, payroll, pos_notify, reconcile, unpaid
 from .deps import Deps
 from .errors import ItemErrors
 from .slip_ops import publish, sync
@@ -73,8 +74,22 @@ def delete_old_events(deps: Deps) -> int:
                                          (datetime.now(UTC) - timedelta(days=days)).isoformat())
 
 
+def _labor(fn):
+    """[labor] が無効の店舗（福岡）では何もしない。"""
+    def run(deps: Deps):
+        return fn(deps) if deps.settings.labor.enabled else None
+    return run
+
+
 RECONCILE_STEPS = [("manual_overrides", overrides.apply), ("republish", republish), ("resync", resync),
-                   ("reconcile", reconcile.run), ("deposits", deposits.run), ("pos_notify", pos_notify.run)]
+                   ("reconcile", reconcile.run), ("deposits", deposits.run), ("pos_notify", pos_notify.run),
+                   # 勤怠・給与（docs/profit/labor_design.md）
+                   ("staff_sync", _labor(labor_hooks.staff_sync)),
+                   ("attendance_approvals", _labor(attendance.approvals)),
+                   ("attendance_overrides", _labor(attendance.overrides)),
+                   ("attendance_resync", _labor(attendance.resync)),
+                   ("payroll", _labor(payroll.step)),
+                   ("payroll_adjustments", _labor(payroll.adjustments))]
 
 
 def weekly_report(deps: Deps) -> dict:

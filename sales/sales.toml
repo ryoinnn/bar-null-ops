@@ -75,3 +75,18 @@ artifact_url = "https://claude.ai/artifact/8BynYgvNxC4UyCQVGRUDnC"   # 売上レ
 model_primary = "claude-haiku-5-5"
 model_fallback = "claude-sonnet-5-5"
 effort = "low"
+
+[labor]
+# 勤怠・スタッフ台帳・給与（docs/profit/labor_requirements.md、labor_design.md）
+enabled = true
+dry_run = true                 # true: 勤怠・台帳・給与はテスト用の Asana と #test_barnull-sales に書く（売上は本番のまま）。確認後に false
+slack_channel_prod = ""        # #null_staff-management の ID（本人がチャンネルを作ったら入れる）
+cycle_start = "21:00"          # 勤怠サイクル 21:00〜翌9:00（日付はサイクルの開始日）
+cycle_end = "09:00"
+deadline_extra_days = 1        # 営業日 D の勤務は D+2 日の 9:00 まで。過ぎたら桝本の承認待ち
+max_shift_hours = 15
+payroll_weekday = 2            # 翌月の第1水曜（0=月）
+payroll_time = "17:00"         # に前月分の給与を計算
+confirm_day = 10               # 10日
+confirm_time = "09:00"         # に確定
+payroll_since = "2026-12"      # この月より前の給与は計算しない（勤怠の記録を始めた月の扱いは本人確認）

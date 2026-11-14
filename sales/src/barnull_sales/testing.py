@@ -26,6 +26,10 @@ class FakeNotifier:
     def permalink(self, channel: str, ts: str) -> str | None:
         return f"https://slack.example/archives/{channel}/p{ts.replace('.', '')}"
 
+    def reactions(self, channel: str, ts: str) -> dict[str, list[str]]:
+        """テストでは self.reacted[ts] = {"white_check_mark": ["UALERT"]} のように入れる。"""
+        return dict(getattr(self, "reacted", {}).get(ts, {}))
+
 
 class FakeTracker:
     """Asana の代わり。タスクを辞書で持つ。テストでは tasks[gid]["override"] に手動上書きを入れられる。"""
@@ -98,13 +102,20 @@ class FakeLine:
         self.replies: list[tuple] = []
 
     def member_display_name(self, group_id, user_id):
-        return "テスト担当"
+        return getattr(self, "names", {}).get(user_id, "テスト担当")
 
     def group_name(self, group_id):
         return "テストグループ"
 
     def reply_ok_sticker(self, reply_token, quote_token):
         self.replies.append((reply_token, quote_token))
+
+    def reply_text(self, reply_token, text, quote_token=None):
+        self.replies.append((reply_token, quote_token, text))
+
+    def push_text(self, to, text, quote_token=None, retry_key=None):
+        self.pushes = getattr(self, "pushes", [])
+        self.pushes.append((to, text, quote_token, retry_key))
 
 
 class FakePos:
@@ -120,3 +131,47 @@ class FakePos:
             raise RuntimeError("POS に届かない")
         self.sent.append((visit_id, events))
         self.slip_ids.append(slip_id)
+
+
+class FakeLaborTracker:
+    """Asana の勤怠・台帳・給与の代わり。tasks[gid] = {"project": ..., "name": ..., **values}。
+    テストでは tasks[gid] の値（att_manual、adjustment など）を書き換えて、管理者の操作の代わりにする。"""
+
+    def __init__(self) -> None:
+        self.tasks: dict[str, dict] = {}
+        self.fail: set[str] = set()
+
+    def _upsert(self, project, gid, name, values):
+        if project in self.fail:
+            from .http import ExternalAPIError
+            raise ExternalAPIError("Asana", project, 503, "テストで失敗させた")
+        if gid:
+            self.tasks[gid].update(name=name, **values)
+            return gid, ""
+        gid = f"{project[0]}{len(self.tasks) + 1}"
+        self.tasks[gid] = {"project": project, "name": name, **values}
+        return gid, f"https://asana.example/{gid}"
+
+    def _of(self, project):
+        return [{"gid": g, **t} for g, t in self.tasks.items() if t["project"] == project]
+
+    def upsert_attendance(self, gid, name, values):
+        return self._upsert("attendance", gid, name, values)
+
+    def read_attendance_overrides(self, since):
+        return [t for t in self._of("attendance") if t.get("att_manual") not in (None, "", "なし")]
+
+    def reset_attendance_override(self, gid):
+        self.tasks[gid]["att_manual"] = "なし"
+
+    def list_staff(self):
+        return self._of("staff")
+
+    def upsert_staff(self, gid, name, values):
+        return self._upsert("staff", gid, name, values)
+
+    def upsert_payroll(self, gid, name, values):
+        return self._upsert("payroll", gid, name, values)
+
+    def read_payroll_adjustments(self, since):
+        return self._of("payroll")

@@ -84,3 +84,20 @@ class LineClient:
             msg["quoteToken"] = quote_token
         request("LINE", "POST", f"{API}/message/reply", headers=self.headers, attempts=1, timeout=15,
                 json={"replyToken": reply_token, "messages": [msg]})
+
+    def reply_text(self, reply_token: str, text: str, quote_token: str | None = None) -> None:
+        """引用付きのテキストで返信する（無料。返信トークンは一度だけ・短い時間しか使えないので、やり直さない）。"""
+        msg: dict = {"type": "text", "text": text}
+        if quote_token:
+            msg["quoteToken"] = quote_token
+        request("LINE", "POST", f"{API}/message/reply", headers=self.headers, attempts=1, timeout=15,
+                json={"replyToken": reply_token, "messages": [msg]})
+
+    def push_text(self, to: str, text: str, quote_token: str | None = None, retry_key: str | None = None) -> None:
+        """プッシュ送信（月の無料枠を使う）。retry_key（UUID）を付けると、やり直しても二重に届かない。"""
+        msg: dict = {"type": "text", "text": text}
+        if quote_token:
+            msg["quoteToken"] = quote_token
+        headers = {**self.headers, **({"X-Line-Retry-Key": retry_key} if retry_key else {})}
+        request("LINE", "POST", f"{API}/message/push", headers=headers, timeout=15, idempotent=bool(retry_key),
+                allow=(409,), json={"to": to, "messages": [msg]})
