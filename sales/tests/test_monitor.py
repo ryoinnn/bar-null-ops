@@ -5,11 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from barnull_sales import health, jobs, monitor
-from barnull_sales.http import ExternalAPIError
 from helpers import make_deps
 
-ERR = ExternalAPIError("Square", "GET /v2/payments", 401, "UNAUTHORIZED")
+from barnull_sales import health, jobs, monitor
+from barnull_sales.http import ExternalAPIError
+
+ERR = ExternalAPIError("Square", "GET /v2/payments", 503, "Service Unavailable")
 
 
 def live(**kw):
@@ -104,9 +105,10 @@ def test_watch_external_monitor():
 
 
 def test_healthz_endpoint(monkeypatch):
+    from fastapi.testclient import TestClient
+
     from barnull_sales import app_webhook
     from barnull_sales.store import MemoryStore
-    from fastapi.testclient import TestClient
 
     store = MemoryStore()
     store.set_doc("meta", "heartbeat", {"reconcile": "2026-11-15T12:00:00+00:00"})
@@ -114,3 +116,43 @@ def test_healthz_endpoint(monkeypatch):
     app_webhook._health["body"] = None
     r = TestClient(app_webhook.app).get("/healthz")
     assert r.status_code == 200 and r.json()["jobs"] == {"reconcile": "2026-11-15T12:00:00+00:00"}
+
+
+# ---------------------------------------------------------------- 認証切れ・処理できなかったメッセージ（2026-11-15 B の指摘）
+def test_auth_error_is_notified_at_first_failure_as_auth():
+    from barnull_sales.errors import JobFailed
+
+    deps = live()
+    health.record(deps, "deposits", ExternalAPIError("Square", "GET", 401, "UNAUTHORIZED"))   # 401
+    assert "【認証切れ】" in deps.notifier.posts[-1]["text"] and "秘密情報の更新" in deps.notifier.posts[-1]["text"]
+    deps = live()
+    part = JobFailed("deposits", [("a", ExternalAPIError("Asana", "PUT", 403, "")), ("b", KeyError("k"))])
+    health.record(deps, "deposits", part)
+    assert "【認証切れ】" in deps.notifier.posts[-1]["text"] and "Asana" in deps.notifier.posts[-1]["text"]
+    deps = live()
+    health.record(deps, "deposits", ExternalAPIError("Square", "GET", 503, ""))   # 一時的な障害は2回目から
+    assert not deps.notifier.posts
+
+
+def test_claude_key_invalid_on_line_event_goes_to_monitor_channel():
+    from helpers import event
+
+    from barnull_sales.process import handle_event
+
+    deps = live()
+
+    class BadKey:
+        def parse(self, text, sent_at):
+            raise ExternalAPIError("Claude", "messages.create", 401, "invalid x-api-key")
+
+    deps.extractor = BadKey()
+    ev = event("2026-11-10 22:00", event_id="E9")
+    with pytest.raises(ExternalAPIError):
+        handle_event(ev, "message", deps)
+    first = deps.notifier.posts[-1]
+    assert first["channel"] == "CMON" and "【認証切れ】" in first["text"] and "Claude" in first["text"]
+    r = handle_event(ev, "message", deps, attempt=10)                      # 最後の試行
+    assert r["status"] == "failed"
+    mon = [p for p in deps.notifier.posts if p["channel"] == "CMON" and "処理できなかったメッセージ" in p["text"]]
+    biz = [p for p in deps.notifier.posts if p["channel"] == "CPROD" and "処理できなかったメッセージ" in p["text"]]
+    assert len(mon) == 1 and len(biz) == 1 and "伝票" not in mon[0]["text"].split("原因")[0].replace("業務", "")

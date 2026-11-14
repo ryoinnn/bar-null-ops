@@ -61,11 +61,15 @@ def record(deps, job: str, error: BaseException | None) -> None:
             if not state.get("since"):
                 state["since"] = now.isoformat()
             last = datetime.fromisoformat(state["notified_at"]) if state.get("notified_at") else None
-            if state["failures"] >= NOTIFY_AFTER and not last:
-                title, apis = classify(error)
+            title, apis = classify(error)
+            # 認証切れ（401・403）は待っても直らず本人の作業が要るので、1回目から知らせる（2026-11-15。Claude のキーの例）
+            if state["failures"] >= (1 if title == "認証切れ" else NOTIFY_AFTER) and not last:
                 where = f"（{'、'.join(apis)}）" if apis else ""
-                text = (f"{deps.settings.mention}【{title}】{deps.settings.store_name}: 定期処理「{job}」が"
-                        f"{state['failures']}回続けて失敗しています{where}。\n"
+                what = "処理" if job == "process_event" else f"定期処理「{job}」"
+                todo = ("トークン・APIキーが無効か取り消されています。新しいものを発行して runbook「秘密情報の更新」で入れ替えてください。\n"
+                        if title == "認証切れ" else "")
+                text = (f"{deps.settings.mention}【{title}】{deps.settings.store_name}: {what}が"
+                        f"{state['failures']}回続けて失敗しています{where}。\n{todo}"
                         f"直近のエラー：{esc(state['last_error'])}\n"
                         f"Cloud Logging で jsonPayload.job=\"{job}\" を絞り込むと詳しく見られます（runbook「システム監視」）。")
                 ch, ts = post(deps, text)
@@ -85,10 +89,26 @@ def span(start: datetime, end: datetime) -> str:
     return f"{minutes // 60}時間{minutes % 60}分" if minutes >= 60 else f"{minutes}分"
 
 
-def classify(error: BaseException) -> tuple[str, list[str]]:
-    """通知の見出しと、原因になった連携先。連携先の失敗だけなら「外部API障害」、それ以外は「処理エラー」。"""
+AUTH_STATUS = (401, 403)
+
+
+def is_auth_error(error: BaseException) -> bool:
+    """連携先の認証エラー（トークン・キーの無効・取り消し）。一部の伝票の失敗（JobFailed）に含まれていても True。"""
     if isinstance(error, ExternalAPIError):
-        return "外部API障害", [error.api]
+        return error.status in AUTH_STATUS
     if isinstance(error, JobFailed):
+        return any(isinstance(e, ExternalAPIError) and e.status in AUTH_STATUS for _, e in error.errors)
+    return False
+
+
+def classify(error: BaseException) -> tuple[str, list[str]]:
+    """通知の見出しと、原因になった連携先。認証エラーがあれば「認証切れ」、連携先の失敗だけなら「外部API障害」、
+    それ以外は「処理エラー」。"""
+    if isinstance(error, ExternalAPIError):
+        return ("認証切れ" if is_auth_error(error) else "外部API障害"), [error.api]
+    if isinstance(error, JobFailed):
+        if is_auth_error(error):
+            return "認証切れ", sorted({e.api for _, e in error.errors
+                                     if isinstance(e, ExternalAPIError) and e.status in AUTH_STATUS})
         return ("外部API障害" if error.all_external else "処理エラー"), error.apis
     return "処理エラー", []

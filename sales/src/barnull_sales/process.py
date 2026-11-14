@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from . import logs, texts
+from . import health, logs, texts
 from .deps import Deps
 from .extract import Parsed
 from .line import strip_mention
@@ -39,7 +39,10 @@ def handle_event(event: dict, kind: str, deps: Deps, *, attempt: int = 1) -> dic
             deps.store.set_doc("line_events", event_id, rec)
         try:
             result = _dispatch(event, kind, event_id, rec, deps)
+            health.record(deps, "process_event", None)     # 認証切れの通知の後なら【復旧】（変化が無ければ書き込まない）
         except Exception as e:
+            if health.is_auth_error(e):
+                health.record(deps, "process_event", e)    # 認証切れは1回目から #null_system-monitor に知らせる
             if attempt < deps.settings.tasks_max_attempts:
                 raise
             log.exception("最後の試行でも処理できなかった")
@@ -109,6 +112,14 @@ def _give_up(event: dict, event_id: str, deps: Deps, error: Exception) -> None:
     deps.notifier.post(s.slack_channel,
                        f"{s.mention}【処理できなかったメッセージ】{s.tasks_max_attempts}回試しても処理できませんでした。"
                        f"{todo}\n原因：{esc(str(error)[:300])}\n{texts.quote(text)}")
+    if s.monitor_channel != s.slack_channel:
+        # 監視のチャンネル（公開）にも短く出す。原文（顧客名・金額）は載せない
+        try:
+            deps.notifier.post(s.monitor_channel,f"{s.mention}【処理できなかったメッセージ】{s.store_name}: LINE のメッセージ1件を"
+                                     f"{s.tasks_max_attempts}回試しても処理できませんでした。原文と対応は業務のチャンネルの通知を見てください。\n"
+                                     f"原因：{esc(str(error)[:300])}")
+        except Exception:
+            log.exception("監視のチャンネルへの通知に失敗")
 
 
 def _group_name(deps: Deps, group_id: str) -> str:

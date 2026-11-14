@@ -149,6 +149,8 @@ uv run python sales/infra/setup.py secrets deploy
 | 【監視の異常】 | `/healthz` から状態を読めない（Firestore を読めない・古い版） | sales-webhook に `roles/datastore.viewer` があるか（下の「最初に一度だけ」）。デプロイ直後なら次の回まで待つ |
 | 【デプロイ失敗】 | main に push したコミットが 40 分たっても動いていない | Cloud Build の履歴（`gcloud builds list --region us-central1`）で失敗したステップを見る。`deploy-worker` の「container failed to start」でアプリのログが 1 行も無いときは、課金の反映待ちを疑う（2026-11-15 の例） |
 | 【外部API障害】【処理エラー】 | 上の「Slack に出る障害の通知と対応」と同じ（通知先がここに変わった） | 同上 |
+| 【認証切れ】 | 連携先（Claude・Square・マネフォ・Asana・Slack・LINE）が 401・403。待っても直らないので 1 回目から出る。LINE の伝票の処理（process_event）でも出る（2026-11-10 の Claude のキー無効の例） | 新しいトークン・APIキーを発行し「秘密情報の更新」。Square は「Square の許可をやり直す」 |
+| 【処理できなかったメッセージ】 | LINE のメッセージを 10 回試しても処理できなかった（原文は業務のチャンネルの同じ通知に載る。ここには原因だけ） | 業務のチャンネルの通知に従って起票し直す |
 | 【処理エラー】定期処理「monitor_watch」 | 外部監視（GitHub Actions）が 3 時間以上動いていない、または続けて失敗（Slack のトークン切れなど） | GitHub の Actions →「system-monitor」。無効になっていれば「Enable workflow」。失敗ならログの「Slack の … に失敗」を見てトークンを更新 |
 | GitHub からのメール「system-monitor failed」 | 外部監視が Slack に投稿できなかった | Slack のトークン（GitHub の Secrets `SLACK_BOT_TOKEN`）と、bot がチャンネルにいるかを確かめる |
 
