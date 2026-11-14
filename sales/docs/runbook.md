@@ -165,6 +165,8 @@ uv run python sales/infra/setup.py secrets deploy
 5. すべての通知に【復旧】が付いたことを確かめる。
 
 ### 最初に一度だけ（本人の作業。Claude は秘密情報を入力しない）
+- PowerShell で「スクリプトの実行が無効」と出るときは、`gcloud` を `gcloud.cmd` に置き換える（実行ポリシーは変えなくてよい）。
+- 2026-11-15: 1（招待）・2（IAM）は済み、`MONITOR_TARGETS` は登録済み。
 1. Slack の `#null_system-monitor` で `/invite @barnull_sales`。
 2. sales-webhook が Firestore を読めるようにする（`/healthz` のため。読み取りだけ）:
    ```powershell
