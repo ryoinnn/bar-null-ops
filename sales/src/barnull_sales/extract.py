@@ -83,17 +83,18 @@ SCHEMA = {
             "required": ["customer_names", "total_amount", "deposit_date_text"],
             "additionalProperties": False,
         }),
-        "attendance": _nullable({
+        # null を許す項目（anyOf）は API の上限（16）に数えられるため、勤怠は null を使わない（0 と空文字で「無し」）
+        "attendance": {
             "type": "object",
             "properties": {
-                "month": _nullable({"type": "integer"}),
-                "day": _nullable({"type": "integer"}),
+                "month": {"type": "integer"},
+                "day": {"type": "integer"},
                 "start": {"type": "string"},
                 "end": {"type": "string"},
             },
             "required": ["month", "day", "start", "end"],
             "additionalProperties": False,
-        }),
+        },
     },
     "required": ["kind", "confidence", "entries", "correction", "collection_report", "cash_deposit", "attendance"],
     "additionalProperties": False,
@@ -119,8 +120,9 @@ kind の決め方:
 - 「プロモーターフラグ：〇〇」（「プロモーター：」も同じ）の行があれば、その名前を promoter_name に入れる（敬称は除く）。無い・空・「なし」なら空文字。
 - 「未収分」「未収の回収」「〜さんの未収」など、以前の会計の未収金（後払い）が支払われた・回収したことを伝える内容は、
   日付や金額が書かれていても unpaid_collection_report にする（新しい会計の slip_content にしない。売上が二重になるため）。
-- kind が slip_content 以外なら entries は空。対応する correction / collection_report / cash_deposit / attendance だけを埋め、ほかは null。
-- attendance の month・day は「日付：」の月日（書かれていなければ null）。start・end は時刻を "HH:MM"（24時間制）で書く。
+- kind が slip_content 以外なら entries は空。対応する correction / collection_report / cash_deposit だけを埋め、ほかは null。
+- attendance は常に埋める。kind が attendance 以外なら {"month": 0, "day": 0, "start": "", "end": ""}。
+- attendance の month・day は「日付：」の月日（書かれていなければ 0）。start・end は時刻を "HH:MM"（24時間制）で書く。
   「21時」は "21:00"、「3時半」は "03:30"、「27:00」「翌3時」は書かれたとおり "27:00" / "03:00"。読めなければ空文字。午前・午後の推測はしない。
 - correction の target_customer_name は訂正する伝票の顧客名（書かれていなければ null）、new_amount は訂正後の金額、new_customer_name は顧客名の訂正があれば訂正後の名前、
   new_promoter_name はプロモーターフラグの訂正があれば訂正後の名前（外すなら空文字、訂正が無ければ null）。
@@ -163,13 +165,21 @@ class Parsed:
             correction = {**correction, "new_amount": _amount(correction.get("new_amount"))}
         return cls(kind=data["kind"], confidence=float(data.get("confidence", 0)), entries=entries,
                    correction=correction, collection_report=data.get("collection_report"),
-                   cash_deposit=data.get("cash_deposit"), attendance=data.get("attendance"),
+                   cash_deposit=data.get("cash_deposit"), attendance=_attendance(data.get("attendance")),
                    model=model or data.get("model", ""),
                    usage=usage or data.get("usage") or {})
 
     def to_json(self) -> dict:
         """line_events に保存する形（再試行のときに解析し直さないため）。"""
         return asdict(self)
+
+
+def _attendance(a: dict | None) -> dict | None:
+    """勤怠の月日は 0 を「書かれていない」とみなす（スキーマで null を使わないため）。何も無ければ None。"""
+    if not a:
+        return None
+    out = {**a, "month": a.get("month") or None, "day": a.get("day") or None}
+    return out if (out["month"] or out["start"] or out["end"]) else None
 
 
 def _amount(v) -> int | None:

@@ -191,3 +191,28 @@ def test_ok_sticker_is_replied_only_when_accepted():
     ev2["replyToken"] = "rt2"
     handle_event(ev2, "message", deps)
     assert deps.line.replies == [("rt1", "qt1")]
+
+
+def test_schema_stays_within_api_union_limit():
+    """Claude API の構造化出力は、null を許す項目（anyOf・型の配列）が16個まで。超えるとすべての解析が 400 になる（2026-11-15 障害）。"""
+    from barnull_sales.extract import SCHEMA
+
+    def unions(x):
+        if isinstance(x, dict):
+            return (1 if "anyOf" in x or isinstance(x.get("type"), list) else 0) + sum(unions(v) for v in x.values())
+        if isinstance(x, list):
+            return sum(unions(v) for v in x)
+        return 0
+
+    assert unions(SCHEMA) <= 16
+
+
+def test_attendance_zero_month_means_unwritten():
+    p = Parsed.from_json({"kind": "attendance", "confidence": 0.9, "entries": [], "correction": None,
+                          "collection_report": None, "cash_deposit": None,
+                          "attendance": {"month": 0, "day": 0, "start": "21:00", "end": "03:00"}})
+    assert p.attendance["month"] is None and p.attendance["start"] == "21:00"
+    q = Parsed.from_json({"kind": "slip_content", "confidence": 0.9, "entries": [], "correction": None,
+                          "collection_report": None, "cash_deposit": None,
+                          "attendance": {"month": 0, "day": 0, "start": "", "end": ""}})
+    assert q.attendance is None
