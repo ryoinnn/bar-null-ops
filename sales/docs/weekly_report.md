@@ -18,6 +18,9 @@ Asana は伝票データの蓄積場所（台帳）として使い、レポー�
     script は `type="module"`（ページごとにスコープが分かれる）／共通の部品は shared.css のクラス（`.card` `.kpi` `.lg` `.toolbar` など）を使う／
     固定表示の位置は `var(--shell-h)`（上部バーの高さ）を足す
   - 各セッションは自分のページのファイルだけを直し、公開は `files` で自分のファイルだけを渡す（他のファイルは公開済みのものが残る）
+  - capabilities（2026-11-14 Version 12。変えるのは A だけ。全体で1つなので、足すときは全部を書いて公開する）:
+    mcp = Asana（get_tasks・update_tasks・create_tasks。書き込みはスタッフ台帳の入力用で、本人了承済み）、Slack（slack_read_channel）／
+    db の rules = fixedcosts（read admin・write owner）、profit_insights・staff_insights（read admin・write admin）／sample／user
 - 見た目: Apple 風のすりガラス（フロストガラス）の UI。アクセントは赤ピンク。ライト・ダークの両方に対応（2026-10-24 本人の希望）
 - サイドバー: 年 → 月の囲み → 週。月の囲みの見出しを押すとその月全体、年の見出しを押すとその年全体の集計になる
   - 週は月曜〜日曜。月をまたぐ週は月で区切る（月の最初と最後の週は日数が少ないことがある。日数を併記）
