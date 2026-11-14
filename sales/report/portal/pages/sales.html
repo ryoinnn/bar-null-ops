@@ -1,0 +1,1558 @@
+<!-- 売上管理ページ（A）。index.html の殻が fetch して差し込む。ids はこのページの専用（他ページは別の接頭辞を使う） -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="lensdefs"></defs></svg>
+
+<div class="app">
+  <aside class="side lg" id="side" aria-label="期間">
+    <div class="side-head">
+      <p class="brand">Bar null<small>売上レポート</small></p>
+      <button type="button" class="btn tinted navtoggle" id="navtoggle" aria-expanded="false" aria-controls="nav">期間を選ぶ</button>
+    </div>
+    <nav class="nav" id="nav"><p class="empty">読み込んでいます…</p></nav>
+  </aside>
+
+  <main>
+    <header class="toolbar lg" id="toolbar" data-lens="bar">
+      <div>
+        <h1 id="title">売上レポート</h1>
+        <div class="sub num" id="subtitle">Asana の伝票データを読み込んでいます</div>
+      </div>
+      <div class="tools">
+        <span class="chip" id="state">準備中</span>
+        <button type="button" class="btn iconbtn" id="settingsbtn" aria-label="表示の設定" aria-expanded="false" aria-controls="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="popover lg lg--text" id="settings" role="dialog" aria-label="表示の設定" hidden>
+      <h3>表示</h3>
+      <label class="field">ガラスの透明度<input type="range" class="lgrange" id="glass" min="0.6" max="1.3" step="0.05" value="1"></label>
+      <div class="field"><span id="lenslabel">レンズ効果（屈折）</span><button type="button" class="switch" role="switch" id="lens" aria-checked="false" aria-labelledby="lenslabel"></button></div>
+      <p class="hint" id="lenshint">ガラスの縁で背景がわずかに曲がります（Chrome・Edge）。</p>
+      <h3>データ</h3>
+      <label class="field">読み込むプロジェクト<select id="env"><option value="prod">本番</option><option value="test">テスト</option></select></label>
+      <div id="fxbox" hidden>
+        <h3>固定費（月額・税込）</h3>
+        <label class="field col" for="fxfrom">適用開始月<input type="month" id="fxfrom"></label>
+        <div class="fx-list" id="fxlist"></div>
+        <div class="fx-actions"><button type="button" class="btn tinted" id="fxadd">項目を追加</button><button type="button" class="btn filled" id="fxsave">保存</button></div>
+        <p class="hint" id="fxhint">適用開始月を変えて保存すると、その月から新しい金額になります。過去の月はそのままです。</p>
+      </div>
+    </div>
+
+    <div class="content">
+     <div class="datacol">
+      <div id="notice"></div>
+
+      <h2 class="sect">通常営業<small>LINE の伝票</small></h2>
+      <section class="kpis" id="kpis" aria-label="通常営業の主要な数字">
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">売上</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">予約数</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">客単価（1組）</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">1日あたり</span><span class="v num">—</span><span class="d">　</span></div>
+      </section>
+
+      <h2 class="sect">レンタルスペース<small>インスタベース・スペースマーケット</small></h2>
+      <section class="kpis" id="rkpis" aria-label="レンタルスペースの主要な数字">
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">利用件数</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">売上（ゲスト支払）</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">店舗の収益（振込）</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">これからの予約</span><span class="v num">—</span><span class="d">　</span></div>
+      </section>
+
+
+      <h2 class="sect" id="psect" hidden>利益<small>売上 − 変動費（仕入・人件費・決済手数料）− 固定費</small></h2>
+      <div class="cov" id="pcover" hidden></div>
+      <section class="kpis" id="pkpis" aria-label="利益の主要な数字" hidden>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">利益（発生ベース）</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">利益（入金ベース）</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">変動費</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">固定費（日割り）</span><span class="v num">—</span><span class="d">　</span></div>
+      </section>
+
+      <div class="detail">
+      <section class="card lg lg--text chart"><h2 id="c1t">日ごとの売上</h2><p class="cap" id="c1c">営業日（6:00〜翌6:00）</p><div id="c1"></div></section>
+      <div class="grid2">
+        <section class="card lg lg--text chart"><h2 id="c2t">推移</h2><p class="cap" id="c2c"></p><div id="c2"></div></section>
+        <section class="card lg lg--text chart"><h2>曜日ごとの平均</h2><p class="cap" id="c3c">伝票のあった日の平均</p><div id="c3"></div></section>
+      </div>
+      <section class="card lg lg--text"><h2>担当者別の売上・予約数</h2><p class="cap" id="staffcap">LINE で伝票を送った人ごと</p><div class="staff num" id="staff"></div></section>
+      <div class="pdetail" id="pdetail" hidden>
+        <section class="card lg lg--text"><h2>利益の内訳</h2><p class="cap" id="pcap">この期間</p><div id="pstack"></div><div class="facts num" id="pfacts"></div></section>
+        <section class="card lg lg--text"><h2>固定費（日割り）</h2><p class="cap" id="fxcap">月額を日割りにした、この期間の分</p><div class="tablewrap" id="fxtable"></div></section>
+        <section class="card lg lg--text"><h2>担当者別の勤務時間と人件費</h2><p class="cap" id="lbcap">勤怠に記録された分</p><div class="tablewrap" id="lbtable"></div></section>
+        <p class="foot" id="pfoot">定義：利益＝売上合計（通常営業の伝票金額＋レンタルの店舗収益）−変動費（仕入＋人件費＋Square の決済手数料）−固定費（月額を日割り）／発生ベースは未収を含み、入金ベースは未収の残高を除く／原価率＝仕入÷通常営業の売上、人件費率＝人件費÷売上合計／損益分岐売上＝固定費÷（1−変動費率）／金額は税込、棚卸（在庫の増減）は反映しない／仕入・人件費は営業日で計上</p>
+      </div>
+      <section class="card lg lg--text"><h2>内訳</h2><p class="cap" id="factscap">この期間</p><div class="facts num" id="facts"></div></section>
+      <section class="card lg lg--text" id="slipcard"><h2>伝票</h2><p class="cap">伝票 ID から Asana のタスクを開けます</p><div class="tablewrap" id="slips"></div></section>
+      <section class="card lg lg--text chart"><h2>レンタルスペースの推移</h2><p class="cap" id="r1c">利用日の月ごと・ゲストの支払額（予約通知から）</p><div id="r1"></div></section>
+      <section class="card lg lg--text"><h2>レンタルスペースの内訳</h2><p class="cap" id="rfactscap">この期間</p><div class="facts num" id="rfacts"></div></section>
+      <section class="card lg lg--text"><h2>レンタルスペースの月次確定値</h2><p class="cap">毎月1日に、前月分をプラットフォームごとに Asana へ記録したもの</p><div class="tablewrap" id="rmonths"></div></section>
+      <p class="foot" id="fresh">定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る</p>
+      </div>
+     </div>
+
+     <div class="aicol">
+      <section class="card lg lg--text ai" id="ai" aria-live="polite">
+        <div class="ai-head">
+          <div>
+            <h2><svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9.5l-4.7 1.9L12 16l-1.8-4.6L5.5 9.5l4.7-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>AI の示唆</h2>
+            <p class="cap" id="aicap">通常営業・担当者・レンタルスペース・利益とコストそれぞれの傾向・見通し・打ち手と、合わせた総評を Claude がまとめます。</p>
+          </div>
+          <div class="ai-actions">
+            <button type="button" class="btn plain" id="aistop" hidden>止める</button>
+            <button type="button" class="btn filled" id="aigen">示唆を作成</button>
+          </div>
+        </div>
+        <div class="ai-body" id="aibody"></div>
+      </section>
+     </div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+/* ======================= 設定 ======================= */
+const SERVER = "Asana", TOOL = "get_tasks";
+const SLACK = "Slack", SLACK_TOOL = "slack_read_channel", RENT_CHANNEL = "C0C7T2ZDX7D";   // #notif_space-rent_null
+const RENTAL_PREFIX = "RS-";   // Asana のレンタルスペースの月次記録（伝票 ID が RS-IB-202610 など）
+const PROJECTS = { prod: "1219600211224482", test: "1219599891506891" };
+const STAFF_ADMINS = ["桝本崚允"];   // 担当者別の比較から除く（管理者。空白を除いた LINE の表示名）
+const OPT = "name,permalink_url,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
+const WD = ["月", "火", "水", "木", "金", "土", "日"];
+const DAY_GCTIME = 24 * 3600e3;
+const $ = (id) => document.getElementById(id);
+const use = (name) => (window.claude && window.claude.use) ? window.claude.use(name) : Promise.resolve(null);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} },
+};
+const state = { env: "prod", rows: null, rental: null, rentalMonths: [], rentalError: null, snaps: {}, insights: {}, sel: null, db: null, canWrite: false, error: null,
+                sample: undefined, aiRun: null, openYears: {} };
+if (PROJECTS[store.get("barnull-env")]) state.env = store.get("barnull-env");
+$("env").value = state.env;
+
+/* ======================= 日付（YYYY-MM-DD の文字列で扱う） ======================= */
+const toD = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+const toS = (d) => d.toISOString().slice(0, 10);
+const add = (s, n) => { const d = toD(s); d.setUTCDate(d.getUTCDate() + n); return toS(d); };
+const diff = (a, b) => Math.round((toD(b) - toD(a)) / 864e5);
+const wdi = (s) => (toD(s).getUTCDay() + 6) % 7;       // 月=0 … 日=6
+const monday = (s) => add(s, -wdi(s));
+const md = (s) => { const d = toD(s); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; };
+const ym = (s) => s.slice(0, 7);
+const monthStart = (s) => s.slice(0, 8) + "01";
+const monthEnd = (s) => { const d = toD(monthStart(s)); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); return toS(d); };
+const addMonths = (s, n) => { const d = toD(monthStart(s)); d.setUTCMonth(d.getUTCMonth() + n); return toS(d); };
+const min = (a, b) => a < b ? a : b;
+function todayBiz() {   // 日本時間で 6:00 より前は前日の営業日
+  const jst = new Date(Date.now() + 9 * 3600e3);
+  if (jst.getUTCHours() < 6) jst.setUTCDate(jst.getUTCDate() - 1);
+  return toS(jst);
+}
+const yen = (v) => v == null ? "—" : "¥" + Math.round(v).toLocaleString("ja-JP");
+const short = (v) => v >= 10000 ? (v / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 1 }) + "万" : Math.round(v).toLocaleString("ja-JP");
+const pct = (a, b) => !b ? null : (a - b) / b * 100;
+
+/* ======================= 期間（年・月・週） =======================
+   週は月曜〜日曜。月をまたぐ週は月で区切る（月の最初と最後の週は短いことがある）。 */
+function weeksOf(month) {     // month = "YYYY-MM"
+  const ms = month + "-01", me = monthEnd(ms), out = [];
+  for (let s = ms, n = 1; s <= me; n++) {
+    const e = min(add(monday(s), 6), me);
+    out.push({ kind: "week", key: `w:${s}`, start: s, end: e, n, month });
+    s = add(e, 1);
+  }
+  return out;
+}
+const monthP = (month) => ({ kind: "month", key: `m:${month}`, start: month + "-01", end: monthEnd(month + "-01"), month });
+const yearP = (y) => ({ kind: "year", key: `y:${y}`, start: `${y}-01-01`, end: `${y}-12-31`, year: y });
+function periodByKey(key) {
+  const [k, v] = [key.slice(0, 1), key.slice(2)];
+  if (k === "y") return yearP(v);
+  if (k === "m") return monthP(v);
+  return weeksOf(ym(v)).find((w) => w.start === v) || null;
+}
+function label(p) {
+  if (p.kind === "year") return `${p.year}年`;
+  const [y, m] = p.month.split("-").map(Number);
+  if (p.kind === "month") return `${y}年${m}月`;
+  return `${y}年${m}月 第${p.n}週`;
+}
+function prevOf(p) {
+  if (p.kind === "year") return yearP(String(Number(p.year) - 1));
+  if (p.kind === "month") return monthP(ym(addMonths(p.start, -1)));
+  const d = add(p.start, -1); return weeksOf(ym(d)).find((w) => w.start <= d && d <= w.end);
+}
+const days = (p, today) => diff(p.start, min(p.end, today)) + 1;
+const inProgress = (p, today) => p.start <= today && today <= p.end;
+
+/* ======================= Asana の読み込み ======================= */
+function fieldsOf(t) { const f = {}; (t.custom_fields || []).forEach((c) => { f[c.name] = c; }); return f; }
+function parseRentalMonth(t) {   // レンタルスペースの月次記録（プラットフォームごとに月1件）
+  const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10);
+  if (!date || f["伝票ステータス"]?.enum_value?.name === "対象外") return null;
+  return { month: date.slice(0, 7), platform: f["担当（LINE）"]?.text_value || "不明",
+           count: parseInt(f["顧客名"]?.text_value || "0", 10) || 0, gross: f["伝票金額"]?.number_value || 0,
+           fee: f["決済手数料"]?.number_value || 0, net: f["入金予定額"]?.number_value || 0, url: t.permalink_url || "" };
+}
+function parseTask(t) {
+  const f = fieldsOf(t);
+  const date = f["営業日"]?.date_value?.date?.slice(0, 10);
+  const amount = f["伝票金額"]?.number_value;
+  const status = f["伝票ステータス"]?.enum_value?.name || "";
+  if (!date || amount == null || status === "対象外") return null;
+  return { date, amount, status, unpaid: f["未収残高"]?.number_value || 0,
+           unpaidStatus: f["未収ステータス"]?.enum_value?.name || "なし",
+           fee: f["決済手数料"]?.number_value || 0, square: f["Square決済額"]?.number_value || 0,
+           customer: (f["顧客名"]?.text_value || "").trim(), staff: (f["担当（LINE）"]?.text_value || "").trim(),
+           slipId: f["伝票ID"]?.text_value || "", url: t.permalink_url || "" };
+}
+function payloadOf(res) {
+  if (res && res.payload) return res.payload;
+  const txt = (res?.content || []).find((c) => c.type === "text")?.text;
+  try { return txt ? JSON.parse(txt) : {}; } catch (_) { return {}; }
+}
+async function loadAsana(mcp) {
+  const rows = [], months = []; let offset = null;
+  for (let i = 0; i < 60; i++) {
+    const input = { project: PROJECTS[state.env], limit: 100, opt_fields: OPT };
+    if (offset) input.offset = offset;
+    const p = payloadOf(await mcp.callTool(SERVER, TOOL, input, { cache: { staleTime: 60000 } }));
+    (p.data || []).forEach((t) => {
+      const sid = fieldsOf(t)["伝票ID"]?.text_value || "";
+      if (sid.startsWith(RENTAL_PREFIX)) { const m = parseRentalMonth(t); if (m) months.push(m); return; }
+      const r = parseTask(t); if (r) rows.push(r);
+    });
+    offset = p.next_page?.offset;
+    if (!offset) break;
+  }
+  state.rentalMonths = months;
+  return rows;
+}
+
+/* ======================= Slack: レンタルスペースの予約通知 =======================
+   #notif_space-rent_null の予約の通知（1予約1件。状態が変わると同じ通知が書き換わる）から、
+   利用日・時間帯・ゲスト支払・店舗収益・人数・用途・初回かを読む（予約者の名前や本文は読まない）。
+   速報値。確定値は月次の Asana の記録。 */
+function slackPayload(res) {
+  if (res && res.payload) return res.payload;
+  const txt = (res?.content || []).find((c) => c.type === "text")?.text || "";
+  try { return JSON.parse(txt); } catch (_) { return { messages: txt }; }
+}
+function parseRental(text, out) {
+  for (const b of String(text || "").split(/=== Message from /).slice(1)) {
+    const head = /:large_(?:blue|orange)_square:\s*(スペースマーケット|インスタベース)｜([^\s*\n]+)/.exec(b);
+    const id = (/予約ID[\s　]*：\s*(\d+)/.exec(b) || [])[1];
+    const dt = /日付[\s　]*：\s*(\d{4})\/(\d{2})\/(\d{2})/.exec(b);
+    if (!head || !id || !dt) continue;
+    const key = `${head[1]}:${id}`;
+    if (out[key]) continue;            // 新しい通知から順に届く。最初に見たもの（最新）を使う
+    const posted = / at (\d{4}-\d{2}-\d{2}) \d{2}:\d{2}/.exec(b);
+    const tm = /時間帯[\s　]*：\s*(\d{1,2}):(\d{2})〜(?:翌)?\d{1,2}:\d{2}（(?:(\d+)時間)?(?:(\d+)分)?）/.exec(b);
+    const yenOf = (re) => { const m = re.exec(b); return m ? Number(m[1].replace(/,/g, "")) : null; };
+    const pu = /人数・用途[\s　]*：\s*([^／\n]*)／([^\n]*)/.exec(b);
+    const status = ((/ステータス：([^*\n]*)/.exec(b) || [])[1] || "").replace(/:[a-z0-9_+-]+:/g, "").trim();
+    const people = pu ? Math.max(0, ...(pu[1].match(/\d+/g) || []).map(Number)) || null : null;
+    out[key] = {
+      platform: head[1], id, kind: head[2], status,
+      cancel: /キャンセル/.test(head[2]) || /キャンセル/.test(status),
+      date: `${dt[1]}-${dt[2]}-${dt[3]}`, posted: posted ? posted[1] : null,
+      startHour: tm ? Number(tm[1]) : null, hours: tm ? Number(tm[3] || 0) + Number(tm[4] || 0) / 60 : null,
+      gross: yenOf(/ゲスト支払[\s　]*：\s*¥([\d,]+)/), net: yenOf(/店舗収益[\s　]*：\s*¥([\d,]+)/),
+      people, purpose: pu ? pu[2].trim().slice(0, 40) : "",
+      first: /予約者[^\n]*（初回）/.test(b) ? true : /予約者[^\n]*（リピート/.test(b) ? false : null,
+    };
+  }
+}
+async function loadRental(mcp) {
+  const out = {}; let cursor = null;
+  const oldest = String(Math.floor(Date.now() / 1000) - 400 * 86400);
+  for (let i = 0; i < 30; i++) {
+    const input = { channel_id: RENT_CHANNEL, limit: 100, oldest };
+    if (cursor) input.cursor = cursor;
+    const p = slackPayload(await mcp.callTool(SLACK, SLACK_TOOL, input, { cache: { staleTime: 300000 } }));
+    parseRental(p.messages, out);
+    cursor = (/cursor:\s*`([^`]+)`/.exec(p.pagination_info || "") || [])[1];
+    if (!cursor) break;
+  }
+  return Object.values(out).filter((r) => r.gross != null);
+}
+
+/* レンタルスペースの集計（キャンセルを除く。利用日で数える） */
+function rentalIn(a, b) {
+  const rows = (state.rental || []).filter((r) => !r.cancel && r.date >= a && r.date <= b);
+  const by = {};
+  rows.forEach((r) => { const x = by[r.platform] = by[r.platform] || { count: 0, gross: 0, net: 0 }; x.count++; x.gross += r.gross; x.net += r.net || 0; });
+  return { rows, count: rows.length, gross: rows.reduce((x, r) => x + r.gross, 0), net: rows.reduce((x, r) => x + (r.net || 0), 0),
+           hours: rows.reduce((x, r) => x + (r.hours || 0), 0), byPlatform: by };
+}
+function rentalUpcoming(today) { return rentalIn(add(today, 1), "9999-12-31"); }
+function rentalMonthsIn(a, b) { return state.rentalMonths.filter((m) => m.month >= a.slice(0, 7) && m.month <= b.slice(0, 7)); }
+
+/* ======================= 集計 ======================= */
+function sum(a, b) {
+  const rows = (state.rows || []).filter((r) => r.date >= a && r.date <= b);
+  const sales = rows.reduce((x, r) => x + r.amount, 0);
+  return { sales, count: rows.length, rows, unit: rows.length ? sales / rows.length : null };
+}
+function periodStats(p, today) {
+  const end = min(p.end, today), n = days(p, today), s = sum(p.start, end);
+  return { ...s, end, days: n, perDay: n > 0 ? s.sales / n : null, openDays: new Set(s.rows.map((r) => r.date)).size };
+}
+/* 比べる相手: 進行中の月・年は前の期間の同じ日数まで。週は日数が違えば1日あたりで比べる */
+function compare(p, today) {
+  const cur = periodStats(p, today), q = prevOf(p);
+  let qEnd = q.end;
+  if ((p.kind !== "week") && inProgress(p, today)) qEnd = min(q.end, add(q.start, cur.days - 1));
+  const s = sum(q.start, qEnd), n = diff(q.start, qEnd) + 1;
+  return { cur, prev: { ...s, days: n, perDay: s.sales / n, start: q.start, end: qEnd, period: q },
+           perDayBasis: p.kind === "week" && n !== cur.days };
+}
+function weekdayAvg(a, b) {     // 伝票のあった日の、曜日ごとの平均売上
+  const byDay = {}; sum(a, b).rows.forEach((r) => { byDay[r.date] = (byDay[r.date] || 0) + r.amount; });
+  const acc = WD.map(() => ({ s: 0, n: 0 }));
+  Object.entries(byDay).forEach(([d, v]) => { const i = wdi(d); acc[i].s += v; acc[i].n++; });
+  return acc.map((x) => ({ avg: x.n ? x.s / x.n : 0, n: x.n }));
+}
+/* 担当者別（LINE で伝票を送った人）。管理者と、担当の記録が無い伝票は比較から除き、件数だけ別に数える */
+const isAdmin = (name) => STAFF_ADMINS.includes(name.replace(/[\s　]/g, ""));
+function staffOf(rows) {
+  const by = {}, admin = { sales: 0, count: 0 }, unknown = { sales: 0, count: 0 };
+  rows.forEach((r) => {
+    const x = !r.staff ? unknown : isAdmin(r.staff) ? admin : (by[r.staff] = by[r.staff] || { sales: 0, count: 0, days: new Set() });
+    x.sales += r.amount; x.count++; if (x.days) x.days.add(r.date);
+  });
+  Object.values(by).forEach((x) => { x.unit = x.count ? x.sales / x.count : null; x.days = x.days.size; });
+  return { by, admin, unknown };
+}
+const staffNames = () => [...new Set((state.rows || []).map((r) => r.staff).filter((s) => s && !isAdmin(s)))];
+/* 推移の区切り: 週は直近8週、月は直近6か月、年は年ごと */
+function staffBuckets(p, today) {
+  const out = [];
+  if (p.kind === "week") { const m0 = monday(p.start); for (let i = 7; i >= 0; i--) { const ws = add(m0, -7 * i); out.push({ a: ws, b: add(ws, 6), label: `${md(ws)}〜`, on: i === 0 }); } }
+  else if (p.kind === "month") { for (let i = 5; i >= 0; i--) { const m = addMonths(p.start, -i); out.push({ a: m, b: min(monthEnd(m), today), label: `${Number(m.slice(5, 7))}月`, on: i === 0 }); } }
+  else { const fy = Number(dataStart(today).slice(0, 4)); for (let y = Math.max(fy, Number(p.year) - 4); y <= Number(p.year); y++) out.push({ a: `${y}-01-01`, b: `${y}-12-31`, label: `${y}年`, on: String(y) === p.year }); }
+  return out;
+}
+function dataStart(today) {
+  let first = today;
+  (state.rows || []).forEach((r) => { if (r.date < first) first = r.date; });
+  Object.values(state.snaps).forEach((s) => { if (s.start < first) first = s.start; });
+  return first;
+}
+
+/* ======================= サイドバー ======================= */
+function renderNav(today) {
+  const nav = $("nav"); nav.textContent = "";
+  const first = dataStart(today), sel = state.sel;
+  const months = []; for (let m = monthStart(today); m >= monthStart(first); m = addMonths(m, -1)) months.push(ym(m));
+  const years = [...new Set(months.map((m) => m.slice(0, 4)))];
+  years.forEach((y) => {
+    const yp = yearP(y);
+    const open = state.openYears[y] ?? (y === today.slice(0, 4) || sel.start.slice(0, 4) === y);
+    const box = el("div", "year"); box.dataset.open = String(open);
+    const yb = el("button", "year-btn"); yb.type = "button"; yb.setAttribute("aria-current", String(sel.key === yp.key));
+    yb.setAttribute("aria-expanded", String(open));
+    const yl = el("span", "yl"); yl.innerHTML = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>`;
+    yl.append(`${y}年`);
+    const yv = el("span", "yv num"); yv.textContent = state.rows ? yen(sum(yp.start, min(yp.end, today)).sales) : "";
+    yb.append(yl, yv);
+    yb.addEventListener("click", () => {      // 年の見出し: 開閉し、その年の集計を表示する
+      state.openYears[y] = sel.key === yp.key ? !open : true;
+      select(yp);
+    });
+    const list = el("div", "months");
+    months.filter((m) => m.startsWith(y)).forEach((m) => list.append(monthBox(m, today)));
+    box.append(yb, list); nav.append(box);
+  });
+}
+function monthBox(m, today) {
+  const mp = monthP(m), box = el("div", "month");
+  const head = rowBtn(mp, `${Number(m.slice(5))}月`, "月の集計", state.rows ? yen(sum(mp.start, min(mp.end, today)).sales) : "", today);
+  head.classList.add("month-row");
+  const weeks = el("div", "weeks");
+  weeksOf(m).filter((w) => w.start <= today).forEach((w) => {
+    const n = diff(w.start, w.end) + 1;
+    const sub = `${md(w.start)}〜${md(w.end)}` + (n < 7 ? `（${n}日）` : "");
+    const v = state.rows ? yen(sum(w.start, min(w.end, today)).sales) : (state.snaps[w.start]?.sales != null && n === 7 ? yen(state.snaps[w.start].sales) : "");
+    weeks.append(rowBtn(w, `第${w.n}週`, sub, v, today));
+  });
+  box.append(head, weeks);
+  return box;
+}
+function rowBtn(p, title, sub, value, today) {
+  const b = el("button", "row"); b.type = "button"; b.setAttribute("aria-current", String(state.sel.key === p.key));
+  const t = el("span", "t"), tb = el("b"); tb.textContent = title;
+  if (inProgress(p, today)) { const tag = el("span", "tag"); tag.textContent = "集計中"; tb.append(tag); }
+  const ts = el("span"); ts.textContent = sub; t.append(tb, ts);
+  const v = el("span", "v num"); v.textContent = value;
+  b.append(t, v); b.addEventListener("click", () => select(p));
+  return b;
+}
+function el(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
+function select(p) {
+  state.sel = p; store.set("barnull-sel", p.key);
+  stopAI(); state.aiError = null;
+  $("side").classList.remove("open"); $("navtoggle").setAttribute("aria-expanded", "false");
+  render();
+}
+
+/* ======================= 図 ======================= */
+function niceStep(max) { const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))); const n = raw / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p; }
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function bars(target, items, opts) {     // items: [{label, sub, value, cls, title}]
+  if (!items.length) { target.innerHTML = `<p class="empty">データがありません。</p>`; return; }
+  const W = Math.max(280, Math.round(target.clientWidth || 600)), H = opts.h || 220, L = 44, R = 6, T = 18, B = items.some((i) => i.sub) ? 38 : 24;
+  const max = Math.max(1000, ...items.map((i) => i.value)), step = niceStep(max), top = Math.ceil(max / step) * step;
+  const bw = (W - L - R) / items.length, y = (v) => T + (H - T - B) * (1 - v / top);
+  const every = Math.ceil(items.length / Math.max(4, Math.floor((W - L) / 38)));   // ラベルが重ならないように間引く
+  const gid = `g_${target.id}`;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(opts.label)}">` +
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--bar-top)"/><stop offset="1" style="stop-color:var(--bar-bottom)"/></linearGradient>` +
+    `<linearGradient id="${gid}h" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".0"/><stop offset=".35" stop-color="#fff" stop-opacity=".38"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`;
+  for (let v = 0; v <= top + 1e-9; v += step) svg += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${short(v)}</text>`;
+  items.forEach((it, i) => {
+    const w = Math.min(36, bw * 0.62), x = L + i * bw + (bw - w) / 2, h = Math.max(0, y(0) - y(it.value));
+    const r = Math.min(6, w / 2, h);
+    const fill = it.cls === "sel" ? ` style="fill:url(#${gid})"` : "";   // CSS の .b の色より優先させる
+    svg += `<rect class="b ${it.cls || ""}"${fill} x="${x}" y="${y(it.value)}" width="${w}" height="${h}" rx="${r}"><title>${esc(it.title || `${it.label} ${yen(it.value)}`)}</title></rect>`;
+    if (it.cls === "sel" && h > 6) svg += `<rect x="${x}" y="${y(it.value)}" width="${w}" height="${h}" rx="${r}" fill="url(#${gid}h)" pointer-events="none"/>`;
+    if (it.cls === "sel" && it.value && opts.valueOnSel) svg += `<text class="vl" x="${x + w / 2}" y="${y(it.value) - 6}" text-anchor="middle">${short(it.value)}</text>`;
+    if (i % every === 0 || it.cls === "sel") {
+      svg += `<text x="${x + w / 2}" y="${H - B + 16}" text-anchor="middle">${esc(it.label)}</text>`;
+      if (it.sub) svg += `<text x="${x + w / 2}" y="${H - B + 30}" text-anchor="middle">${esc(it.sub)}</text>`;
+    }
+  });
+  target.innerHTML = svg + "</svg>";
+}
+
+/* ======================= 紙面 ======================= */
+function setKpi(i, value, detailNodes) {
+  const k = $("kpis").children[i]; k.querySelector(".v").textContent = value;
+  const d = k.querySelector(".d"); d.textContent = ""; d.append(...detailNodes);
+}
+function deltaNode(cur, prev) {
+  const p = pct(cur, prev); const s = el("span", p == null ? "" : p >= 0 ? "up" : "down");
+  s.textContent = p == null ? "—" : `${p >= 0 ? "+" : ""}${p.toFixed(0)}%`; return s;
+}
+const noun = { week: "前の週", month: "前月", year: "前年" };
+
+function render() {
+  const today = todayBiz();
+  if (!state.sel) {
+    const saved = store.get("barnull-sel"), p = saved && periodByKey(saved);
+    // 既定は「先週」（日曜日を含む週）。月をまたぐ週なら、その週の後半（月の最初の週）
+    const lastSun = add(monday(today), -1);
+    state.sel = (p && p.start <= today) ? p : weeksOf(ym(lastSun)).find((w) => w.start <= lastSun && lastSun <= w.end);
+  }
+  const p = state.sel, live = inProgress(p, today);
+  renderNav(today);
+  $("title").textContent = label(p);
+  const n = diff(p.start, p.end) + 1;
+  $("subtitle").textContent = `${md(p.start)}〜${md(p.end)}` + (p.kind === "week" && n < 7 ? `（月で区切った${n}日間）` : "") +
+    (live ? `　${md(today)} までの集計` : "");
+  const st = $("state"); st.className = "chip" + (live ? " live" : ""); st.textContent = live ? "集計中" : "確定";
+  const notice = $("notice"); notice.textContent = "";
+  $("slipcard").hidden = p.kind === "year";
+
+  if (!state.rows) { renderOffline(p); renderAI(); return; }
+  if (!state.rows.length) notice.append(noticeBox("まだ伝票がありません", "LINE のグループ「Bar null」で @null から始まる伝票メッセージが届くと、ここに集計されます。"));
+
+  const C = compare(p, today), cur = C.cur, prev = C.prev, pn = noun[p.kind];
+  const basis = C.perDayBasis ? "（1日あたり）" : "";
+  setKpi(0, yen(cur.sales), [`${pn}比${basis} `, C.perDayBasis ? deltaNode(cur.perDay, prev.perDay) : deltaNode(cur.sales, prev.sales)]);
+  setKpi(1, `${cur.count}組`, [`${pn} ${prev.count}組`]);
+  setKpi(2, yen(cur.unit), [`${pn} ${yen(prev.unit)}`]);
+  setKpi(3, yen(cur.perDay), [`${cur.days}日間・${pn} ${yen(prev.perDay)}`]);
+
+  renderCharts(p, today, cur);
+  renderFacts(p, today, cur, prev);
+  renderStaff(p, today, C);
+  renderSlips(cur);
+  renderRental(p, today);
+  renderProfit(p, today);
+  renderAI();
+}
+
+function setRKpi(i, value, detail) {
+  const k = $("rkpis").children[i]; k.querySelector(".v").textContent = value;
+  const d = k.querySelector(".d"); d.textContent = ""; d.append(...detail);
+}
+function renderRental(p, today) {
+  const end = min(p.end, today);
+  if (!state.rental) {
+    const why = state.rentalError || "Slack の予約通知を読み込んでいます";
+    [0, 1, 2, 3].forEach((i) => setRKpi(i, "—", [i === 0 ? why : "　"]));
+    $("r1").innerHTML = `<p class="empty">${esc(why)}</p>`; $("rfacts").textContent = "";
+  } else {
+    const cur = rentalIn(p.start, end), q = prevOf(p), pe = (p.kind !== "week" && inProgress(p, today))
+      ? min(q.end, add(q.start, diff(p.start, end))) : q.end, prev = rentalIn(q.start, pe), pn = noun[p.kind];
+    const fut = rentalUpcoming(today);
+    setRKpi(0, `${cur.count}件`, [`${pn} ${prev.count}件`]);
+    setRKpi(1, yen(cur.gross), [`${pn}比 `, deltaNode(cur.gross, prev.gross)]);
+    setRKpi(2, yen(cur.net), [cur.gross ? `手数料率 ${((1 - cur.net / cur.gross) * 100).toFixed(0)}%` : "　"]);
+    setRKpi(3, `${fut.count}件`, [`今日より後・${yen(fut.gross)}`]);
+    // 推移: 利用日の月ごと（直近12か月と、予約済みの先の月）
+    const items = [], last = ym(addMonths(end, 3));
+    for (let i = 11; i >= -3; i--) {
+      const m = addMonths(end, -i); if (ym(m) > last) break;
+      const v = rentalIn(m, monthEnd(m)), future = m > today;
+      items.push({ label: `${Number(m.slice(5, 7))}月`, value: v.gross, cls: ym(m) === ym(end) ? "sel" : (future ? "cur" : ""),
+                   title: `${m.slice(0, 7)} ${yen(v.gross)}・${v.count}件${future ? "（予約済み）" : ""}` });
+    }
+    bars($("r1"), items, { label: "レンタルスペースの推移", h: 200 });
+    $("r1c").textContent = "利用日の月ごと・ゲストの支払額（予約通知から）。薄い棒は予約済みの先の月";
+    const box = $("rfacts"); box.textContent = "";
+    const rows = cur.rows, hrs = cur.hours;
+    const firsts = rows.filter((r) => r.first !== null), firstShare = firsts.length ? Math.round(firsts.filter((r) => r.first).length / firsts.length * 100) : null;
+    const purposes = {}; rows.forEach((r) => { const k = (r.purpose || "不明").split(/[ -]/)[0]; purposes[k] = (purposes[k] || 0) + 1; });
+    const topPurpose = Object.entries(purposes).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, n]) => `${k} ${n}件`).join("、");
+    const facts = [
+      ...Object.entries(cur.byPlatform).map(([k, v]) => [k, `${v.count}件・${yen(v.gross)}`]),
+      ["平均の利用時間", cur.count ? `${(hrs / cur.count).toFixed(1)}時間` : "—"],
+      ["1時間あたりの売上", hrs ? yen(cur.gross / hrs) : "—"],
+      ["初めてのお客様", firstShare == null ? "—" : `${firstShare}%`],
+      ["主な用途", topPurpose || "—"],
+    ];
+    $("rfactscap").textContent = `${md(p.start)}〜${md(end)}（利用日で集計、キャンセルを除く）`;
+    facts.forEach(([k, v]) => { const f = el("div", "fact"), a = el("span", "k"), b = el("span", "v"); a.textContent = k; b.textContent = v; f.append(a, b); box.append(f); });
+  }
+  const mb = $("rmonths"); mb.textContent = "";
+  const months = rentalMonthsIn(p.kind === "week" ? monthStart(p.start) : p.start, p.end).sort((a, b) => b.month.localeCompare(a.month) || a.platform.localeCompare(b.platform));
+  if (!state.rows) { mb.innerHTML = `<p class="empty">Asana につながると表示されます。</p>`; return; }
+  if (!months.length) { mb.innerHTML = `<p class="empty">この期間の月次確定値はまだありません（翌月1日に記録されます）。</p>`; return; }
+  const t = el("table", "rtable"); t.innerHTML = "<thead><tr><th>月</th><th>プラットフォーム</th><th>組数</th><th>売上</th><th>手数料</th><th>振込額</th></tr></thead>";
+  const tb = el("tbody");
+  months.forEach((m) => {
+    const tr = el("tr"), c = (txt, cls) => { const td = el("td", cls); td.textContent = txt; tr.append(td); return td; };
+    const mc = c(""); if (m.url) { const a = el("a"); a.href = m.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = m.month.replace("-", "年") + "月"; mc.append(a); } else mc.textContent = m.month;
+    c(m.platform); c(`${m.count}組`, "n num"); c(yen(m.gross), "n num"); c(yen(m.fee), "n num"); c(yen(m.net), "n num");
+    tb.append(tr);
+  });
+  t.append(tb); mb.append(t);
+}
+function renderOffline(p) {
+  const notice = $("notice");
+  if (state.error) notice.append(noticeBox(state.error.title, state.error.body));
+  else notice.append(noticeBox("Asana の伝票データを読み込んでいます", "数秒かかることがあります。"));
+  const snap = p.kind === "week" ? state.snaps[p.start] : null;
+  [0, 1, 2, 3].forEach((i) => setKpi(i, "—", ["　"]));
+  if (snap && diff(p.start, p.end) === 6) {
+    setKpi(0, yen(snap.sales), ["記録済みの数字"]); setKpi(1, `${snap.count}組`, ["　"]); setKpi(2, yen(snap.unit), ["　"]);
+  }
+  ["c1", "c2", "c3"].forEach((id) => { $(id).innerHTML = `<p class="empty">Asana につながると表示されます。</p>`; });
+  $("facts").textContent = ""; $("slips").textContent = "";
+  $("staff").innerHTML = `<p class="empty">Asana につながると表示されます。</p>`;
+  renderRental(p, todayBiz());
+  renderProfit(p, todayBiz());
+}
+function renderCharts(p, today, cur) {
+  const end = min(p.end, today);
+  // 1) 期間の中の動き: 週・月は日ごと、年は月ごと
+  if (p.kind === "year") {
+    $("c1t").textContent = "月ごとの売上"; $("c1c").textContent = `${p.year}年`;
+    const items = []; for (let m = p.start; m <= p.end; m = addMonths(m, 1)) {
+      const v = sum(m, monthEnd(m)); items.push({ label: `${Number(m.slice(5, 7))}月`, value: v.sales, cls: m <= today ? (inProgress(monthP(ym(m)), today) ? "cur" : "sel") : "", title: `${Number(m.slice(5, 7))}月 ${yen(v.sales)}・${v.count}組` });
+    }
+    bars($("c1"), items, { label: "月ごとの売上", h: 220 });
+  } else {
+    $("c1t").textContent = "日ごとの売上"; $("c1c").textContent = "営業日（6:00〜翌6:00）";
+    const items = []; for (let d = p.start; d <= p.end; d = add(d, 1)) {
+      const v = sum(d, d); items.push({ label: p.kind === "week" ? md(d) : String(toD(d).getUTCDate()), sub: p.kind === "week" ? WD[wdi(d)] : "",
+        value: v.sales, cls: v.sales ? "sel" : "", title: `${md(d)}（${WD[wdi(d)]}）${yen(v.sales)}・${v.count}組` });
+    }
+    bars($("c1"), items, { label: "日ごとの売上", h: 220, valueOnSel: p.kind === "week" });
+  }
+  // 2) 推移: 週は直近12週（月曜〜日曜）、月は直近12か月、年は年ごと
+  if (p.kind === "week") {
+    $("c2t").textContent = "週ごとの推移"; $("c2c").textContent = "直近12週（月曜〜日曜）・この週を強調";
+    const items = [], m0 = monday(p.start);
+    for (let i = 11; i >= 0; i--) { const ws = add(m0, -7 * i), v = sum(ws, add(ws, 6));
+      items.push({ label: md(ws), value: v.sales, cls: ws === m0 ? "sel" : (inProgress({ start: ws, end: add(ws, 6) }, today) ? "cur" : ""), title: `${md(ws)}〜${md(add(ws, 6))} ${yen(v.sales)}・${v.count}組` }); }
+    bars($("c2"), items, { label: "週ごとの推移", h: 200 });
+  } else if (p.kind === "month") {
+    $("c2t").textContent = "月ごとの推移"; $("c2c").textContent = "直近12か月・この月を強調";
+    const items = []; for (let i = 11; i >= 0; i--) { const m = addMonths(p.start, -i), v = sum(m, min(monthEnd(m), today));
+      items.push({ label: `${Number(m.slice(5, 7))}月`, value: v.sales, cls: i === 0 ? "sel" : "", title: `${m.slice(0, 7)} ${yen(v.sales)}・${v.count}組` }); }
+    bars($("c2"), items, { label: "月ごとの推移", h: 200 });
+  } else {
+    $("c2t").textContent = "年ごとの推移"; $("c2c").textContent = "伝票のある年";
+    const items = []; const fy = Number(dataStart(today).slice(0, 4));
+    for (let y = fy; y <= Number(today.slice(0, 4)); y++) { const v = sum(`${y}-01-01`, `${y}-12-31`);
+      items.push({ label: `${y}年`, value: v.sales, cls: String(y) === p.year ? "sel" : "", title: `${y}年 ${yen(v.sales)}・${v.count}組` }); }
+    bars($("c2"), items, { label: "年ごとの推移", h: 200 });
+  }
+  // 3) 曜日ごとの平均（週は直近8週、月・年はその期間）
+  const a = p.kind === "week" ? add(monday(p.start), -49) : p.start;
+  $("c3c").textContent = p.kind === "week" ? "直近8週・伝票のあった日の平均" : "この期間・伝票のあった日の平均";
+  const avg = weekdayAvg(a, end);
+  const best = Math.max(...avg.map((x) => x.avg));
+  bars($("c3"), avg.map((x, i) => ({ label: WD[i], value: x.avg, cls: x.avg && x.avg === best ? "sel" : "", title: `${WD[i]}曜 平均 ${yen(x.avg)}（${x.n}日）` })),
+    { label: "曜日ごとの平均", h: 200 });
+}
+function renderFacts(p, today, cur, prev) {
+  const by = {}; cur.rows.forEach((r) => { by[r.status] = (by[r.status] || 0) + 1; });
+  const unpaidIn = cur.rows.filter((r) => r.unpaid > 0);
+  const daysMap = {}; cur.rows.forEach((r) => { daysMap[r.date] = (daysMap[r.date] || 0) + r.amount; });
+  const bestDay = Object.entries(daysMap).sort((a, b) => b[1] - a[1])[0];
+  const sq = cur.rows.reduce((x, r) => x + r.square, 0), fee = cur.rows.reduce((x, r) => x + r.fee, 0);
+  const rep = repeatStats(cur.rows, p.start);
+  const facts = [
+    ["売上", yen(cur.sales)], ["予約数", `${cur.count}組`], ["客単価", yen(cur.unit)],
+    ["伝票のあった日", `${cur.openDays}日 / ${cur.days}日`],
+    ["いちばん売上の高い日", bestDay ? `${md(bestDay[0])}（${WD[wdi(bestDay[0])]}）${yen(bestDay[1])}` : "—"],
+    ["リピートのお客様", cur.count ? `${rep.repeatSlips}組（${Math.round(rep.repeatSlips / cur.count * 100)}%）` : "—"],
+    ["決済手数料", sq ? `${yen(fee)}（${(fee / sq * 100).toFixed(1)}%）` : "—"],
+    ["未収（この期間の伝票）", unpaidIn.length ? `${yen(unpaidIn.reduce((x, r) => x + r.unpaid, 0))}（${unpaidIn.length}件）` : "なし"],
+    ["入金確認完了 / 決済確認済み", `${by["入金確認完了"] || 0}件 / ${by["決済確認済み"] || 0}件`],
+    ["起票済み / 要確認", `${by["起票済み"] || 0}件 / ${by["要確認"] || 0}件`],
+  ];
+  $("factscap").textContent = `${md(p.start)}〜${md(cur.end)}`;
+  const box = $("facts"); box.textContent = "";
+  facts.forEach(([k, v]) => { const f = el("div", "fact"), a = el("span", "k"), b = el("span", "v"); a.textContent = k; b.textContent = v; f.append(a, b); box.append(f); });
+}
+function renderStaff(p, today, C) {
+  const box = $("staff"), pn = noun[p.kind], cur = staffOf(C.cur.rows), prev = staffOf(C.prev.rows);
+  const left = [];
+  if (cur.admin.count) left.push(`管理者（桝本 崚允）の入力 ${cur.admin.count}組・${yen(cur.admin.sales)}`);
+  if (cur.unknown.count) left.push(`担当の記録が無い伝票 ${cur.unknown.count}組・${yen(cur.unknown.sales)}`);
+  $("staffcap").textContent = `${md(p.start)}〜${md(C.cur.end)}・LINE で伝票を送った人ごと` + (left.length ? `。${left.join("、")}は除く` : "");
+  box.textContent = "";
+  const names = [...new Set([...Object.keys(cur.by), ...Object.keys(prev.by)])]
+    .sort((a, b) => (cur.by[b]?.sales || 0) - (cur.by[a]?.sales || 0) || (prev.by[b]?.sales || 0) - (prev.by[a]?.sales || 0));
+  if (!names.length) { box.innerHTML = `<p class="empty">この期間と${pn}に、担当者の伝票はありません。</p>`; return; }
+  const maxS = Math.max(1, ...names.map((n) => cur.by[n]?.sales || 0)), maxC = Math.max(1, ...names.map((n) => cur.by[n]?.count || 0));
+  const total = Object.values(cur.by).reduce((x, v) => x + v.sales, 0);
+  const buckets = staffBuckets(p, today), trendName = p.kind === "week" ? "直近8週" : p.kind === "month" ? "直近6か月" : "年ごと";
+  const head = el("div", "st-row st-head");
+  ["担当", "売上", "予約数", "客単価", trendName].forEach((t, i) => { const s = el("span"); s.textContent = t; if (i === 3) s.style.textAlign = "right"; head.append(s); });
+  box.append(head);
+  const span = (cls, t) => { const s = el("span", cls); s.textContent = t; return s; };
+  names.forEach((n) => {
+    const c = cur.by[n] || { sales: 0, count: 0, unit: null, days: 0 }, q = prev.by[n] || { sales: 0, count: 0, unit: null };
+    const row = el("div", "st-row");
+    const nm = el("div", "st-name"), b = el("b"); b.textContent = n; b.title = n;
+    nm.append(b, span("", `伝票のあった日 ${c.days}日`));
+    if (total) nm.append(span("", `担当者の売上の ${Math.round(c.sales / total * 100)}%`));
+    const metric = (lab, value, ratio, cls, detail) => {
+      const m = el("div", "st-m"), bar = el("div", "st-bar" + cls), fill = el("i");
+      fill.style.width = `${Math.max(value ? 3 : 0, ratio * 100)}%`; bar.append(fill);
+      m.append(span("st-mlabel", lab), bar, span("v", value), ...(detail ? [detail] : [])); return m;
+    };
+    const sd = el("span", "d"); sd.append(`${pn} ${yen(q.sales)}　`, C.perDayBasis ? "" : deltaNode(c.sales, q.sales));
+    const sales = metric("売上", yen(c.sales), c.sales / maxS, "", sd);
+    const cnt = metric("予約数", `${c.count}組`, c.count / maxC, " cnt", span("d", `${pn} ${q.count}組`));
+    const u = el("div", "st-u"); u.append(span("st-mlabel", "客単価"), span("v", yen(c.unit)), span("d", `${pn} ${yen(q.unit)}`));
+    // 推移（売上）の小さな棒
+    const vals = buckets.map((k) => sum(k.a, k.b).rows.filter((r) => r.staff === n).reduce((x, r) => x + r.amount, 0));
+    const vmax = Math.max(1, ...vals), W = 120, H = 30, bw = W / vals.length;
+    const sp = el("div", "st-spark");
+    sp.innerHTML = `<span class="st-mlabel">${esc(trendName)}の売上</span><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(n)}の${esc(trendName)}の売上">` +
+      vals.map((v, i) => { const h = v ? Math.max(2, v / vmax * (H - 2)) : 1; return `<rect class="${buckets[i].on ? "on" : ""}" x="${i * bw + bw * .18}" y="${H - h}" width="${bw * .64}" height="${h}" rx="1.5"><title>${esc(buckets[i].label)} ${yen(v)}</title></rect>`; }).join("") + "</svg>";
+    row.append(nm, sales, cnt, u, sp);
+    box.append(row);
+  });
+  if (C.perDayBasis) { const e = el("p", "empty"); e.textContent = `この週は${pn}と日数が違うため、売上の増減の%は出していません。`; box.append(e); }
+}
+/* この期間の伝票のうち、それより前にも来店のあるお客様の組数（顧客名で判定。名前はページの外に出さない） */
+function repeatStats(rows, start) {
+  const before = new Set((state.rows || []).filter((r) => r.date < start && r.customer).map((r) => r.customer));
+  const seen = new Set(before); let repeatSlips = 0;
+  [...rows].sort((a, b) => a.date.localeCompare(b.date)).forEach((r) => {
+    if (!r.customer) return; if (seen.has(r.customer)) repeatSlips++; seen.add(r.customer);
+  });
+  return { repeatSlips, distinct: new Set(rows.filter((r) => r.customer).map((r) => r.customer)).size };
+}
+function renderSlips(cur) {
+  const box = $("slips"); box.textContent = "";
+  const list = [...cur.rows].sort((a, b) => b.date.localeCompare(a.date) || b.slipId.localeCompare(a.slipId));
+  if (!list.length) { box.innerHTML = `<p class="empty">この期間の伝票はありません。</p>`; return; }
+  const t = el("table"); t.innerHTML = "<thead><tr><th>営業日</th><th>伝票ID</th><th>顧客名</th><th>金額</th><th>状態</th><th>未収</th></tr></thead>";
+  const tb = el("tbody");
+  list.forEach((r) => {
+    const tr = el("tr"), c = (txt, cls) => { const td = el("td", cls); td.textContent = txt; tr.append(td); return td; };
+    c(`${md(r.date)}（${WD[wdi(r.date)]}）`);
+    const idc = c(""); if (r.url) { const a = el("a"); a.href = r.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = r.slipId || "開く"; idc.append(a); } else idc.textContent = r.slipId;
+    c(r.customer ? `${r.customer}様` : "—"); c(yen(r.amount), "n num");
+    const sc = c(""), pl = el("span", "pill" + (r.status === "要確認" ? " rv" : r.status === "入金確認完了" ? " ok" : "")); pl.textContent = r.status; sc.append(pl);
+    c(r.unpaid ? yen(r.unpaid) : "", "n num");
+    tb.append(tr);
+  });
+  t.append(tb); box.append(t);
+}
+function noticeBox(title, body) { const d = el("div", "notice"), s = el("strong"); s.textContent = title; d.append(s, body); return d; }
+
+/* ======================= 利益（仕入・人件費・固定費） =======================
+   仕入（C）と人件費（B）は Asana の専用プロジェクトに記録される（docs/profit/contract.md）。
+   読むプロジェクトは COST_PROJECTS に書く（B・C が ID を確定したら足す）。空のあいだは「未設定」と表示し、利益は出さない。
+   固定費は本人が入力し、Artifact の db（fixedcosts/barnull）に保持する。
+   費用が「記録済み」でない期間は、利益を断定せず「—」にする（記録済みの分だけの参考値は添える）。
+   利益のセクションは、固定費を読める人（Editor 以上）にだけ見せる。 */
+const COST_PROJECTS = {
+  labor:    { prod: [], test: [] },   // 「Bar null 人件費（勤怠）」（額を別プロジェクトに分けたら両方入れる）
+  purchase: { prod: [], test: [] },   // 「Bar null 仕入」
+};
+const FIXED_DOC = "fixedcosts/barnull";
+const COLORS = { purchase: "var(--accent)", labor: "var(--series-rent)", fee: "var(--warn)", fixed: "color-mix(in srgb, var(--label-2) 75%, transparent)", profit: "var(--green)" };
+Object.assign(state, { cost: null, fixed: null, fixedLoaded: false, profitOK: false, isOwner: false, pinsights: {} });
+
+function parseLabor(t) {
+  const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10), status = f["状態"]?.enum_value?.name || "";
+  if (!date || status === "対象外" || (f["店舗"]?.text_value || "").trim()) return null;
+  return { date, status, staff: (f["担当者"]?.text_value || "").trim(), hours: f["勤務時間（h）"]?.number_value ?? null, cost: f["人件費（円）"]?.number_value ?? null };
+}
+function parsePurchase(t) {
+  const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10), status = f["状態"]?.enum_value?.name || "";
+  if (!date || status === "対象外" || (f["店舗"]?.text_value || "").trim()) return null;
+  return { date, status, kind: f["区分"]?.enum_value?.name || "その他", amount: f["金額（円）"]?.number_value ?? null };
+}
+const COUNTED = { labor: "確定", purchase: "取り込み済み" };
+async function loadCost(mcp, kind, parse) {
+  const ids = COST_PROJECTS[kind][state.env] || [];
+  if (!ids.length) return { unset: true, rows: [], pend: [], first: null };
+  const all = [];
+  for (const id of ids) {
+    let offset = null;
+    for (let i = 0; i < 40; i++) {
+      const input = { project: id, limit: 100, opt_fields: OPT };
+      if (offset) input.offset = offset;
+      const p = payloadOf(await mcp.callTool(SERVER, TOOL, input, { cache: { staleTime: 60000 } }));
+      (p.data || []).forEach((t) => { const r = parse(t); if (r) all.push(r); });
+      offset = p.next_page?.offset;
+      if (!offset) break;
+    }
+  }
+  const rows = all.filter((r) => r.status === COUNTED[kind]), pend = all.filter((r) => r.status !== COUNTED[kind]);
+  const first = all.reduce((a, r) => (!a || r.date < a) ? r.date : a, null);
+  return { unset: false, rows, pend, first };
+}
+async function loadCosts(mcp) {
+  const out = { labor: null, purchase: null };
+  for (const [kind, parse] of [["labor", parseLabor], ["purchase", parsePurchase]]) {
+    try { out[kind] = await loadCost(mcp, kind, parse); } catch (_) { out[kind] = { error: true, rows: [], pend: [], first: null }; }
+  }
+  state.cost = out; render();
+}
+
+/* 期間 a〜b の記録の状態: full（記録済み）・partial（一部のみ）・none（未記録）・unset（未設定）・error・wait */
+function coverage(kind, a, b) {
+  const c = state.cost && state.cost[kind];
+  if (!c) return { s: "wait" };
+  if (c.unset) return { s: "unset" };
+  if (c.error) return { s: "error" };
+  const rows = c.rows.filter((r) => r.date >= a && r.date <= b), pend = c.pend.filter((r) => r.date >= a && r.date <= b).length;
+  if (!rows.length) return { s: "none", pend };
+  if (c.first > a) return { s: "partial", from: c.first, pend };
+  return { s: "full", pend };
+}
+function fixedVersion(m) { let best = null; ((state.fixed && state.fixed.versions) || []).forEach((v) => { if (v.from <= m && (!best || v.from > best.from)) best = v; }); return best; }
+function fixedStats(a, b) {
+  if (!state.fixedLoaded) return { s: "wait", total: 0, items: [], monthly: 0 };
+  const versions = (state.fixed && state.fixed.versions) || [];
+  if (!versions.length) return { s: "unset", total: 0, items: [], monthly: 0 };
+  const by = new Map(); let total = 0, miss = 0, n = 0;
+  for (let d = a; d <= b; d = add(d, 1)) {
+    n++; const v = fixedVersion(ym(d));
+    if (!v || !v.items.length) { miss++; continue; }
+    const dim = Number(monthEnd(d).slice(8));
+    v.items.forEach((it) => { const x = by.get(it.name) || { name: it.name, monthly: 0, amount: 0 }; x.monthly = it.monthly; x.amount += it.monthly / dim; by.set(it.name, x); total += it.monthly / dim; });
+  }
+  const v0 = fixedVersion(ym(b));
+  return { s: miss === 0 ? "full" : miss === n ? "none" : "partial", total, items: [...by.values()], monthly: v0 ? v0.items.reduce((x, i) => x + i.monthly, 0) : 0 };
+}
+function laborIn(a, b) {
+  const c = state.cost && state.cost.labor, rows = ((c && c.rows) || []).filter((r) => r.date >= a && r.date <= b), by = {};
+  rows.forEach((r) => { const k = r.staff || "（担当者の記録なし）"; const x = by[k] = by[k] || { hours: 0, cost: 0, days: new Set() }; x.hours += r.hours || 0; x.cost += r.cost || 0; x.days.add(r.date); });
+  return { rows, by, workers: Object.keys(by).length, hours: rows.reduce((x, r) => x + (r.hours || 0), 0), cost: rows.reduce((x, r) => x + (r.cost || 0), 0), noCost: rows.filter((r) => r.cost == null).length };
+}
+function purchaseIn(a, b) {
+  const c = state.cost && state.cost.purchase, rows = ((c && c.rows) || []).filter((r) => r.date >= a && r.date <= b), kinds = {};
+  rows.forEach((r) => { kinds[r.kind] = (kinds[r.kind] || 0) + (r.amount || 0); });
+  return { rows, kinds, total: rows.reduce((x, r) => x + (r.amount || 0), 0), noAmount: rows.filter((r) => r.amount == null).length };
+}
+function profitOf(p, today) {
+  const a = p.start, b = min(p.end, today), bar = sum(a, b), rent = rentalIn(a, b);
+  const fee = bar.rows.reduce((x, r) => x + r.fee, 0);
+  const openUnpaid = bar.rows.filter((r) => r.unpaid > 0 && r.unpaidStatus !== "回収入金確認済み").reduce((x, r) => x + r.unpaid, 0);
+  const lab = laborIn(a, b), pur = purchaseIn(a, b), fx = fixedStats(a, b);
+  const cov = { purchase: coverage("purchase", a, b), labor: coverage("labor", a, b), fixed: { s: fx.s }, rental: { s: state.rental ? "full" : state.rentalError ? "error" : "wait" } };
+  if (cov.labor.s === "full" && lab.noCost) cov.labor = { s: "partial", why: `額の無い記録 ${lab.noCost}件` };
+  if (cov.purchase.s === "full" && pur.noAmount) cov.purchase = { s: "partial", why: `金額の無い記録 ${pur.noAmount}件` };
+  const revenue = bar.sales + rent.net, variable = pur.total + lab.cost + fee;
+  const missing = Object.entries({ purchase: "仕入", labor: "人件費", fixed: "固定費", rental: "レンタル収益" }).filter(([k]) => cov[k].s !== "full").map(([, v]) => v);
+  const complete = !missing.length, profit = revenue - variable - fx.total;
+  const varRate = revenue > 0 ? variable / revenue : null;
+  return { a, b, bar, rent, fee, openUnpaid, lab, pur, fx, cov, revenue, variable, missing, complete, profit,
+           profitCash: profit - openUnpaid, margin: revenue > 0 ? profit / revenue : null,
+           cogPct: bar.sales > 0 ? pur.total / bar.sales : null, laborPct: revenue > 0 ? lab.cost / revenue : null, varRate,
+           breakeven: complete && varRate != null && varRate < 1 ? fx.total / (1 - varRate) : null };
+}
+const pc = (x) => x == null ? "—" : `${(x * 100).toFixed(1)}%`;
+const COV_TEXT = (c) => ({ full: "記録済み", partial: c.from ? `一部のみ（${md(c.from)}〜）` : "一部のみ", none: "未記録", unset: "未設定", error: "読めませんでした", wait: "読み込み中" }[c.s]);
+const noRec = (c) => c.s === "none" || c.s === "unset" || c.s === "wait" || c.s === "error";
+
+function setPKpi(i, value, nodes) {
+  const k = $("pkpis").children[i]; k.querySelector(".v").textContent = value;
+  const d = k.querySelector(".d"); d.textContent = ""; d.append(...nodes);
+}
+function stackNode(P) {   // 売上の使いみちの帯と凡例
+  const wrap = el("div", "pstack");
+  if (!(P.revenue > 0)) { const e = el("p", "empty"); e.textContent = "この期間は売上がありません。"; wrap.append(e); return wrap; }
+  const segs = [["purchase", "仕入", P.pur.total], ["labor", "人件費", P.lab.cost], ["fee", "決済手数料", P.fee], ["fixed", "固定費", P.fx.total],
+                ["profit", "利益", P.complete && P.profit > 0 ? P.profit : 0]].filter((s) => s[2] > 0);
+  const used = segs.reduce((x, s) => x + s[2], 0), denom = Math.max(P.revenue, used) || 1;
+  const bar = el("div", "stack"); bar.setAttribute("role", "img"); bar.setAttribute("aria-label", "売上の使いみち");
+  segs.forEach(([k, t, v]) => { const i = el("i"); i.style.flex = String(v / denom); i.style.background = COLORS[k]; i.title = `${t} ${yen(v)}`; bar.append(i); });
+  const lg = el("div", "legend");
+  segs.forEach(([k, t, v]) => { const s = el("span"), sw = el("i", "sw"); sw.style.background = COLORS[k]; s.append(sw, `${t} ${yen(v)}（${pc(v / P.revenue)}）`); lg.append(s); });
+  wrap.append(bar, lg);
+  const note = !P.complete ? `記録済みの分だけの帯です（${P.missing.join("・")}は記録済みではありません）。` : P.profit < 0 ? `費用が売上を ${yen(-P.profit)} 上回っています。` : "";
+  if (note) { const n = el("p", "cap"); n.style.margin = "0"; n.textContent = note; wrap.append(n); }
+  return wrap;
+}
+function tableOf(heads, rows, total) {
+  const t = el("table", "rtable ptable"), tr = el("tr"), th = el("thead"), tb = el("tbody");
+  heads.forEach(([h, n]) => { const c = el("th", n ? "n" : ""); c.textContent = h; tr.append(c); }); th.append(tr); t.append(th);
+  [...rows, ...(total ? [total] : [])].forEach((r, ri) => {
+    const row = el("tr", total && ri === rows.length ? "tot" : "");
+    r.forEach((v, i) => { const td = el("td", heads[i][1] ? "n num" : ""); td.textContent = v; row.append(td); }); tb.append(row);
+  });
+  t.append(tb); return t;
+}
+function renderProfit(p, today) {
+  const show = state.profitOK;
+  ["psect", "pcover", "pkpis", "pdetail"].forEach((id) => { $(id).hidden = !show; });
+  $("fxbox").hidden = !state.isOwner;
+  if (!show) return;
+  if (!state.rows) { [0, 1, 2, 3].forEach((i) => setPKpi(i, "—", [i === 0 ? "Asana につながると表示されます" : "　"])); return; }
+  const P = profitOf(p, today), end = P.b;
+  const cv = $("pcover"); cv.textContent = "";
+  [["仕入", P.cov.purchase], ["人件費", P.cov.labor], ["固定費", P.cov.fixed], ["レンタル収益（速報）", P.cov.rental]].forEach(([n, c]) => {
+    const s = el("span", "chip " + (c.s === "full" ? "ok" : "miss")); s.append(el("i", "dot"), `${n}：${COV_TEXT(c)}`);
+    const note = [c.why, c.pend ? `未確定の記録 ${c.pend}件は数えていません` : ""].filter(Boolean).join("・"); if (note) s.title = note;
+    cv.append(s);
+  });
+  const miss = P.missing.join("・");
+  if (P.complete) {
+    const tag = el("span", P.profit < 0 ? "loss" : ""); tag.textContent = P.profit < 0 ? "赤字" : "黒字";
+    setPKpi(0, yen(P.profit), [tag, `　利益率 ${pc(P.margin)}・売上合計 ${yen(P.revenue)}`]);
+    setPKpi(1, yen(P.profitCash), [`未収 ${yen(P.openUnpaid)} を除く`]);
+  } else {
+    setPKpi(0, "—", [`断定できません（${miss}）`]);
+    setPKpi(1, "—", [`未収 ${yen(P.openUnpaid)} を除いた利益。同じ理由で出せません`]);
+  }
+  const parts = [`仕入 ${noRec(P.cov.purchase) ? "—" : yen(P.pur.total)}`, `人件費 ${noRec(P.cov.labor) ? "—" : yen(P.lab.cost)}`, `手数料 ${yen(P.fee)}`];
+  setPKpi(2, yen(P.variable), [P.complete ? `売上の ${pc(P.varRate)}` : "記録済みの分だけ", `　${parts.join("・")}`]);
+  const fxNone = ["unset", "wait", "none"].includes(P.fx.s);
+  setPKpi(3, fxNone ? "—" : yen(P.fx.total),
+    [P.fx.s === "unset" ? "右上の設定から入力します" : P.fx.s === "wait" ? "読み込み中" : P.fx.s === "none" ? "この期間は固定費の適用開始月より前です" : `月額の合計 ${yen(P.fx.monthly)} を日割り`]);
+
+  $("pcap").textContent = `${md(p.start)}〜${md(end)}`;
+  $("pstack").textContent = ""; $("pstack").append(stackNode(P));
+  const box = $("pfacts"); box.textContent = "";
+  const facts = [
+    ["通常営業の売上", yen(P.bar.sales)], ["レンタルの店舗収益", state.rental ? yen(P.rent.net) : "—"],
+    ["原価率（仕入÷通常営業の売上）", P.cov.purchase.s === "full" ? pc(P.cogPct) : `—（仕入 ${COV_TEXT(P.cov.purchase)}）`],
+    ["人件費率（人件費÷売上合計）", P.cov.labor.s === "full" ? pc(P.laborPct) : `—（人件費 ${COV_TEXT(P.cov.labor)}）`],
+    ["変動費率", P.complete ? pc(P.varRate) : "—"],
+    ["損益分岐売上（この期間）", P.breakeven != null ? `${yen(P.breakeven)}（売上は ${pc(P.revenue / P.breakeven)}）` : "—"],
+    ["決済手数料（Square）", yen(P.fee)], ["未収の残高", yen(P.openUnpaid)],
+    ...Object.entries(P.pur.kinds).map(([k, v]) => [`仕入：${k}`, yen(v)]),
+  ];
+  facts.forEach(([k, v]) => { const f = el("div", "fact"), a = el("span", "k"), b = el("span", "v"); a.textContent = k; b.textContent = v; f.append(a, b); box.append(f); });
+
+  const fb = $("fxtable"); fb.textContent = "";
+  if (P.fx.s === "unset" || P.fx.s === "wait") {
+    const e = el("p", "empty"); e.textContent = P.fx.s === "wait" ? "読み込み中です。" : "固定費が未入力です。右上の設定（管理者のみ）から、項目と月額を入力します。"; fb.append(e);
+  } else {
+    if (P.fx.s !== "full") { const e = el("p", "empty"); e.textContent = "この期間の一部は、固定費の適用開始月より前です。"; fb.append(e); }
+    if (P.fx.items.length) fb.append(tableOf([["項目"], ["月額", true], ["この期間", true]], P.fx.items.map((i) => [i.name, yen(i.monthly), yen(i.amount)]), ["合計", yen(P.fx.monthly), yen(P.fx.total)]));
+  }
+
+  const lb = $("lbtable"), lc = P.cov.labor; lb.textContent = "";
+  $("lbcap").textContent = lc.s === "full" ? "勤怠に記録された分（確定のみ）" : `人件費：${COV_TEXT(lc)}`;
+  if (!P.lab.workers) {
+    const e = el("p", "empty"); e.textContent = lc.s === "unset" ? "勤怠の記録先（Asana のプロジェクト）がまだ設定されていません。" : lc.s === "wait" ? "読み込み中です。" : lc.s === "error" ? "勤怠を読み込めませんでした。" : "この期間の勤怠は未記録です。"; lb.append(e);
+  } else {
+    const rows = Object.entries(P.lab.by).sort((x, y) => y[1].cost - x[1].cost).map(([n, v]) =>
+      [n, `${v.days.size}日`, `${v.hours.toFixed(1)}h`, `${(v.hours / v.days.size).toFixed(1)}h`, yen(v.cost), P.lab.cost ? pc(v.cost / P.lab.cost) : "—"]);
+    lb.append(tableOf([["担当"], ["勤務日数", true], ["勤務時間", true], ["1日あたり", true], ["人件費", true], ["割合", true]], rows,
+      ["合計", "", `${P.lab.hours.toFixed(1)}h`, "", yen(P.lab.cost), ""]));
+    if (lc.pend) { const e = el("p", "empty"); e.textContent = `未確定（勤務中・要確認）の記録 ${lc.pend}件は数えていません。`; lb.append(e); }
+  }
+}
+
+/* ---- 固定費の入力（設定の中。本人だけ） ---- */
+const fx = { draft: { from: "", items: [] }, dirty: false };
+const rid = () => Math.random().toString(36).slice(2, 9);
+function fxInit(force) {
+  if (fx.dirty && !force) return;
+  const m = ym(todayBiz()), v = fixedVersion(m);
+  fx.draft = { from: v ? v.from : m, items: (v ? v.items : []).map((i) => ({ ...i })) }; fx.dirty = false; fxRender();
+}
+function fxRender() {
+  const box = $("fxlist"); box.textContent = ""; $("fxfrom").value = fx.draft.from;
+  if (!fx.draft.items.length) { const e = el("p", "hint"); e.textContent = "項目がありません。「項目を追加」で、家賃・光熱費などを入れます。"; box.append(e); }
+  fx.draft.items.forEach((it) => {
+    const row = el("div", "fx-row"), n = el("input"), a = el("input", "amt"), d = el("button", "fx-del");
+    n.type = "text"; n.id = `fxn-${it.id}`; n.value = it.name || ""; n.maxLength = 40; n.placeholder = "項目名"; n.setAttribute("aria-label", "項目名"); n.dataset.id = it.id; n.dataset.k = "name";
+    a.type = "number"; a.id = `fxa-${it.id}`; a.min = "0"; a.step = "1000"; a.value = it.monthly ?? ""; a.placeholder = "月額"; a.setAttribute("aria-label", "月額（円）"); a.dataset.id = it.id; a.dataset.k = "monthly";
+    d.type = "button"; d.textContent = "×"; d.setAttribute("aria-label", "この項目を削除"); d.dataset.del = it.id;
+    row.append(n, a, d); box.append(row);
+  });
+}
+async function fxSave() {
+  const hint = $("fxhint"), d = fx.draft;
+  if (!state.db || !state.isOwner) return;
+  if (!/^\d{4}-\d{2}$/.test(d.from)) { hint.textContent = "適用開始月を入れてください。"; return; }
+  const items = d.items.map((i) => ({ id: i.id, name: String(i.name || "").trim().slice(0, 40), monthly: Math.round(Number(i.monthly)) }))
+    .filter((i) => i.name && Number.isFinite(i.monthly) && i.monthly >= 0);
+  const versions = (((state.fixed && state.fixed.versions) || []).filter((v) => v.from !== d.from)).concat([{ from: d.from, items }]).sort((x, y) => x.from.localeCompare(y.from));
+  $("fxsave").disabled = true;
+  try { await state.db.doc(FIXED_DOC).set({ versions, updated_at: new Date().toISOString() }); fx.dirty = false; hint.textContent = `保存しました（${d.from.replace("-", "年")}月から）。`; }
+  catch (_) { hint.textContent = "保存できませんでした。時間をおいて、もう一度お試しください。"; }
+  $("fxsave").disabled = false;
+}
+$("fxlist").addEventListener("input", (e) => {
+  const t = e.target, it = fx.draft.items.find((i) => i.id === t.dataset.id); if (!it) return;
+  it[t.dataset.k] = t.dataset.k === "monthly" ? (t.value === "" ? "" : Number(t.value)) : t.value; fx.dirty = true;
+});
+$("fxlist").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-del]"); if (!b) return;
+  fx.draft.items = fx.draft.items.filter((i) => i.id !== b.dataset.del); fx.dirty = true; fxRender();
+});
+$("fxfrom").addEventListener("change", (e) => { fx.draft.from = e.target.value; fx.dirty = true; });
+$("fxadd").addEventListener("click", () => { fx.draft.items.push({ id: rid(), name: "", monthly: "" }); fx.dirty = true; fxRender(); const l = $("fxlist").querySelector(".fx-row:last-child input"); if (l) l.focus(); });
+$("fxsave").addEventListener("click", fxSave);
+
+/* ---- AI に渡す利益・コストの集計（時給・個人別の人件費は含めない） ---- */
+function profitData(p) {
+  const today = todayBiz(), end = min(p.end, today), P = profitOf(p, today), r0 = (v) => Math.round(v);
+  const monthly = [];
+  for (let i = 5; i >= 0; i--) {
+    const m = addMonths(end, -i), M = profitOf(monthP(ym(m)), today);
+    monthly.push([ym(m), r0(M.revenue), M.cov.purchase.s === "full" ? r0(M.pur.total) : null, M.cov.labor.s === "full" ? r0(M.lab.cost) : null,
+                  r0(M.fee), M.cov.fixed.s === "full" ? r0(M.fx.total) : null, M.complete ? r0(M.profit) : null]);
+  }
+  return {
+    note: "利益＝売上合計（通常営業の売上＋レンタルの店舗収益）−変動費（仕入＋人件費＋決済手数料）−固定費（月額の日割り）。税込。棚卸は反映しない。coverage が full でない費用は未記録で、その期間の利益は断定できない（profit は null）",
+    coverage: Object.fromEntries(Object.entries(P.cov).map(([k, c]) => [k, c.s])),
+    this_period: { bar_sales: r0(P.bar.sales), rental_store_revenue: r0(P.rent.net), revenue_total: r0(P.revenue),
+      purchase: r0(P.pur.total), labor_cost: r0(P.lab.cost), card_fee: r0(P.fee), fixed_cost_prorated: r0(P.fx.total), variable_cost: r0(P.variable),
+      profit_accrual: P.complete ? r0(P.profit) : null, profit_cash_basis: P.complete ? r0(P.profitCash) : null, unpaid_outstanding: r0(P.openUnpaid),
+      cost_of_goods_pct: P.cogPct == null ? null : +(P.cogPct * 100).toFixed(1), labor_pct: P.laborPct == null ? null : +(P.laborPct * 100).toFixed(1),
+      variable_pct: P.varRate == null ? null : +(P.varRate * 100).toFixed(1), breakeven_sales: P.breakeven == null ? null : r0(P.breakeven),
+      labor_hours_total: P.lab.workers >= 2 ? +P.lab.hours.toFixed(1) : null },
+    fixed_cost_items: P.fx.items.map((i) => ({ name: i.name, monthly: r0(i.monthly), prorated: r0(i.amount) })),
+    purchase_by_kind: Object.fromEntries(Object.entries(P.pur.kinds).map(([k, v]) => [k, r0(v)])),
+    monthly_last_6: { columns: ["month", "revenue_total", "purchase", "labor_cost", "card_fee", "fixed_cost", "profit"], rows: monthly },
+  };
+}
+const costNow = (p) => { const P = profitOf(p, todayBiz()); return Math.round(P.pur.total + P.lab.cost + P.fx.total); };
+
+const PROFIT_RULES = `- 利益・コスト（profit）: 売上合計（通常営業＋レンタルの店舗収益）から、仕入・人件費・決済手数料・固定費（月額の日割り）を引いたものが利益。総評（overall）は売上の観点でまとめ、利益とコストは profit 欄に書く。
+  coverage が "full" でない費用は未記録で、その期間の利益は断定できない（profit_accrual は null）。その場合は、記録済みの費用だけで言えること（原価率・人件費率など）と何が未記録かを書き、黒字・赤字や利益額を言い切らない。
+  原価率・人件費率の良し悪しは、データの推移（直近6か月の比較）で判断する。業界の標準値を事実として断定しない。
+  損益分岐売上と今の売上の差、固定費と変動費のどちらが利益を左右しているか、仕入・人件費・決済手数料で見直せる所を打ち手にする。
+  個別のスタッフの人件費や時給には触れない（データにも含めていない）。profit 欄の outlook.next は null にする。
+`;
+function figProfit(p) { const P = profitOf(p, todayBiz()); return P.revenue > 0 ? fig("この期間の売上の使いみち", stackNode(P)) : null; }
+
+/* ======================= AI の示唆 =======================
+   Claude に渡すのは集計した数字だけ（顧客名・伝票 ID は渡さない）。結果は共有のデータベースに残し、
+   次に開いた人は Claude を使わずに読める。データが変わったら「作り直す」を出す。 */
+function insightKey(p) { return `${state.env}_${p.key.replace(":", "_")}`; }
+function basisOf(p) {
+  const today = todayBiz(), c = periodStats(p, today), r = rentalIn(p.start, min(p.end, today));
+  const last = (state.rows || []).reduce((a, x) => x.date > a ? x.date : a, "");
+  return { sales: c.sales, count: c.count, end: c.end, last, rental: r.gross, rental_count: r.count };
+}
+function rentalData(p) {   // 予約者の名前・本文は含めない
+  const today = todayBiz(), end = min(p.end, today), q = prevOf(p);
+  const agg = (x) => ({ count: x.count, gross: Math.round(x.gross), net: Math.round(x.net), hours: +x.hours.toFixed(1),
+                         by_platform: Object.fromEntries(Object.entries(x.byPlatform).map(([k, v]) => [k, { count: v.count, gross: v.gross, net: v.net }])) });
+  const monthly = []; for (let i = 11; i >= -3; i--) { const m = addMonths(end, -i), v = rentalIn(m, monthEnd(m)); monthly.push([m.slice(0, 7), v.count, v.gross, v.net, +v.hours.toFixed(1), m > today ? "予約済み（先の月）" : ""]); }
+  const rows = (state.rental || []).filter((r) => r.date >= add(end, -180)).sort((a, b) => a.date.localeCompare(b.date)).slice(-200)
+    .map((r) => [r.date, WD[wdi(r.date)], r.startHour, r.hours == null ? null : +r.hours.toFixed(1), r.platform, r.gross, r.net, r.people, r.purpose,
+                 r.first, r.posted ? diff(r.posted, r.date) : null, r.kind, r.cancel ? "キャンセル" : (r.date > today ? "これから" : "利用済み")]);
+  return {
+    source: "Slack の予約通知（速報。予約の変更で同じ予約が2件に見えることがある）と、Asana の月次確定値（翌月1日に記録）",
+    this_period: agg(rentalIn(p.start, end)), comparison: { name: noun[p.kind], ...agg(rentalIn(q.start, q.end)) },
+    upcoming_after_today: agg(rentalUpcoming(today)),
+    monthly_by_use_date: { columns: ["month", "count", "gross", "net", "hours", "note"], rows: monthly },
+    confirmed_monthly_asana: { columns: ["month", "platform", "count", "gross", "fee", "net"], rows: state.rentalMonths.map((m) => [m.month, m.platform, m.count, m.gross, m.fee, m.net]) },
+    bookings: { columns: ["use_date", "weekday", "start_hour", "hours", "platform", "guest_pay", "store_revenue", "people", "purpose",
+                          "first_time", "lead_days", "notice_kind", "state"], rows },
+    note: "gross＝ゲストの支払額（プラットフォーム手数料を含む）、net＝店舗への振込額。バーの通常営業は主に夜。レンタルの時間帯と重なるかは start_hour と hours で分かる",
+  };
+}
+function insightData(p) {
+  const today = todayBiz(), end = min(p.end, today), C = compare(p, today);
+  const r = (o) => ({ sales: Math.round(o.sales), count: o.count, unit: o.unit == null ? null : Math.round(o.unit),
+                      per_day: o.perDay == null ? null : Math.round(o.perDay), days: o.days });
+  const daily = []; for (let d = add(end, -55); d <= end; d = add(d, 1)) { const v = sum(d, d); daily.push([d, WD[wdi(d)], v.sales, v.count]); }
+  const weekly = []; for (let i = 15; i >= 0; i--) { const ws = add(monday(end), -7 * i), v = sum(ws, min(add(ws, 6), today)); weekly.push([ws, v.sales, v.count, v.unit == null ? null : Math.round(v.unit), ws <= today && today <= add(ws, 6) ? "集計中" : ""]); }
+  const monthly = []; for (let i = 11; i >= 0; i--) { const m = addMonths(end, -i), me = min(monthEnd(m), today), v = sum(m, me); monthly.push([m.slice(0, 7), v.sales, v.count, v.unit == null ? null : Math.round(v.unit), diff(m, me) + 1]); }
+  const wd = weekdayAvg(add(end, -83), end).map((x, i) => [WD[i], Math.round(x.avg), x.n]);
+  const hist = (state.rows || []).filter((x) => x.date <= end);
+  const last90 = hist.filter((x) => x.date > add(end, -90));
+  const byCust = {}; last90.forEach((x) => { if (x.customer) byCust[x.customer] = (byCust[x.customer] || 0) + x.amount; });
+  const custVals = Object.values(byCust).sort((a, b) => b - a), top = custVals.slice(0, Math.max(1, Math.ceil(custVals.length * 0.2)));
+  const rep = repeatStats(C.cur.rows, p.start);
+  const sq = last90.reduce((x, y) => x + y.square, 0), fee = last90.reduce((x, y) => x + y.fee, 0);
+  const open = (state.rows || []).filter((x) => x.unpaid > 0 && x.unpaidStatus !== "回収入金確認済み");
+  return {
+    period: { name: label(p), kind: p.kind, start: p.start, end: p.end, counted_until: end, in_progress: inProgress(p, today), days_counted: C.cur.days },
+    this_period: r(C.cur), comparison: { name: noun[p.kind], start: C.prev.start, end: C.prev.end, ...r(C.prev), per_day_basis: C.perDayBasis },
+    daily_last_8_weeks: { columns: ["date", "weekday", "sales", "count"], rows: daily },
+    weekly_last_16: { columns: ["monday", "sales", "count", "unit", "note"], rows: weekly },
+    monthly_last_12: { columns: ["month", "sales", "count", "unit", "days_counted"], rows: monthly },
+    weekday_average_last_12_weeks: { columns: ["weekday", "avg_sales_on_open_days", "open_days"], rows: wd },
+    customers: { repeat_slips_in_period: rep.repeatSlips, slips_in_period: C.cur.count,
+                 distinct_customers_last_90d: custVals.length, top20pct_share_of_sales_last_90d: custVals.length ? Math.round(top.reduce((a, b) => a + b, 0) / custVals.reduce((a, b) => a + b, 0) * 100) : null },
+    payments: { square_fee_rate_last_90d_pct: sq ? +(fee / sq * 100).toFixed(2) : null },
+    unpaid_now: { outstanding: Math.round(open.reduce((x, y) => x + y.unpaid, 0)), slips: open.length },
+    data_coverage: { first_slip_date: dataStart(today), total_slips_until_end: hist.length,
+                     note: "伝票の自動記録は 2026-10-17 に始まった。それより前の期間は伝票が無い・少ないことがある" },
+  };
+}
+/* 担当者別。Claude には名前を渡さず「担当A」のような記号で渡し、表示するときに名前へ戻す（対応表は示唆と一緒に保存） */
+function staffData(p) {
+  const today = todayBiz(), end = min(p.end, today), C = compare(p, today);
+  const total = {}; (state.rows || []).forEach((r) => { if (r.staff && !isAdmin(r.staff)) total[r.staff] = (total[r.staff] || 0) + r.amount; });
+  const names = staffNames().sort((a, b) => total[b] - total[a] || a.localeCompare(b)).slice(0, 26);
+  const map = {}, lab = {};
+  names.forEach((n, i) => { const k = `担当${String.fromCharCode(65 + i)}`; map[k] = n; lab[n] = k; });
+  const pack = (s) => Object.fromEntries(Object.entries(s.by).filter(([n]) => lab[n])
+    .map(([n, v]) => [lab[n], { sales: Math.round(v.sales), count: v.count, unit: v.unit == null ? null : Math.round(v.unit), days_with_slips: v.days }]));
+  const cur = staffOf(C.cur.rows), prev = staffOf(C.prev.rows);
+  const weekly = []; for (let i = 11; i >= 0; i--) { const ws = add(monday(end), -7 * i), s = staffOf(sum(ws, min(add(ws, 6), today)).rows);
+    Object.entries(s.by).forEach(([n, v]) => { if (lab[n]) weekly.push([ws, lab[n], Math.round(v.sales), v.count, v.days]); }); }
+  return { map, data: {
+    note: "担当＝LINE で伝票を送った人（接客や会計をした人とは限らない）。管理者の入力分と、担当の記録が無い伝票は除いた。days_with_slips＝その人の伝票があった日数（出勤日の目安）",
+    this_period: pack(cur), comparison: { name: noun[p.kind], ...pack(prev) },
+    excluded_this_period: { admin: { sales: Math.round(cur.admin.sales), count: cur.admin.count }, unknown: { sales: Math.round(cur.unknown.sales), count: cur.unknown.count } },
+    weekly_last_12: { columns: ["monday", "staff", "sales", "count", "days_with_slips"], rows: weekly },
+  } };
+}
+function insightPrompt(p, staff) {
+  const today = todayBiz(), end = min(p.end, today);
+  const combined = []; for (let i = 11; i >= 0; i--) { const m = addMonths(end, -i), me = min(monthEnd(m), today);
+    combined.push([m.slice(0, 7), sum(m, me).sales, rentalIn(m, me).gross]); }
+  const prof = state.profitOK ? profitData(p) : null;
+  const data = { bar: insightData(p), staff: staff.data, rental: rentalData(p),
+                 combined_monthly: { columns: ["month", "bar_sales", "rental_gross"], rows: combined }, ...(prof ? { profit: prof } : {}) };
+  return `あなたは予約制のバー「Bar null」の売上を読む経営アナリストです。この店には2つの売上がある。
+- 通常営業（bar）: 夜のバー営業。1伝票＝1組の会計。担当者（staff）は LINE で伝票を送ったスタッフ
+- レンタルスペース（rental）: 営業していない時間に、インスタベース・スペースマーケット経由で店を貸す
+次の集計データ（JSON）だけを根拠に、「${label(p)}」について、通常営業・担当者・レンタルスペースそれぞれと、合わせた総評を日本語で示してください。
+
+ルール:
+- データに無いこと（天気、イベント、競合、季節要因など）を事実として書かない。仮説なら「〜の可能性」と明記する。
+- 数字はデータの値を使う（金額は「¥12,345」、割合は「%」）。計算した値なら計算元が分かるように書く。
+- 期間が短い、件数が少ない、比べる相手が0件などで言い切れないときは、そのことを caveats に書き、断定しない。
+- 個人を特定する情報は扱わない（データにも含めていない）。
+- 用語: 売上＝伝票金額の合計（未収を含み、取消を除く）。営業日は 6:00〜翌6:00。予約数＝伝票の件数（1組）。客単価＝売上÷予約数。
+- in_progress が true の期間は途中までの集計。
+- レンタルスペースは、時間帯・曜日・利用時間・用途・人数・初回の割合・予約の先行日数（lead_days）・プラットフォーム別の売上と手数料・これからの予約を見て、
+  どの枠（曜日・時間帯）が埋まり・空いているか、単価や手数料の違い、通常営業と時間が重ならずに稼げているか、予約の見通しを読む。
+- 担当者は「担当A」のような記号でだけ呼ぶ（名前はデータに含めていない）。伝票のあった日数（days_with_slips）が人によって違うので、
+  売上の合計だけで優劣をつけず、1日あたり・組数・客単価・推移で比べる。件数が少ないときは断定しない。
+  人を責める書き方はせず、店として取れる打ち手（シフトの組み方、客単価を上げる提案の共有、得意な曜日の活用など）にする。
+- 総評では、2つを合わせた売上の構成と推移、互いの影響（例: レンタルが通常営業の時間を圧迫していないか、空き時間の活用度）、全体として優先すべき打ち手を示す。
+${prof ? PROFIT_RULES : ""}
+出力は次の形の JSON オブジェクトだけ（ほかの文章は書かない）:
+{"overall": {"headline": "総評を1文で（60字以内）", "evaluation": "合わせた評価（350字以内）",
+             "decisions": ["いま判断・確認すべきこと（60字以内）"],
+             "actions": [打ち手と同じ形], "caveats": ["注意点（60字以内）"]},
+ "bar": 欄, "staff": 欄（outlook は null でよい）, "rental": 欄${prof ? ', "profit": 欄（利益・コスト。outlook は null）' : ""}}
+欄 = {"headline": "1文で（60字以内）",
+ "findings": [{"title": "傾向の見出し（20字以内）", "detail": "説明（120字以内）", "evidence": "根拠の数字（60字以内）", "tone": "良い" または "注意" または "中立"}],
+ "outlook": {"summary": "今後の見通し（150字以内）", "next": {"label": "次の期間の名前（例: 来月）", "low": 数値, "high": 数値} または null},
+ "actions": [{"title": "打ち手（20字以内）", "detail": "具体的な進め方（120字以内）", "priority": "高" または "中" または "低"}],
+ "caveats": ["注意点（60字以内）"]}
+各欄の findings は3〜5件、actions は2〜4件、overall の decisions は1〜3件、actions は2〜4件、caveats は0〜3件。
+tone は、店にとって良い動きなら「良い」、手を打つべき動きなら「注意」、どちらでもなければ「中立」。
+findings は重要な順に並べ、evidence には比べた数字を両方書く（例: 「今週 ¥120,000／先週 ¥90,000」）。next はデータから幅を持って見積もれるときだけ（無理なら null）。
+データが無い・少ない欄も省かず、その旨を headline と caveats に書く。
+
+データ:
+${JSON.stringify(data)}`;
+}
+function stopAI() { if (state.aiRun) { state.aiRun.ctl.abort(); state.aiRun = null; } }
+async function generateAI(refresh) {
+  const p = state.sel, sample = state.sample;
+  if (!sample || !state.rows || state.aiRun) return;
+  const ctl = new AbortController(), run = { ctl, key: p.key, started: Date.now() };
+  state.aiRun = run; renderAI();
+  const tick = setInterval(() => { if (state.aiRun === run) renderAI(); else clearInterval(tick); }, 1000);
+  try {
+    const staff = staffData(p);
+    const result = await sample.json(insightPrompt(p, staff), { signal: ctl.signal, modelTier: "default",
+      cache: refresh ? { gcTime: DAY_GCTIME, refresh: true } : { gcTime: DAY_GCTIME } });
+    if (!result || typeof result !== "object" || !(result.overall || result.bar)) throw { code: "invalid_json" };
+    const { profit, ...main } = result;   // 利益・コストの文章は、Editor 以上だけが読める別の文書に保存する
+    const doc = { env: state.env, key: p.key, label: label(p), result: main, staff_map: staff.map, basis: basisOf(p), generated_at: new Date().toISOString() };
+    state.insights[insightKey(p)] = doc;
+    if (profit && typeof profit === "object" && state.profitOK) {
+      const pdoc = { env: state.env, key: p.key, label: label(p), result: profit, basis: { cost: costNow(p) }, generated_at: doc.generated_at };
+      state.pinsights[insightKey(p)] = pdoc;
+      if (state.db && state.canWrite) state.db.doc(`profit_insights/${insightKey(p)}`).set(pdoc).catch(() => {});
+    }
+    if (state.db && state.canWrite) state.db.doc(`insights/${insightKey(p)}`).set(doc).catch(() => {});
+    state.aiError = null;
+  } catch (e) {
+    state.aiError = e?.code === "cancelled" ? null : (e?.code || "upstream_error");
+    if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].includes(e?.code)) state.sample = null;
+  } finally {
+    clearInterval(tick);
+    if (state.aiRun === run) state.aiRun = null;
+    renderAI();
+  }
+}
+const AI_ERR = {
+  rate_limited: "Claude の利用が混み合っているか、利用枠に達しました。時間をおいて、もう一度お試しください。",
+  session_expired: "claude.ai にもう一度サインインしてください。",
+  invalid_json: "示唆をうまくまとめられませんでした。もう一度お試しください。",
+  refused: "この内容では示唆を作れませんでした。",
+  empty_completion: "示唆が空でした。もう一度お試しください。",
+  prompt_too_large: "データが多すぎました。期間を短くしてお試しください。",
+};
+function renderAI() {
+  const body = $("aibody"), gen = $("aigen"), stop = $("aistop"), p = state.sel;
+  body.textContent = "";
+  const doc = state.insights[insightKey(p)], running = state.aiRun && state.aiRun.key === p.key;
+  stop.hidden = !running;
+  if (state.sample === null) {
+    gen.hidden = true;
+    if (!doc) { const e = el("p", "empty"); e.textContent = "このページでは Claude を使えないため、示唆は作れません（保存済みの示唆があれば表示します）。"; body.append(e); return; }
+  } else {
+    gen.hidden = false;
+    gen.disabled = !state.rows || !!state.aiRun || state.sample === undefined;
+    gen.textContent = doc ? "最新のデータで作り直す" : "示唆を作成";
+  }
+  if (running) {
+    const t = el("div", "thinking"); t.innerHTML = `<span class="dots"><i></i><i></i><i></i></span>`;
+    t.append(`Claude が分析しています…（${Math.round((Date.now() - state.aiRun.started) / 1000)}秒）`);
+    body.append(t); return;
+  }
+  if (state.aiError) body.append(noticeBox("示唆を作れませんでした", AI_ERR[state.aiError] || "通信に失敗しました。もう一度お試しください。"));
+  if (!doc) {
+    if (!state.aiError) { const e = el("p", "empty"); e.textContent = state.rows ? "「示唆を作成」を押すと、この期間までの数字から分析します（1分ほどかかります。あなたの Claude の利用枠を使います）。" : "Asana のデータを読み込むと作れます。"; body.append(e); }
+    return;
+  }
+  renderInsight(body, doc, p);
+}
+/* 示唆の表示。文章は Claude、図はページが今のデータから描く（作成後にデータが変わると、図は新しい数字になる） */
+const ICON = {
+  find: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>',
+  out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18l5-6 4 3 7-9"/><path d="M15 6h5v5"/></svg>',
+  act: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>',
+  dec: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg>',
+  fig: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+};
+const TONE = {
+  "良い": { cls: "good", label: "良い", svg: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2l4 6H2z" fill="currentColor"/></svg>' },
+  "注意": { cls: "warn", label: "注意", svg: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5v6M6 9.5v1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' },
+  "中立": { cls: "neu", label: "参考", svg: '<svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="2.2" fill="currentColor"/></svg>' },
+};
+const PRIO = { "高": "high", "中": "mid", "低": "low" };
+
+function renderInsight(body, doc, p) {
+  const names = doc.staff_map || {};   // 「担当A」などを名前に戻す
+  const res = doc.result || {}, txt = (v, n) => String(v ?? "").replace(/担当[A-Z]/g, (k) => names[k] || k).slice(0, n);
+  const legacy = !res.overall && !res.bar;   // 以前の示唆（通常営業だけ）
+  const now = basisOf(p), b = doc.basis || {};
+  const stale = state.rows && (b.sales !== now.sales || b.count !== now.count || b.last !== now.last ||
+    (b.rental != null && state.rental && (b.rental !== now.rental || b.rental_count !== now.rental_count)));
+  const meta = el("div", "ai-meta");
+  meta.append(`${new Date(doc.generated_at).toLocaleString("ja-JP", { hour12: false, dateStyle: "medium", timeStyle: "short" })} に作成。図は今のデータで描いています`);
+  if (stale) { const s = el("span", "stale"); s.textContent = "　・作成後にデータが更新されています"; meta.append(s); }
+  body.append(meta);
+
+  const H = { txt, p };
+  const groups = [];
+  const group = (id, title, sub, cls) => {
+    const g = el("section", "ai-group"); g.id = `ai-${id}`;
+    const h = el("h3", "ai-gtitle" + (cls ? " " + cls : "")); h.append(title);
+    if (sub) { const s = el("small"); s.textContent = sub; h.append(s); }
+    g.append(h); groups.push([title, g]); return g;
+  };
+  if (res.overall) renderOverall(group("overall", "総評", "通常営業＋レンタルスペース"), res.overall, H);
+  const pdoc = state.profitOK ? state.pinsights[insightKey(p)] : null;
+  if (pdoc) {
+    renderPart(group("profit", "利益・コスト", "管理者・編集者だけに表示"), "profit", pdoc.result, H);
+    if (state.rows && pdoc.basis && pdoc.basis.cost != null && pdoc.basis.cost !== costNow(p) && !stale) { const s = el("span", "stale"); s.textContent = "　・仕入・人件費・固定費が更新されています"; meta.append(s); }
+  } else if (state.profitOK && !legacy) { meta.append("　利益・コストの示唆は、作り直すと加わります。"); }
+  if (legacy) renderPart(group("bar", "通常営業", "以前の示唆（レンタルスペースを含みません）"), "bar", res, H);
+  else {
+    if (res.bar) renderPart(group("bar", "通常営業"), "bar", res.bar, H);
+    if (res.staff) renderPart(group("staff", "担当者", "管理者を除く"), "staff", res.staff, H);
+    if (res.rental) renderPart(group("rental", "レンタルスペース", "", "rent"), "rental", res.rental, H);
+  }
+  if (groups.length > 1) {
+    const nav = el("nav", "ai-nav"); nav.setAttribute("aria-label", "示唆の欄へ移る");
+    groups.forEach(([title, g]) => {
+      const bt = el("button", "ai-navbtn"); bt.type = "button"; bt.textContent = title;
+      bt.addEventListener("click", () => g.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
+      nav.append(bt);
+    });
+    body.append(nav);
+  }
+  groups.forEach(([, g]) => body.append(g));
+}
+
+/* ---------- 部品 ---------- */
+function aiSec(into, icon, title, node, sub) {
+  const s = el("div", "ai-sec"), h = el("h4");
+  h.innerHTML = ICON[icon]; h.append(title);
+  if (sub) { const sm = el("small"); sm.textContent = sub; h.append(sm); }
+  s.append(h, node); into.append(s); return s;
+}
+function headline(into, H, v) { if (!v) return; const h = el("p", "ai-headline"); h.textContent = H.txt(v, 200); into.append(h); }
+function findingsList(list, H) {
+  const ul = el("ul", "ai-find");
+  (Array.isArray(list) ? list : []).slice(0, 6).forEach((f) => {
+    f = f || {}; const t = TONE[f.tone] || TONE["中立"];
+    const li = el("li"), tg = el("span", `tone ${t.cls}`), c = el("div"), b = el("b"), d = el("p");
+    tg.innerHTML = t.svg; tg.append(t.label);
+    b.textContent = H.txt(f.title, 60); d.textContent = H.txt(f.detail, 400); c.append(b, d);
+    if (f.evidence) { const e = el("span", "ev"), em = el("em"); em.textContent = "根拠"; e.append(em, H.txt(f.evidence, 200)); c.append(e); }
+    li.append(tg, c); ul.append(li);
+  });
+  return ul;
+}
+function actionsList(list, H, area) {
+  const order = { "高": 0, "中": 1, "低": 2 };
+  const ol = el("ol", "ai-acts");
+  (Array.isArray(list) ? list : []).slice(0, 6).map((a, i) => [a || {}, i])
+    .sort((x, y) => (order[x[0].priority] ?? 1) - (order[y[0].priority] ?? 1) || x[1] - y[1])
+    .forEach(([a]) => {
+      const pr = ["高", "中", "低"].includes(a.priority) ? a.priority : "中";
+      const li = el("li"), tg = el("span", `prio ${PRIO[pr]}`), c = el("div"), b = el("b"), d = el("p");
+      tg.textContent = `優先 ${pr}`; b.textContent = H.txt(a.title, 60); d.textContent = H.txt(a.detail, 400);
+      c.append(b, d); li.append(tg, c); ol.append(li);
+    });
+  return ol;
+}
+function caveatsOf(into, list, H) {
+  if (!Array.isArray(list) || !list.length) return;
+  const ul = el("ul", "ai-caveats"); list.slice(0, 4).forEach((c) => { const li = el("li"); li.textContent = H.txt(c, 200); ul.append(li); });
+  aiSec(into, "warn", "注意点", ul);
+}
+function fig(caption, ...nodes) { const f = el("figure", "ai-fig"), c = el("figcaption"); c.textContent = caption; f.append(c, ...nodes); return f; }
+function legend(items) {   // [[cls, text]]
+  const l = el("div", "legend");
+  items.forEach(([cls, t]) => { const s = el("span"), sw = el("i", `sw ${cls}`); s.append(sw, t); l.append(s); });
+  return l;
+}
+/* 横棒: rows = [{label, value, prev, text, sub}] （prev があれば前の期間を細い灰色の棒で重ねる） */
+function hbars(rows, cls, perRow) {   // perRow: 単位の違う指標を並べるとき、行ごとに棒の長さをそろえる
+  const box = el("div", "hrows"), all = Math.max(1, ...rows.map((r) => Math.max(r.value || 0, r.prev || 0)));
+  rows.forEach((r) => {
+    const max = perRow ? Math.max(1, r.value || 0, r.prev || 0) : all;
+    const row = el("div", "hrow"), l = el("span", "hl"), tr = el("div", "htrack"), v = el("span", "hv");
+    l.textContent = r.label; l.title = r.label;
+    const a = el("i", cls); a.style.width = `${(r.value || 0) / max * 100}%`; tr.append(a);
+    if (r.prev != null) { const q = el("i", "prev"); q.style.width = `${r.prev / max * 100}%`; tr.append(q); }
+    v.append(r.text); if (r.sub) { const sm = el("small"); sm.append(...[].concat(r.sub)); v.append(sm); }
+    tr.title = r.title || ""; row.append(l, tr, v); box.append(row);
+  });
+  return box;
+}
+/* 積み上げの縦棒: items = [{label, a, b, on, title}]（a=通常営業、b=レンタル） */
+function stackCols(items) {
+  const box = el("div", "cols"), max = Math.max(1, ...items.map((x) => x.a + (x.b || 0)));
+  items.forEach((x) => {
+    const c = el("div", "col" + (x.on ? " on" : "")), bars = el("div", "colbars"), l = el("span", "cl");
+    c.title = x.title;
+    if (x.a) { const i = el("i", "s1"); i.style.height = `${x.a / max * 82}%`; bars.append(i); }
+    if (x.b) { const i = el("i", "s2"); i.style.height = `${x.b / max * 82}%`; bars.append(i); }
+    if (x.on) { const v = el("span", "cv"); v.textContent = short(x.a + (x.b || 0)); bars.append(v); }
+    l.textContent = x.label; c.append(bars, l); box.append(c);
+  });
+  return box;
+}
+/* 見通しの幅と、この期間の実績 */
+function rangeChart(base, nx, H, rent) {
+  const low = Number(nx.low), high = Number(nx.high);
+  const max = Math.max(1, high, low, base.value) * 1.08, x = (v) => `${Math.max(0, Math.min(100, v / max * 100))}%`;
+  const box = el("div"), r = el("div", "rng" + (rent ? " rent" : ""));
+  const tr = el("i", "tr"), band = el("i", "band"), mk = el("i", "mk");
+  band.style.left = x(Math.min(low, high)); band.style.width = `calc(${x(Math.abs(high - low))} + 2px)`;
+  mk.style.left = x(base.value); r.title = `${base.label} ${yen(base.value)}`;
+  r.append(tr, band, mk);
+  const l = el("div", "rng-l"), a = el("span"), b = el("span");
+  const swb = el("i", "sw band" + (rent ? " rent" : "")), swm = el("i", "sw mk"), bb = el("b"), mb = el("b");
+  bb.textContent = `${yen(low)} 〜 ${yen(high)}`; mb.textContent = yen(base.value);
+  a.append(swb, `${H.txt(nx.label || "次の期間", 30)}の見込み `, bb);
+  b.append(swm, `${base.label} `, mb);
+  l.append(a, b); box.append(r, l); return box;
+}
+
+/* ---------- 図（ページが今のデータから描く） ---------- */
+function figOverall(p) {
+  if (!state.rows) return null;
+  const today = todayBiz(), end = min(p.end, today), bar = periodStats(p, today).sales, rent = state.rental ? rentalIn(p.start, end).gross : null;
+  const out = el("div", "ai-figs");
+  const total = bar + (rent || 0), pc = (v) => total ? Math.round(v / total * 100) : 0;
+  const st = el("div", "stack");
+  if (bar) { const i = el("i", "s1"); i.style.flex = String(bar); i.title = `通常営業 ${yen(bar)}`; st.append(i); }
+  if (rent) { const i = el("i", "s2"); i.style.flex = String(rent); i.title = `レンタルスペース ${yen(rent)}`; st.append(i); }
+  if (!total) st.append(el("i", "s0"));
+  out.append(fig(`この期間の売上 ${yen(total)} の内訳`, st,
+    legend([["s1", `通常営業 ${yen(bar)}（${pc(bar)}%）`], ["s2", rent == null ? "レンタル 読み込み中" : `レンタル ${yen(rent)}（${pc(rent)}%）`]])));
+  const ks = staffBuckets(p, today);
+  const items = ks.map((k) => { const be = min(k.b, today), a = sum(k.a, be).sales, b2 = state.rental ? rentalIn(k.a, be).gross : 0;
+    return { label: k.label.replace("〜", ""), a, b: b2, on: k.on, title: `${k.label} 通常営業 ${yen(a)}・レンタル ${yen(b2)}` }; });
+  out.append(fig(p.kind === "week" ? "週ごとの売上（直近8週）" : p.kind === "month" ? "月ごとの売上（直近6か月）" : "年ごとの売上",
+    stackCols(items), legend([["s1", "通常営業"], ["s2", "レンタル（ゲスト支払）"]])));
+  return out;
+}
+function figBar(p) {
+  if (!state.rows) return null;
+  const C = compare(p, todayBiz()), c = C.cur, q = C.prev, pn = noun[p.kind];
+  const d = (a, b) => { const v = pct(a, b); if (v == null) return "—"; const s = el("span", v >= 0 ? "up" : "down"); s.textContent = `${v >= 0 ? "+" : ""}${v.toFixed(0)}%`; return s; };
+  const rows = [
+    C.perDayBasis ? { label: "1日あたり", value: c.perDay || 0, prev: q.perDay || 0, text: yen(c.perDay), sub: [`${pn} ${yen(q.perDay)} `, d(c.perDay, q.perDay)] }
+                  : { label: "売上", value: c.sales, prev: q.sales, text: yen(c.sales), sub: [`${pn} ${yen(q.sales)} `, d(c.sales, q.sales)] },
+    { label: "予約数", value: c.count, prev: q.count, text: `${c.count}組`, sub: [`${pn} ${q.count}組 `, d(c.count, q.count)] },
+    { label: "客単価", value: c.unit || 0, prev: q.unit || 0, text: yen(c.unit), sub: [`${pn} ${yen(q.unit)} `, d(c.unit, q.unit)] },
+  ];
+  return fig(`${pn}との比較（それぞれの指標で棒の長さをそろえています）`, hbars(rows, "s1", true), legend([["s1", "この期間"], ["s0", pn]]));
+}
+function figStaff(p) {
+  if (!state.rows) return null;
+  const C = compare(p, todayBiz()), s = staffOf(C.cur.rows), q = staffOf(C.prev.rows), pn = noun[p.kind];
+  const list = Object.entries(s.by).sort((a, b) => b[1].sales - a[1].sales).slice(0, 8);
+  if (!list.length) return fig("担当者別の売上", Object.assign(el("p", "empty"), { textContent: "この期間に担当者の伝票はありません。" }));
+  const rows = list.map(([n, v]) => ({ label: n, value: v.sales, prev: q.by[n]?.sales || 0, text: yen(v.sales),
+    sub: `${v.count}組・客単価 ${yen(v.unit)}・${v.days}日` }));
+  return fig("担当者別の売上（細い棒は" + pn + "）", hbars(rows, "s1"), legend([["s1", "この期間"], ["s0", pn]]));
+}
+function figRental(p) {
+  if (!state.rental) return null;
+  const today = todayBiz(), end = min(p.end, today), cur = rentalIn(p.start, end), fut = rentalUpcoming(today);
+  const rows = Object.entries(cur.byPlatform).sort((a, b) => b[1].gross - a[1].gross)
+    .map(([k, v]) => ({ label: k, value: v.gross, text: yen(v.gross), sub: `${v.count}件・振込 ${yen(v.net)}` }));
+  const box = el("div", "ai-figs");
+  box.append(rows.length ? fig("プラットフォーム別（ゲスト支払）", hbars(rows, "s2"))
+                         : fig("プラットフォーム別", Object.assign(el("p", "empty"), { textContent: "この期間の利用はありません。" })));
+  const fr = Object.entries(fut.byPlatform).map(([k, v]) => ({ label: k, value: v.gross, text: yen(v.gross), sub: `${v.count}件` }));
+  if (fr.length) box.append(fig(`これからの予約 ${fut.count}件・${yen(fut.gross)}`, hbars(fr, "s2")));
+  return box;
+}
+
+/* ---------- 欄 ---------- */
+function renderOverall(g, o, H) {
+  headline(g, H, o.headline);
+  const f = figOverall(H.p); if (f) g.append(f);
+  if (o.evaluation) { const e = el("p", "ai-eval"); e.textContent = H.txt(o.evaluation, 800); g.append(e); }
+  if (Array.isArray(o.decisions) && o.decisions.length) {
+    const ol = el("ol", "ai-decide"); o.decisions.slice(0, 4).forEach((d) => { const li = el("li"); li.textContent = H.txt(d, 200); ol.append(li); });
+    aiSec(g, "dec", "判断のポイント", ol);
+  }
+  aiSec(g, "act", "優先する打ち手", actionsList(o.actions, H), "優先度の高い順");
+  caveatsOf(g, o.caveats, H);
+}
+function renderPart(g, id, r, H) {
+  r = r || {};
+  headline(g, H, r.headline);
+  const f = id === "staff" ? figStaff(H.p) : id === "rental" ? figRental(H.p) : id === "profit" ? figProfit(H.p) : figBar(H.p);
+  if (f) g.append(f);
+  const tones = (Array.isArray(r.findings) ? r.findings : []).reduce((m, x) => { const t = (TONE[x?.tone] || TONE["中立"]).label; m[t] = (m[t] || 0) + 1; return m; }, {});
+  aiSec(g, "find", "見えている傾向", findingsList(r.findings, H), ["良い", "注意"].filter((k) => tones[k]).map((k) => `${k} ${tones[k]}件`).join("・"));
+  if (r.outlook && r.outlook.summary) {
+    const o = el("div", "ai-out"), t = el("p"); t.textContent = H.txt(r.outlook.summary, 600); o.append(t);
+    const nx = r.outlook.next;
+    if (nx && Number.isFinite(Number(nx.low)) && Number.isFinite(Number(nx.high)) && state.rows && id !== "staff" && id !== "profit") {
+      const today = todayBiz(), end = min(H.p.end, today), live = inProgress(H.p, today);
+      const value = id === "rental" ? (state.rental ? rentalIn(H.p.start, end).gross : null) : periodStats(H.p, today).sales;
+      if (value != null) o.append(rangeChart({ label: `${label(H.p)}の実績${live ? "（途中）" : ""}`, value }, nx, H, id === "rental"));
+    }
+    aiSec(g, "out", "今後の見通し", o);
+  }
+  aiSec(g, "act", "進むべきアプローチ", actionsList(r.actions, H), "優先度の高い順");
+  caveatsOf(g, r.caveats, H);
+}
+
+/* ======================= レンズ効果（Liquid Glass の屈折） =======================
+   ガラスの縁で背景が曲がって見える効果。要素の大きさに合わせて displacement map（R=横・G=縦のずれ、128 が0）を
+   canvas で作り、SVG フィルタにして backdrop-filter: url(#…) で背景にかける。
+   Chrome / Edge（Chromium）だけが対応。それ以外のブラウザと「レンズ効果」オフのときは、ぼかしだけのすりガラス。
+   重いので、サイドバー・ツールバー・数字のカードだけに使う。大きさが変わったら作り直す（Chromium はフィルタを ID で
+   キャッシュするので、作り直すたびに新しい ID にする）。 */
+const Lens = {
+  supported: false, on: false, seq: 0, ro: null, timers: new Map(),
+  PRESET: { bar: { bezel: 18, scale: 18, blur: 3 }, tile: { bezel: 14, scale: 12, blur: 2.5 } },   // 控えめに曲げる
+  init() {
+    const brands = (navigator.userAgentData && navigator.userAgentData.brands) || [];
+    this.supported = brands.some((b) => /Chromium/.test(b.brand)) && CSS.supports("backdrop-filter", "url(#x)") &&
+      !matchMedia("(prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active)").matches;
+    const sw = $("lens");
+    if (!this.supported) { sw.disabled = true; $("lenshint").textContent = "このブラウザでは使えません（Chrome・Edge で使えます）。"; return; }
+    const saved = store.get("barnull-lens");
+    this.set(saved == null ? true : saved === "1");
+    sw.addEventListener("click", () => { this.set(!this.on); store.set("barnull-lens", this.on ? "1" : "0"); });
+  },
+  set(on) {
+    this.on = on; $("lens").setAttribute("aria-checked", String(on));
+    document.documentElement.classList.toggle("lens-on", on);
+    const els = [...document.querySelectorAll("[data-lens]")];
+    if (this.ro) { this.ro.disconnect(); this.ro = null; }
+    if (!on) { els.forEach((el) => { el.style.backdropFilter = ""; el.style.webkitBackdropFilter = ""; }); $("lensdefs").textContent = ""; return; }
+    this.ro = new ResizeObserver((entries) => entries.forEach((e) => this.schedule(e.target)));
+    els.forEach((el) => { this.ro.observe(el); this.build(el); });
+  },
+  schedule(el) {
+    clearTimeout(this.timers.get(el));
+    this.timers.set(el, setTimeout(() => this.build(el), 120));
+  },
+  build(el) {
+    if (!this.on) return;
+    const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
+    if (w < 8 || h < 8) return;
+    const cs = getComputedStyle(el), radius = Math.min(parseFloat(cs.borderTopLeftRadius) || 0, w / 2, h / 2);
+    const p = this.PRESET[el.dataset.lens] || this.PRESET.tile;
+    const id = `lens${++this.seq}`, old = el.dataset.lensId;
+    const NS = "http://www.w3.org/2000/svg", f = document.createElementNS(NS, "filter");
+    const attrs = (node, a) => { Object.entries(a).forEach(([k, v]) => node.setAttribute(k, String(v))); return node; };
+    attrs(f, { id, x: 0, y: 0, width: w, height: h, filterUnits: "userSpaceOnUse", primitiveUnits: "userSpaceOnUse", "color-interpolation-filters": "sRGB" });
+    f.append(
+      attrs(document.createElementNS(NS, "feImage"), { href: this.map(w, h, radius, Math.min(p.bezel, radius || p.bezel)), x: 0, y: 0, width: w, height: h, preserveAspectRatio: "none", result: "map" }),
+      attrs(document.createElementNS(NS, "feGaussianBlur"), { in: "SourceGraphic", stdDeviation: p.blur, result: "soft" }),
+      attrs(document.createElementNS(NS, "feDisplacementMap"), { in: "soft", in2: "map", scale: p.scale, xChannelSelector: "R", yChannelSelector: "G", result: "bent" }),
+      attrs(document.createElementNS(NS, "feColorMatrix"), { in: "bent", type: "saturate", values: 1.8 }),
+    );
+    $("lensdefs").append(f);
+    el.style.backdropFilter = `url(#${id})`; el.style.webkitBackdropFilter = `url(#${id})`;
+    el.dataset.lensId = id;
+    if (old) document.getElementById(old)?.remove();
+  },
+  /* 角の丸い四角の縁（幅 bezel）で、内側へ向かうずれを作る。縁に近いほど強く曲がる（凸レンズの縁のように） */
+  map(w, h, r, bezel) {
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const ctx = c.getContext("2d"), img = ctx.createImageData(w, h), d = img.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const px = x + .5, py = y + .5, i = (y * w + x) * 4;
+      const cx = Math.min(Math.max(px, r), w - r), cy = Math.min(Math.max(py, r), h - r);
+      let vx = px - cx, vy = py - cy, len = Math.hypot(vx, vy), dist, nx, ny;
+      if (len > 0) { dist = r - len; nx = vx / len; ny = vy / len; }
+      else {
+        const e = [[px, -1, 0], [w - px, 1, 0], [py, 0, -1], [h - py, 0, 1]].sort((a, b) => a[0] - b[0])[0];
+        [dist, nx, ny] = e;
+      }
+      let dx = 0, dy = 0;
+      if (dist >= 0 && dist < bezel) { const t = 1 - dist / bezel, m = Math.pow(t, 2.2); dx = -nx * m; dy = -ny * m; }
+      d[i] = 128 + Math.round(dx * 127); d[i + 1] = 128 + Math.round(dy * 127); d[i + 2] = 128; d[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    return c.toDataURL();
+  },
+};
+
+// 右の列（AI の示唆）をツールバーの下に固定するため、ツールバーの高さを CSS に渡す
+const syncToolbar = () => document.documentElement.style.setProperty("--tb-h", `${$("toolbar").offsetHeight}px`);
+if (window.ResizeObserver) new ResizeObserver(syncToolbar).observe($("toolbar")); else syncToolbar();
+let resizeTimer;   // 図は幅に合わせて描き直す
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (state.rows) render(); }, 150); });
+$("aigen").addEventListener("click", () => generateAI(!!state.insights[insightKey(state.sel)]));
+$("aistop").addEventListener("click", stopAI);
+
+/* ======================= 確定した週の記録（db。Asana を読めないときの控え） ======================= */
+async function recordSnapshots() {
+  if (!state.db || !state.canWrite || !state.rows || state.env !== "prod") return;
+  const today = todayBiz(), cur = monday(today);
+  for (let s = add(cur, -7); s >= monday(dataStart(today)); s = add(s, -7)) {
+    if (state.snaps[s]) continue;
+    const w = sum(s, add(s, 6));
+    const doc = { env: "prod", start: s, end: add(s, 6), sales: w.sales, count: w.count, unit: w.unit == null ? null : Math.round(w.unit),
+                  recorded_at: new Date().toISOString() };
+    try { await state.db.doc(`weeks/prod_${s}`).set(doc); } catch (_) { state.canWrite = false; return; }
+  }
+}
+
+/* ======================= 読み込み ======================= */
+async function loadData() {
+  state.rows = null; state.error = null; state.cost = null; render();
+  const mcp = await use("mcp");
+  if (!mcp) { state.error = { title: "Asana につながっていません", body: "このページで Asana の伝票を読むには、claude.ai で Asana（0x0.co.jp のアカウント）を接続してください。" }; render(); return; }
+  state.rental = null; state.rentalError = null;
+  loadRental(mcp).then((r) => { state.rental = r; render(); }).catch((err) => {
+    const code = err?.code || "";
+    state.rentalError = code === "server_not_connected" || code === "needs_reauth" ? "claude.ai で Slack を接続すると表示されます"
+      : code === "not_granted" || code === "consent_denied" ? "Slack の読み取りを許可すると表示されます" : "Slack の予約通知を読めませんでした";
+    render();
+  });
+  try {
+    state.rows = await loadAsana(mcp);
+    if (state.profitOK) loadCosts(mcp);
+    $("fresh").textContent = `Asana から読み込み：${new Date().toLocaleString("ja-JP", { hour12: false })}　定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る`;
+    render();
+    recordSnapshots();
+  } catch (err) {
+    const code = err?.code || "";
+    const body = code === "not_granted" || code === "consent_denied" ? "Asana の読み取りを許可すると表示されます。ページの権限メニューから許可できます。"
+      : code === "server_not_connected" || code === "needs_reauth" ? "claude.ai の設定で Asana を接続（または再接続）してください。"
+      : "時間をおいて開き直してください。（" + (err?.message || code || "不明なエラー") + "）";
+    state.error = { title: "Asana を読み込めませんでした", body }; render();
+  }
+}
+
+$("env").addEventListener("change", (e) => {
+  state.env = e.target.value; state.sel = null; stopAI(); store.set("barnull-env", state.env); loadData();
+});
+function setSettings(open) {   // ガラスが本文を透かすよう、ツールバーの外に置き、ボタンの下に出す
+  if (open) {
+    const r = $("settingsbtn").getBoundingClientRect();
+    $("settings").style.top = `${r.bottom + 10}px`;
+    $("settings").style.right = `${Math.max(12, document.documentElement.clientWidth - r.right)}px`;
+  }
+  $("settings").hidden = !open; $("settingsbtn").setAttribute("aria-expanded", String(open));
+}
+$("settingsbtn").addEventListener("click", (e) => { e.stopPropagation(); setSettings($("settings").hidden); });
+document.addEventListener("click", (e) => { if (!$("settings").hidden && e.target.isConnected && !$("settings").contains(e.target)) setSettings(false); });
+window.addEventListener("scroll", () => { if (!$("settings").hidden) setSettings(false); }, { passive: true });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("settings").hidden) { setSettings(false); $("settingsbtn").focus(); } });
+$("navtoggle").addEventListener("click", () => {
+  const open = $("side").classList.toggle("open"); $("navtoggle").setAttribute("aria-expanded", String(open));
+});
+const glassSaved = Number(store.get("barnull-glass"));
+function applyGlass(v) {
+  document.documentElement.style.setProperty("--glass-user", String(v));
+  const r = $("glass"); r.style.setProperty("--val", `${(v - r.min) / (r.max - r.min) * 100}%`);
+}
+if (glassSaved >= 0.6 && glassSaved <= 1.3) { $("glass").value = String(glassSaved); applyGlass(glassSaved); }
+$("glass").addEventListener("input", (e) => { applyGlass(e.target.value); store.set("barnull-glass", e.target.value); });
+applyGlass($("glass").value);
+Lens.init();
+
+(async function start() {
+  render();
+  use("sample").then((s) => { state.sample = s; renderAI(); });
+  const [db, user] = await Promise.all([use("db"), use("user")]);
+  state.db = db;
+  if (user) { const c = await user.can("data.write"); state.canWrite = c !== false; state.isOwner = user.isOwner(); state.profitOK = user.isOwner() || user.canEdit(); }
+  if (db) {
+    db.collection("weeks").onSnapshot((snap) => {
+      const m = {}; snap.docs.forEach((d) => { const v = d.data(); if (v.env === "prod") m[v.start] = v; });
+      state.snaps = m; render();
+    }, () => {});
+    if (state.profitOK) {
+      db.doc(FIXED_DOC).onSnapshot((snap) => {
+        state.fixed = snap.exists ? snap.data() : null; state.fixedLoaded = true; fxInit(); render();
+      }, () => { state.fixedLoaded = true; render(); });
+      db.collection("profit_insights").onSnapshot((snap) => {
+        const m = {}; snap.docs.forEach((d) => { m[d.id] = d.data(); });
+        state.pinsights = { ...state.pinsights, ...m }; renderAI();
+      }, () => {});
+    }
+    db.collection("insights").onSnapshot((snap) => {
+      const m = {}; snap.docs.forEach((d) => { m[d.id] = d.data(); });
+      state.insights = { ...state.insights, ...m }; renderAI();
+    }, () => {});
+  }
+  loadData();
+})();
+</script>

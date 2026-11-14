@@ -35,5 +35,6 @@ B と C は、それぞれ新しい会話を開き、`kickoff_*.md` の「貼り
 ## 進め方の注意
 - A・B・C は同じリポジトリ（`bar-null-ops`）の main で作業する。自分の担当の外のファイルは、必要な最小限だけ触る。
   触ったら、何をなぜ触ったかをコミットメッセージと contract.md に残す。
-- `sales/report/weekly_report.html` は A だけが編集する（B・C は直さない）。B・C がレポートでの見え方を試したいときは、A に頼む。
+- レポートは `sales/report/portal/` の複数ファイル（2026-11-14〜）。`index.html`・`shared.css`・`pages/sales.html` は A だけが編集する。
+  `pages/staff.html` は B、`pages/purchase.html` は C が編集・公開する（約束は `docs/weekly_report.md` のホームポータルの節）。
 - コミットしたら、本人に push を依頼する（この環境では Claude の `git push` が許可されていないことがある）。

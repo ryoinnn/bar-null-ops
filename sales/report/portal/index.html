@@ -1,0 +1,205 @@
+<title>Bar null ポータル</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* ホームポータルの殻。見た目の部品（トークン・ガラス・カード）は shared.css（A が管理）を読み込んで使う。
+   ここには殻だけのスタイルを置く。 */
+html,body{overflow-x:clip}   /* 1px の端数で横スクロールが出ないように（clip は sticky を壊さない） */
+.shell[hidden],.page[hidden]{display:none}
+.boot{padding:48px max(16px,env(safe-area-inset-left,0px));color:var(--label-2,#666);font:15px/1.6 system-ui,sans-serif}
+.shell.lg{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;border-radius:0;border-width:0 0 1px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;min-height:52px;
+  padding:8px max(18px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px))}
+.shell .logo{margin:0;font-size:18px;font-weight:700;letter-spacing:-.015em;color:var(--label);text-decoration:none;white-space:nowrap}
+.shell .logo small{margin-left:8px;font-size:12px;font-weight:600;color:var(--label-2)}
+.subtabs{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+.subtabs a{padding:6px 12px;border-radius:var(--r-control);font-size:13.5px;font-weight:600;color:var(--label-2);text-decoration:none}
+.subtabs a:hover{background:var(--fill)}
+.subtabs a[aria-current="page"]{background:var(--accent-fill);color:var(--on-accent)}
+.tenant{margin-left:auto;position:relative}
+.tenant-btn{display:inline-flex;align-items:center;gap:8px;padding:7px 12px 7px 14px;border:1px solid var(--separator);border-radius:var(--r-control);
+  background:var(--fill);cursor:pointer;font-size:14px;font-weight:650}
+.tenant-btn svg{width:14px;height:14px;transition:transform .2s var(--ease)}
+.tenant-btn[aria-expanded="true"] svg{transform:rotate(180deg)}
+.tenant-btn .k{font-size:11.5px;font-weight:600;color:var(--label-3)}
+.tmenu{position:absolute;right:0;top:calc(100% + 8px);min-width:220px;padding:6px;border-radius:16px;z-index:40;display:flex;flex-direction:column;gap:2px}
+.tmenu[hidden]{display:none}
+.tmenu a{display:flex;flex-direction:column;padding:9px 12px;border-radius:var(--r-row);text-decoration:none;color:var(--label)}
+.tmenu a:hover{background:var(--fill)}
+.tmenu a b{font-size:14px}
+.tmenu a span{font-size:12px;color:var(--label-2)}
+.tmenu a[aria-current="page"]{background:var(--accent-soft)}
+.pad{padding-block:14px 44px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));max-width:1180px}
+.home h1{margin:8px 0 4px;font-size:clamp(24px,3vw,32px);letter-spacing:-.02em}
+.home .lead{margin:0 0 20px;color:var(--label-2);font-size:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}
+.tile{display:flex;flex-direction:column;gap:10px;padding:22px;border-radius:var(--r-card);text-decoration:none;color:var(--label);min-width:0}
+.tile h2{margin:0;font-size:20px;letter-spacing:-.01em}
+.tile p{margin:0;font-size:13.5px;color:var(--label-2)}
+.tile .links{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.tile .links a{padding:6px 12px;border-radius:var(--r-control);background:var(--fill);font-size:13px;font-weight:600;color:var(--label);text-decoration:none}
+.tile .links a:hover{background:var(--fill-2)}
+a.tile:hover{transform:translateY(-1px)}
+.tile{transition:transform .2s var(--ease-spring)}
+.err{padding:24px;border-radius:var(--r-card);margin:24px 16px}
+.err button{margin-top:10px}
+</style>
+
+<div id="boot" class="boot">読み込んでいます…</div>
+
+<div class="decor" aria-hidden="true"><svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <rect x="-120" y="-140" width="520" height="580" rx="90"/><circle cx="250" cy="300" r="125"/><circle cx="250" cy="300" r="62"/>
+  <rect x="930" y="520" width="620" height="620" rx="96"/><circle cx="1075" cy="640" r="130"/><circle cx="1075" cy="640" r="58"/>
+  <circle cx="810" cy="500" r="78"/><line x1="560" y1="500" x2="1060" y2="500"/><line x1="810" y1="330" x2="810" y2="670"/>
+  <circle cx="1440" cy="370" r="110"/><line x1="1180" y1="370" x2="1600" y2="370"/><line x1="1440" y1="200" x2="1440" y2="540"/>
+</svg></div>
+
+<header class="shell lg" id="shell" hidden>
+  <a class="logo" href="#home">Bar null</a>
+  <nav class="subtabs" id="subtabs" aria-label="コスト管理のページ" hidden></nav>
+  <div class="tenant">
+    <button type="button" class="tenant-btn" id="tbtn" aria-haspopup="true" aria-expanded="false" aria-controls="tmenu">
+      <span><span class="k">テナント</span> <span id="tname">ホーム</span></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <nav class="tmenu lg lg--text" id="tmenu" aria-label="テナントの切り替え" hidden></nav>
+  </div>
+</header>
+
+<div id="pages"></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const use = (name) => (window.claude && window.claude.use) ? window.claude.use(name) : Promise.resolve(null);
+
+  /* ---------- ルート（ハッシュは英数字とハイフンだけ） ---------- */
+  const TENANTS = {
+    sales: { name: "売上管理", desc: "売上・予約・担当者・レンタル・利益と AI の示唆", first: "sales" },
+    cost: { name: "コスト管理", desc: "スタッフ管理・仕入管理・その他コスト", first: "cost-staff", gated: true },
+  };
+  const ROUTES = {
+    home: { tenant: null, title: "ホーム" },
+    sales: { tenant: "sales", title: "売上管理", page: "pages/sales.html" },
+    "cost-staff": { tenant: "cost", title: "スタッフ管理", page: "pages/staff.html" },
+    "cost-purchase": { tenant: "cost", title: "仕入管理", page: "pages/purchase.html" },
+    "cost-other": { tenant: "cost", title: "その他コスト", page: "pages/other.html" },
+  };
+  const ALIAS = { cost: "cost-staff" };
+
+  /* コスト管理は、閲覧だけの人には出さない（人件費・給与を扱うため。データ側の権限は各ページと db の rules が守る） */
+  let costOK = false;
+  const gate = (async () => {
+    try {
+      const user = await Promise.race([use("user"), new Promise((r) => setTimeout(() => r(null), 4000))]);
+      costOK = !!(user && (user.isOwner() || user.canEdit()));
+    } catch (_) { costOK = false; }
+  })();
+
+  const loaded = {};   // key -> { box, promise }
+  const el = (tag, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
+
+  function fetchPage(key) {
+    const r = ROUTES[key];
+    if (loaded[key]) return loaded[key].promise;
+    const box = el("div", "page"); box.id = "pg-" + key; box.hidden = true; $("pages").append(box);
+    const promise = fetch(r.page).then((res) => { if (!res.ok) throw new Error("HTTP " + res.status); return res.text(); }).then((html) => {
+      const tpl = document.createElement("template"); tpl.innerHTML = html;
+      tpl.content.querySelectorAll("script").forEach((old) => {   // template の script は動かないので、作り直して実行させる
+        const s = document.createElement("script"); if (old.type) s.type = old.type; s.textContent = old.textContent; old.replaceWith(s);
+      });
+      box.append(tpl.content);
+    }).catch((err) => {
+      delete loaded[key]; box.remove();
+      throw err;
+    });
+    loaded[key] = { box, promise };
+    return promise;
+  }
+
+  function homeView() {
+    let box = $("pg-home");
+    if (!box) {
+      box = el("div", "page home pad"); box.id = "pg-home";
+      box.innerHTML = '<h1>Bar null</h1><p class="lead">開きたい管理を選んでください。右上のメニューからも切り替えられます。</p><div class="tiles" id="tiles"></div>';
+      $("pages").prepend(box);
+    }
+    const tiles = box.querySelector("#tiles"); tiles.textContent = "";
+    Object.entries(TENANTS).forEach(([id, t]) => {
+      if (t.gated && !costOK) return;
+      const c = el("div", "tile lg lg--text");
+      const h = el("h2"); h.textContent = t.name; const p = el("p"); p.textContent = t.desc;
+      const links = el("div", "links");
+      Object.entries(ROUTES).filter(([, r]) => r.tenant === id).forEach(([k, r]) => { const a = el("a"); a.href = "#" + k; a.textContent = r.title; links.append(a); });
+      c.append(h, p, links); tiles.append(c);
+    });
+    return box;
+  }
+
+  /* ---------- 上部バー ---------- */
+  function renderBar(key) {
+    const r = ROUTES[key], tn = r.tenant ? TENANTS[r.tenant].name : "ホーム";
+    $("tname").textContent = tn;
+    const sub = $("subtabs"); sub.textContent = "";
+    if (r.tenant === "cost") {
+      Object.entries(ROUTES).filter(([, x]) => x.tenant === "cost").forEach(([k, x]) => {
+        const a = el("a"); a.href = "#" + k; a.textContent = x.title; if (k === key) a.setAttribute("aria-current", "page"); sub.append(a);
+      });
+    }
+    sub.hidden = r.tenant !== "cost";
+    const menu = $("tmenu"); menu.textContent = "";
+    const items = [["home", "ホーム", "開きたい管理を選ぶ", null]].concat(Object.entries(TENANTS).filter(([, t]) => !t.gated || costOK).map(([id, t]) => [t.first, t.name, t.desc, id]));
+    items.forEach(([k, name, desc, id]) => {
+      const a = el("a"); a.href = "#" + k;
+      const b = el("b"); b.textContent = name; const s = el("span"); s.textContent = desc; a.append(b, s);
+      if ((id === null && key === "home") || (id && r.tenant === id)) a.setAttribute("aria-current", "page");
+      menu.append(a);
+    });
+  }
+  const setMenu = (open) => { $("tmenu").hidden = !open; $("tbtn").setAttribute("aria-expanded", String(open)); };
+  $("tbtn").addEventListener("click", (e) => { e.stopPropagation(); setMenu($("tmenu").hidden); });
+  document.addEventListener("click", (e) => { if (!$("tmenu").hidden && e.target.isConnected && !$("tmenu").contains(e.target)) setMenu(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("tmenu").hidden) { setMenu(false); $("tbtn").focus(); } });
+  $("tmenu").addEventListener("click", () => setMenu(false));
+
+  /* 上部バーの高さを、各ページの固定表示（サイドバー・ツールバー）の位置合わせに渡す */
+  const syncBar = () => document.documentElement.style.setProperty("--shell-h", `${$("shell").offsetHeight}px`);
+  if (window.ResizeObserver) new ResizeObserver(syncBar).observe($("shell"));
+  window.addEventListener("resize", syncBar);
+
+  /* ---------- 切り替え ---------- */
+  let seq = 0;
+  async function route() {
+    const mine = ++seq;
+    let key = location.hash.replace(/^#/, ""); key = ALIAS[key] || key;
+    if (!ROUTES[key]) key = "home";
+    if (ROUTES[key].tenant && TENANTS[ROUTES[key].tenant].gated) { await gate; if (mine !== seq) return; if (!costOK) { key = "home"; } }
+    else await Promise.race([gate, new Promise((r) => setTimeout(r, 600))]);
+    if (mine !== seq) return;
+    if (key === "home" && !location.hash && !costOK) { await gate; if (mine !== seq) return; if (!costOK) key = "sales"; }   // 選べるのが売上管理だけの人は、ホームを飛ばす
+    $("boot").hidden = true; $("shell").hidden = false;
+    renderBar(key); syncBar();
+    const show = (k) => { document.querySelectorAll("#pages > .page").forEach((p) => { p.hidden = p.id !== "pg-" + k; }); };
+    if (key === "home") { homeView(); show("home"); window.scrollTo(0, 0); return; }
+    try {
+      await fetchPage(key);
+      if (mine !== seq) return;
+      show(key);
+    } catch (err) {
+      if (mine !== seq) return;
+      show("none");
+      let e = $("pg-err"); if (!e) { e = el("div", "err lg lg--text page"); e.id = "pg-err"; $("pages").append(e); }
+      e.hidden = false; e.textContent = "";
+      const p = el("p"); p.textContent = "このページを読み込めませんでした。（" + (err && err.message || "不明なエラー") + "）";
+      const b = el("button", "btn tinted"); b.type = "button"; b.textContent = "もう一度読み込む"; b.onclick = () => route();
+      e.append(p, b);
+    }
+  }
+  window.addEventListener("hashchange", route);
+
+  /* 共通の見た目を読み込んでから始める（link ではなく本文を取って style に入れる） */
+  fetch("shared.css").then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); }).then((css) => {
+    const st = document.createElement("style"); st.id = "shared-css"; st.textContent = css; document.head.append(st);
+    route();
+  }).catch((err) => { $("boot").textContent = "共通の見た目を読み込めませんでした。（" + (err && err.message || "不明なエラー") + "）開き直してください。"; });
+})();
+</script>

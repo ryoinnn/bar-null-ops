@@ -38,7 +38,7 @@ Square payment ID、Slackスレッド、伝票ステータス（起票済み／�
 レンタルスペースの月次確定値は同じプロジェクトに伝票ID `RS-…` のタスクとして入る（売上の集計からは除く）。
 
 ## 3. 売上レポート（Artifact）の仕様
-- URL: https://claude.ai/artifact/8BynYgvNxC4UyCQVGRUDnC。原本は `sales/report/weekly_report.html` 1ファイル。Claude が Artifact ツールで公開し直す（URL は変わらない）。
+- URL: https://claude.ai/artifact/8BynYgvNxC4UyCQVGRUDnC。原本は `sales/report/portal/`（2026-11-14 からホームポータルの複数ファイル。旧版は `sales/report/weekly_report.html`）。Claude が Artifact ツールで公開し直す（URL は変わらない）。
 - **データはサーバーを経由しない**。開いた人の claude.ai の Asana・Slack コネクタ（`mcp` ケイパビリティ。`get_tasks`、`slack_read_channel`）で、その場で Asana のタスクを読み、集計する（1分キャッシュ）。
   読むプロジェクトは JS の `PROJECTS = { prod, test }` に書く。新しい Asana プロジェクトを足すときは、ここに ID を足し、`get_tasks` で同じように読む（コネクタの追加宣言は不要）。
 - 画面: 左に年→月→週のサイドバー（週は月曜〜日曜、月をまたぐ週は月で区切る）、本文に通常営業・レンタルスペースの数字とグラフ、担当者別、内訳、伝票の一覧。

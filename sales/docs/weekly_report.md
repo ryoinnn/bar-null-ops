@@ -4,7 +4,20 @@ Asana は伝票データの蓄積場所（台帳）として使い、レポー�
 
 ## 売上レポート（Artifact）
 - URL: https://claude.ai/artifact/8BynYgvNxC4UyCQVGRUDnC
-- 原本: `sales/report/weekly_report.html`（変更したら Claude が同じファイルから公開し直す。URL は変わらない）
+- 原本: `sales/report/portal/`（2026-11-14 からホームポータルの複数ファイル構成。変更したら Claude が `index.html` を同じ URL に公開し直す）。
+  `sales/report/weekly_report.html` は1ファイルだった頃の旧版で、もう公開しない（参照用に残す）
+- ホームポータル（2026-11-14 本人の要望）: 上部バーの右上の「テナント」プルダウンで、売上管理とコスト管理を切り替える。
+  コスト管理の配下に、スタッフ管理・仕入管理・その他コストのページがある（上部バーのタブで切り替え）。
+  - ハッシュで開くページを決める: `#home` / `#sales` / `#cost-staff` / `#cost-purchase` / `#cost-other`
+  - コスト管理は、Editor 以上（持ち主を含む）にだけ出す。閲覧だけの人はホームを飛ばして売上管理を開く
+  - ファイルと担当: `index.html`（殻・切替。A）、`shared.css`（共通の見た目。A）、`pages/sales.html`（A）、
+    `pages/staff.html`（B）、`pages/purchase.html`（C）、`pages/other.html`（未定。今は仮のページ）
+  - 殻は `shared.css` とページを fetch して差し込む（ページは1回だけ読み込み、切り替えは表示の出し入れ）。
+    capabilities（mcp・db・user・sample）は Artifact 単位で、殻の1ページの中で全ページが使う
+  - ページの約束: id はページ名の接頭辞（`staff-` など。売上は既存の id のまま）／ページだけのスタイルは `.pg-<名前>` の下／
+    script は `type="module"`（ページごとにスコープが分かれる）／共通の部品は shared.css のクラス（`.card` `.kpi` `.lg` `.toolbar` など）を使う／
+    固定表示の位置は `var(--shell-h)`（上部バーの高さ）を足す
+  - 各セッションは自分のページのファイルだけを直し、公開は `files` で自分のファイルだけを渡す（他のファイルは公開済みのものが残る）
 - 見た目: Apple 風のすりガラス（フロストガラス）の UI。アクセントは赤ピンク。ライト・ダークの両方に対応（2026-10-24 本人の希望）
 - サイドバー: 年 → 月の囲み → 週。月の囲みの見出しを押すとその月全体、年の見出しを押すとその年全体の集計になる
   - 週は月曜〜日曜。月をまたぐ週は月で区切る（月の最初と最後の週は日数が少ないことがある。日数を併記）
@@ -71,6 +84,6 @@ gcloud.cmd scheduler jobs run sales-weekly --location=us-central1 --project=barn
 - 見える人: 固定費を読める人（Editor 以上）だけ。ほかの閲覧者には、利益のセクション・固定費・利益の示唆が出ない
 - 画面: 通常営業・レンタルの下に「利益」。仕入・人件費・固定費・レンタル収益の記録状態、利益（発生ベース／入金ベース）・変動費・固定費の数字、利益の内訳（売上の使いみちの帯と原価率・人件費率・損益分岐売上）、固定費（日割り）の表、担当者別の勤務時間と人件費
 - 固定費の入力: 右上の設定の中（本人＝Artifact の持ち主だけ）。項目と月額（税込）を入れ、「適用開始月」ごとに版を持つ。db `fixedcosts/barnull`（読み Editor 以上・書き 持ち主だけ）。週・日は月額を日割り
-- 仕入・人件費: Asana の専用プロジェクトを `COST_PROJECTS`（`weekly_report.html`）に足すと読む。空のあいだは「未設定」。読み方は `docs/profit/contract.md`
+- 仕入・人件費: Asana の専用プロジェクトを `COST_PROJECTS`（`portal/pages/sales.html`）に足すと読む。空のあいだは「未設定」。読み方は `docs/profit/contract.md`
 - 「記録済み」でない費用（未記録・一部のみ・未設定）があると、利益は「—」にし、断定しない
 - AI の示唆: 「利益・コスト」の欄を追加。時給・個人別の人件費は渡さない。この欄は db `profit_insights/…`（Editor 以上だけ）に保存し、売上の示唆（`insights/…`）には入れない
