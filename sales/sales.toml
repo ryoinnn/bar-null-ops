@@ -100,8 +100,8 @@ model = "claude-haiku-5-5"     # 商品名の表示名を作るモデル（Haiku
 [supplies]
 # 備品・消耗品（マネフォのカード「BAR NULL」→ Asana「Bar null 備品消耗品」。docs/profit/supplies_requirements.md）。
 # reconcile ジョブの中で3時間に1回だけマネフォを読む。dry_run のあいだはテスト用の Asana と #test_barnull-sales に書く
-enabled = false                # テストで確認してから true（本人の確認後）
-dry_run = true
+enabled = true                 # 2026-11-15 本人了承で有効化（本番の Asana「Bar null 備品消耗品」に書く）
+dry_run = false
 card_subaccount = "518TUq5pUSF1n9YvZABV1wudLT9L8bFtUEvHGvEo%2BYo%3D"           # マネフォの connected_sub_account_id（カード番号は書かない。supplies-setup のあとに設定）
 backfill_from = "2026-08-01"   # 初回に読む期間の始まり
 lookback_days = 60
