@@ -110,6 +110,25 @@ class LaborConfig:
 
 
 @dataclass(frozen=True)
+class SuppliesConfig:
+    """備品・消耗品（[supplies]。docs/profit/supplies_requirements.md）。マネフォのカード「BAR NULL」の明細を、reconcile ジョブの中で読む。"""
+    enabled: bool = False
+    dry_run: bool = True                 # true: テスト用の Asana「Bar null 備品消耗品［テスト］」と #test_barnull-sales に書く
+    card_subaccount: str = ""            # マネフォの connected_sub_account_id（カード「BAR NULL」）。カード番号は書かない
+    store: str = ""                      # 「店舗」の値（空 = Bar null）
+    backfill_from: str = "2026-08-01"    # 初回に読む期間の始まり
+    lookback_days: int = 60              # 2回目以降に読み直す日数
+    fetch_interval_hours: float = 3
+    exclude_patterns: tuple[str, ...] = ("NIGITA", "ニギタ")    # 摘要にこれを含む明細は対象外（NIGITA は仕入）
+    tool_patterns: tuple[str, ...] = ()                         # 摘要にこれを含む明細の区分を「ツール・サブスク」にする
+    high_value: int = 100000             # この額以上の1件は Slack の知らせに「高額」と載せる
+
+    @property
+    def asana_env(self) -> str:
+        return "test" if self.dry_run else "prod"
+
+
+@dataclass(frozen=True)
 class PurchaseConfig:
     """仕入（[purchase]。docs/profit/purchasing_requirements.md）。本人の PC で毎週月曜の朝に実行する。"""
     dry_run: bool = True                 # true: テスト用の Asana「Bar null 仕入［テスト］」と #test_barnull-sales に書く
@@ -163,6 +182,7 @@ class Settings:
     secret_name: str = ""
     labor: LaborConfig = LaborConfig()
     purchase: PurchaseConfig = PurchaseConfig()
+    supplies: SuppliesConfig = SuppliesConfig()
 
     @property
     def labor_channel(self) -> str:
@@ -224,6 +244,7 @@ def load_settings(path: Path | None = None) -> Settings:
         secret_name=g.get("secret", ""),
         labor=_pick(LaborConfig, c.get("labor", {})),
         purchase=_pick(PurchaseConfig, c.get("purchase", {})),
+        supplies=_pick(SuppliesConfig, c.get("supplies", {})),
     )
 
 

@@ -96,6 +96,9 @@ class FakeBank:
     def incomes(self, start, end):
         return [t for t in self.txns if start <= date.fromisoformat(t.date) <= end]
 
+    def card_txns(self, start, end, sub_account):
+        return [t for t in getattr(self, "cards", []) if start <= date.fromisoformat(t.date) <= end]
+
 
 class FakeLine:
     def __init__(self) -> None:

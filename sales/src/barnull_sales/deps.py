@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from .mf import BankLedgerSource
     from .pos_notify import PosClient
     from .slack import Notifier
+    from .supplies_asana import SuppliesTracker
     from .square import PaymentSource, PayoutSource
     from .store import Store
 
@@ -31,3 +32,4 @@ class Deps:
     bank: BankLedgerSource | None = None    # マネフォの銀行明細
     pos: PosClient | None = None            # POS（福岡）へ知らせる先
     labor: LaborTracker | None = None       # Asana の勤怠・スタッフ台帳・給与（[labor]）
+    supplies: SuppliesTracker | None = None  # Asana の備品・消耗品（[supplies]）

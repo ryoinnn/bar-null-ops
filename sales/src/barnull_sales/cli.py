@@ -6,6 +6,10 @@
   try "メッセージ" [--real-slack] [--real-asana] [--real-claude]
         @Bot メッセージ1通の処理を手元で試す（既定はすべて偽物。--real-* で本物を使う。Slack と Asana はテスト先）
 
+備品・消耗品（マネフォのカード「BAR NULL」→ Asana「Bar null 備品消耗品」。本番はクラウドの reconcile ジョブが3時間ごとに実行）:
+  supplies-setup --env test|prod [--dry-run]   プロジェクト・セクション・欄を作る（非公開）
+  supplies-sync [--env test|prod] [--since YYYY-MM-DD] [--dry-run]   手元で1回同期する（初回の取り込みや確認用）
+
 仕入（NOS → Asana「Bar null 仕入」。Playwright を使うので `uv run --group purchase barnull-sales ...`）:
   purchase-setup --env test|prod [--dry-run]   仕入のプロジェクト・セクション・欄を作る（非公開）
   purchase-login         ブラウザの画面を開き、本人が NOS にログインする（ログイン状態を PC に保存）
@@ -51,6 +55,35 @@ def cmd_purchase_setup(args: argparse.Namespace) -> None:
     s = settings()
     setup(AsanaAPI(secret("ASANA_PAT")), workspace=s.asana_workspace, team_name=s.asana_team_name, env=args.env,
           ids_path=config_path().parent / "asana_ids.json", dry_run=args.dry_run)
+
+
+def cmd_supplies_setup(args: argparse.Namespace) -> None:
+    from .asana import AsanaAPI
+    from .supplies_asana import setup
+
+    s = settings()
+    setup(AsanaAPI(secret("ASANA_PAT")), workspace=s.asana_workspace, team_name=s.asana_team_name, env=args.env,
+          ids_path=config_path().parent / "asana_ids.json", dry_run=args.dry_run)
+
+
+def cmd_supplies_sync(args: argparse.Namespace) -> None:
+    """マネフォのカード明細を読んで、Asana に合わせる（reconcile ジョブのステップと同じ処理を手元で動かす）。"""
+    from datetime import date, timedelta
+
+    from . import supplies
+    from .mf import MoneyForward
+    from .supplies_asana import AsanaSuppliesTracker
+
+    s = settings()
+    cfg = s.supplies
+    env = args.env or cfg.asana_env
+    start = date.fromisoformat(args.since) if args.since else date.today() - timedelta(days=cfg.lookback_days)
+    end = date.today()
+    mf = MoneyForward(secret("MF_API_KEY"), s.mf.office_code, s.mf.bank_subaccount)
+    txns = mf.card_txns(start, end, cfg.card_subaccount)
+    tracker = AsanaSuppliesTracker(secret("ASANA_PAT"), s.asana_ids, env)
+    st = supplies.sync(tracker, txns, start.isoformat(), end.isoformat(), cfg, dry_run=args.dry_run, log_fn=print)
+    print(f"明細 {len(txns)}件 / 新規 {st.created}（¥{st.new_amount:,}）・更新 {st.updated}・変化なし {st.unchanged}・対象外 {st.excluded}")
 
 
 def cmd_purchase_login(args: argparse.Namespace) -> None:
@@ -244,6 +277,15 @@ def main() -> None:
     ps.add_argument("--env", choices=["test", "prod"], required=True)
     ps.add_argument("--dry-run", action="store_true")
     ps.set_defaults(func=cmd_purchase_setup)
+    ss = sub.add_parser("supplies-setup")
+    ss.add_argument("--env", choices=["test", "prod"], required=True)
+    ss.add_argument("--dry-run", action="store_true")
+    ss.set_defaults(func=cmd_supplies_setup)
+    sy = sub.add_parser("supplies-sync")
+    sy.add_argument("--env", choices=["test", "prod"], help="省略時は [supplies] dry_run に従う")
+    sy.add_argument("--since", help="読む期間の始まり（YYYY-MM-DD。省略時は lookback_days 前。初回は 2026-08-01）")
+    sy.add_argument("--dry-run", action="store_true", help="Asana に書かない（マネフォは読む）")
+    sy.set_defaults(func=cmd_supplies_sync)
     sub.add_parser("purchase-login").set_defaults(func=cmd_purchase_login)
     sub.add_parser("purchase-set-login").set_defaults(func=cmd_purchase_set_login)
     pf = sub.add_parser("purchase-fetch")

@@ -18,7 +18,8 @@ import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from . import attendance, deposits, health, labor_hooks, logs, overrides, payroll, pos_notify, reconcile, unpaid
+from . import (attendance, deposits, health, labor_hooks, logs, overrides, payroll, pos_notify, reconcile, supplies,
+               unpaid)
 from .deps import Deps
 from .errors import ItemErrors
 from .slip_ops import publish, sync
@@ -89,7 +90,9 @@ RECONCILE_STEPS = [("manual_overrides", overrides.apply), ("republish", republis
                    ("attendance_overrides", _labor(attendance.overrides)),
                    ("attendance_resync", _labor(attendance.resync)),
                    ("payroll", _labor(payroll.step)),
-                   ("payroll_adjustments", _labor(payroll.adjustments))]
+                   ("payroll_adjustments", _labor(payroll.adjustments)),
+                   # 備品・消耗品（マネフォのカード → Asana。docs/profit/supplies_requirements.md）
+                   ("supplies", supplies.step)]
 
 
 def weekly_report(deps: Deps) -> dict:

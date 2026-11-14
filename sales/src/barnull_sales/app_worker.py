@@ -24,6 +24,7 @@ from .config import secret, settings
 from .deps import Deps
 from .extract import ClaudeExtractor
 from .labor_asana import AsanaLaborTracker
+from .supplies_asana import AsanaSuppliesTracker
 from .line import LineClient
 from .mf import MoneyForward
 from .pos_notify import HttpPosClient
@@ -56,6 +57,8 @@ def deps() -> Deps:
         pos=HttpPosClient(s.pos_callback_url, s.pos_callback_audience) if s.pos_callback_url else None,
         labor=(AsanaLaborTracker(secret("ASANA_PAT"), s.asana_ids, s.labor.asana_env)
                if s.labor.enabled and s.labor.asana_env in s.asana_ids.get("labor", {}) else None),
+        supplies=(AsanaSuppliesTracker(secret("ASANA_PAT"), s.asana_ids, s.supplies.asana_env)
+                  if s.supplies.enabled and s.supplies.asana_env in s.asana_ids.get("supplies", {}) else None),
     )
 
 

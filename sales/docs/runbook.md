@@ -212,3 +212,26 @@ uv run barnull-sales report --env prod --date 2026-10-19                # 週報
 
 - 手で1回動かす: `uv run --group purchase barnull-sales purchase-fetch`（`--dry-run` で Asana・Slack に書かない、`--since 2026-10-01` で期間を指定）
 - 止める: `scripts\purchase\uninstall_purchase_task.ps1`
+
+## 備品・消耗品（マネフォのカード「BAR NULL」→ Asana「Bar null 備品消耗品」。2026-11-15 追加）
+要件は [profit/supplies_requirements.md](profit/supplies_requirements.md)、データの約束は [profit/contract.md](profit/contract.md) §3b。
+クラウドの `/jobs/reconcile`（30 分ごと）のステップ `supplies` が、**3 時間に1回**だけマネフォを読み、カード補助口座の明細を Asana に合わせる。PC は要らない。新しい定期実行は無い。
+
+| やること | 方法 |
+|---|---|
+| 有効にする（最初の1回） | `sales.toml` の `[supplies]` で `dry_run = false`・`enabled = true` にして push（デプロイ）。最初の同期で 2026-08-01 からの分を取り込む。先に手元で `uv run barnull-sales supplies-sync --env prod --since 2026-08-01` を実行してもよい（同じ処理） |
+| 手元で1回同期する | `cd sales; uv run barnull-sales supplies-sync [--env test\|prod] [--since YYYY-MM-DD] [--dry-run]` |
+| テスト用プロジェクトを作り直す | `uv run barnull-sales supplies-setup --env test`（冪等）。ID は `asana_ids.json` の `supplies` |
+| 訂正（金額・区分・支払先・営業日） | ポータルの備品・消耗品の「明細」で区分を直す（その場で保存）。それ以外は Asana のタスクで直し、「手動修正」を「あり」にする。「あり」は同期が上書きしない |
+| 取消 | 明細の「対象外にする」（または Asana で「備品ステータス」を対象外）。同期は取り込み済みに戻さない。削除はしない |
+| 現金・個人カードの立替 | Asana にタスクを足し、「取得元」＝手入力、営業日・金額（税込）・支払先を入れる。同期は触らない |
+| NIGITA が混ざった | 摘要に NIGITA・ニギタを含む明細は自動で対象外（`exclude_patterns`）。他の取引先を除くときは `sales.toml` に足して push |
+| ツール・サブスクの区分を足す | `tool_patterns` に摘要の一部を足して push（作る時だけ判定。既存の明細は明細の画面で直す） |
+| カードを変える・増やす | `card_subaccount`（マネフォの `connected_sub_account_id`）を差し替える。`GET /api/v3/connected_accounts` で調べる（カード番号は載らない） |
+
+- Slack（本番 #daily_barnull-sales、テストは #test_barnull-sales）に、新規・更新・対象外があった回だけ「備品・消耗品の取り込み」が出る（件数・金額のみ。店名は出さない）。1件 10 万円以上は「高額」と載る（固定資産・減価償却にするかを本人が決める。システムは扱わない）。
+- マネフォの読み取りに失敗すると、既存の障害通知（health）が `supplies` のステップ名で知らせる（2 回続けて失敗で ★）。
+- マネフォを 0 件で返したときは、読み違いの可能性があるため、既存の明細を「対象外」にしない。
+- カードの明細は利用から 1〜2 日遅れて入る。PENDING（速報）の明細が確定で置き換わると、古いほうは同期が「対象外」にする。
+- 仕入との線引き: NIGITA（NOS）の雑貨・備品は仕入（区分「消耗品」）。カード「BAR NULL」の利用は備品・消耗品。重複しない。
+- 秘密情報: マネフォの API キーは既存（`MF_API_KEY`）。カードの明細（店名・金額）は git に入れない。

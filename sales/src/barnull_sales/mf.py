@@ -23,6 +23,7 @@ class BankTxn:
 
 class BankLedgerSource(Protocol):
     def incomes(self, start: date, end: date) -> list[BankTxn]: ...
+    def card_txns(self, start: date, end: date, sub_account: str) -> list[BankTxn]: ...
 
 
 class MoneyForward:
@@ -51,5 +52,24 @@ class MoneyForward:
                 if t.get("connected_sub_account_id") == self.sub_account and str(t.get("side")).upper() == "INCOME":
                     out.append(BankTxn(id=str(t["id"]), date=t["date"], amount=int(t["value"]),
                                        content=t.get("content") or ""))
+            page += 1
+        return out
+
+    def card_txns(self, start: date, end: date, sub_account: str) -> list[BankTxn]:
+        """カードの補助口座の明細。利用（EXPENSE）はプラス、返金など（INCOME）はマイナスの金額で返す。"""
+        out, page, pages = [], 1, 1
+        while page <= pages and page <= 40:
+            body = request("MoneyForward", "GET", f"{API}/transactions",
+                           headers={"Authorization": f"Bearer {self._token()}"},
+                           params={"office_code": self.office_code, "start_date": start.isoformat(),
+                                   "end_date": end.isoformat(), "page": page}).json()
+            pages = (body.get("metadata") or {}).get("total_pages", 1)
+            for t in body.get("transactions", []):
+                if t.get("connected_sub_account_id") != sub_account:
+                    continue
+                v = int(t["value"])
+                out.append(BankTxn(id=str(t["id"]), date=t["date"],
+                                   amount=v if str(t.get("side")).upper() == "EXPENSE" else -v,
+                                   content=t.get("content") or ""))
             page += 1
         return out

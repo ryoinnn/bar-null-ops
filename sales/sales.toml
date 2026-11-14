@@ -96,3 +96,15 @@ payroll_since = "2026-12"      # この月より前の給与は計算しない�
 dry_run = true                 # true: テスト用の Asana と #test_barnull-sales に書く。本人の確認後に false
 initial_since = "2026-08-01"   # 初回（purchase-fetch --initial）に読む期間の始まり
 model = "claude-haiku-5-5"     # 商品名の表示名を作るモデル（Haiku の最新版。2026-11-15 本人指定）。取得そのものは Claude を使わない
+
+[supplies]
+# 備品・消耗品（マネフォのカード「BAR NULL」→ Asana「Bar null 備品消耗品」。docs/profit/supplies_requirements.md）。
+# reconcile ジョブの中で3時間に1回だけマネフォを読む。dry_run のあいだはテスト用の Asana と #test_barnull-sales に書く
+enabled = false                # テストで確認してから true（本人の確認後）
+dry_run = true
+card_subaccount = "518TUq5pUSF1n9YvZABV1wudLT9L8bFtUEvHGvEo%2BYo%3D"           # マネフォの connected_sub_account_id（カード番号は書かない。supplies-setup のあとに設定）
+backfill_from = "2026-08-01"   # 初回に読む期間の始まり
+lookback_days = 60
+exclude_patterns = ["NIGITA", "ニギタ"]   # 摘要にこれを含む明細は対象外（NIGITA は仕入に入る）
+tool_patterns = ["ANTHROPIC", "OPENAI", "CHATGPT", "SLACK", "GITHUB", "NOTION", "ADOBE", "GOOGLE", "SHUTTERSTOCK"]   # 区分を「ツール・サブスク」にする
+high_value = 100000            # この額以上の1件は Slack の知らせに「高額」と載せる
