@@ -181,6 +181,11 @@ uv run python sales/infra/setup.py secrets deploy
 4. LINE Developers →（Bar null の売上の）チャネル →「Messaging API設定」→「Webhookの再送」と「エラーの統計情報」を有効にする。
    同じイベントが再送されても、イベント ID から作るタスク名で 1 件にまとまる（`tasks.py`）。
 
+### 利用額上限の手前の通知（2026-11-15 設定）
+- 予算 `barnull-sales-guard`（対象 barnull-sales）を ¥1,000・実績 50%・80%・100% にした（本人）。請求先アカウントの管理者とプロジェクトのオーナーにメールが届く。上限に達して止まったときは、外部監視が【課金停止】を出す。
+- 利用額上限そのものの金額を変えたら、この予算の金額も合わせる。福岡（`node-fukuoka-sales-guard`・`node-fukuoka-guard`）は ¥100 のまま。
+- billing-guard（予算と Pub/Sub をつないだら課金を外す仕組み）は、予算の金額ではなく費用 1 円以上で動く（THRESHOLD_JPY=1）。live にする前に見直す。
+
 ### 期限のある秘密情報（2026-11-15 追加）
 - 一覧は `sales/sales.toml` の `[[monitor.expiry]]`（null システム全体の鍵をここにまとめる。福岡・予約対応の鍵も）。名前・期限・更新の手順だけで、キー本体は書かない。
 - 鍵を発行するときに期限を決められるもの（Anthropic など）は、必ずここに足す。期限の無い鍵は載せない（切れたら【認証切れ】で分かる）。
