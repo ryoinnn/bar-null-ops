@@ -22,6 +22,11 @@ dev = [
     "ruff>=0.7",
     "keyring>=25",
 ]
+# 仕入の取り込み（本人の PC だけで使う。Cloud Run のイメージには入れない）: uv run --group purchase barnull-sales purchase-fetch
+purchase = [
+    "playwright==1.63.0",   # リポジトリ直下（予約対応）と同じ版（ブラウザ chromium-1243 を共用）
+    "keyring>=25",
+]
 
 [build-system]
 requires = ["hatchling"]

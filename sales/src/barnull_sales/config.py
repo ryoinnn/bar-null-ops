@@ -110,6 +110,18 @@ class LaborConfig:
 
 
 @dataclass(frozen=True)
+class PurchaseConfig:
+    """仕入（[purchase]。docs/profit/purchasing_requirements.md）。本人の PC で毎週月曜の朝に実行する。"""
+    dry_run: bool = True                 # true: テスト用の Asana「Bar null 仕入［テスト］」と #test_barnull-sales に書く
+    initial_since: str = "2026-08-01"    # 初回に読む期間の始まり（NOS のデータは 2026-08-09 から）
+    model: str = "claude-haiku-5-5"      # 商品名の表示名を作るモデル（Haiku の最新版。2026-11-15 本人指定）
+
+    @property
+    def asana_env(self) -> str:
+        return "test" if self.dry_run else "prod"
+
+
+@dataclass(frozen=True)
 class Settings:
     dry_run: bool
     project: str
@@ -150,6 +162,7 @@ class Settings:
     # Cloud Run では起動時に環境変数ではなく API で読む（版を1つに保ち、Secret Manager の無料枠に収めるため）
     secret_name: str = ""
     labor: LaborConfig = LaborConfig()
+    purchase: PurchaseConfig = PurchaseConfig()
 
     @property
     def labor_channel(self) -> str:
@@ -210,6 +223,7 @@ def load_settings(path: Path | None = None) -> Settings:
         keyring_service=st.get("keyring_service", KEYRING_SERVICE),
         secret_name=g.get("secret", ""),
         labor=_pick(LaborConfig, c.get("labor", {})),
+        purchase=_pick(PurchaseConfig, c.get("purchase", {})),
     )
 
 

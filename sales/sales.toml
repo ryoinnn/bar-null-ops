@@ -90,3 +90,9 @@ payroll_time = "17:00"         # に前月分の給与を計算
 confirm_day = 10               # 10日
 confirm_time = "09:00"         # に確定
 payroll_since = "2026-12"      # この月より前の給与は計算しない（勤怠の記録を始めた月の扱いは本人確認）
+
+[purchase]
+# 仕入（NOS の仕入実績一覧 → Asana「Bar null 仕入」。docs/profit/purchasing_requirements.md）。本人の PC で毎週月曜 9:30 に実行
+dry_run = true                 # true: テスト用の Asana と #test_barnull-sales に書く。本人の確認後に false
+initial_since = "2026-08-01"   # 初回（purchase-fetch --initial）に読む期間の始まり
+model = "claude-haiku-5-5"     # 商品名の表示名を作るモデル（Haiku の最新版。2026-11-15 本人指定）。取得そのものは Claude を使わない

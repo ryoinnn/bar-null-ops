@@ -176,3 +176,39 @@ uv run barnull-sales report --env prod --date 2026-10-19                # 週報
    トークンが変わったら「秘密情報の更新」（`SLACK_BOT_TOKEN`）。
 3. Asana: `uv run python -m barnull_sales.cli asana-setup-labor --env prod`（本番のプロジェクトを作る）。3つのプロジェクトに岡本さんをメンバーとして追加する。
 4. `[labor] dry_run = false` にして push。
+
+## 仕入（NOS → Asana「Bar null 仕入」。2026-11-15 追加）
+要件・設計: `docs/profit/purchasing_requirements.md`、データの約束: `docs/profit/contract.md` §3。コード: `src/barnull_sales/purchase*.py`。
+本人の PC で毎週月曜 9:30 に、タスクスケジューラ「BarNullPurchase」→ `scripts/purchase/run_purchase.ps1` →
+`uv run --group purchase python -m barnull_sales.cli purchase-fetch` が動く。クラウドには何も足していない（課金なし）。
+
+- 読むのは NOS の「仕入実績一覧」だけ（期間・チェックボックス・検索ボタンだけを操作する）。期間は当月1日〜今日、1〜7日は前月1日から。
+- Playwright のブラウザ（画面は出さない）。ログイン状態は `sales/samples/purchases/browser/`、取得した表の控えは `sales/samples/purchases/nos_*.json`、
+  ログは `sales/samples/purchases/logs/`（どれも git に入れない）。
+- NOS のセッションはすぐ切れる（`/oms/error?timeout`）。資格情報マネージャー（barnull-sales の NOS_ACCOUNT・NOS_PASSWORD）で自動でログインし直す。
+- 結果は Slack（`[purchase] dry_run = true` のあいだは #test_barnull-sales、本番は #daily_barnull-sales）に毎回知らせる。
+
+### 最初に一度だけ
+1. `cd sales; uv sync --group purchase`（Playwright を入れる。ブラウザはリポジトリ直下の予約対応と共用）
+2. `uv run --group purchase barnull-sales purchase-set-login` … NOS のアカウントとパスワードを本人が入力（資格情報マネージャーに保存。画面に出ない）
+3. `uv run --group purchase barnull-sales purchase-setup --env test`（本番は `--env prod`。プロジェクト・欄・セクションを作り asana_ids.json に保存）
+4. `uv run --group purchase barnull-sales purchase-fetch --initial` … 2026-08-01 からの過去分を取り込む
+5. `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\purchase\install_purchase_task.ps1`（毎週月曜 9:30 のタスクを登録）
+
+### 本番に切り替える
+1. `purchase-setup --env prod` → `asana_ids.json` の `purchase.prod.project` を `report/portal/pages/purchase.html` の `PROJECT.prod` に入れて公開
+2. `sales.toml` の `[purchase] dry_run = false` → `purchase-fetch --initial`
+3. A（売上レポート）に本番のプロジェクト ID を知らせる（利益の変動費に使う）
+
+### よくある対応
+| Slack の知らせ | 対応 |
+|---|---|
+| ★ ログインが切れています／自動でログインできませんでした | パスワードを変えたなら `purchase-set-login` で登録し直す。画面で確かめたいときは `purchase-login`（ブラウザが開くのでログイン） |
+| ★ 追加の確認（認証コード等）を求められました | 自動では進めない。`purchase-login` で本人がログインし、続くようなら NIGITA に確認 |
+| ★ 画面の形が変わった可能性 | NOS の画面が変わった。`purchase-fetch --headed --dry-run --no-slack` で様子を見て、`purchase_nos.py` を直す |
+| ★ 税抜の合計が NOS と合いません | 取り込み中に NOS が更新された可能性。翌日の実行で直らなければ、控え（nos_*.json）と Asana を見比べる |
+| 新しい商品 n件 | ポータルの仕入管理 →「商品マスタ」で表示名・区分を直して「確定」 |
+| 要確認: 区分の分からない NOS カテゴリ | `purchase.py` の `NOS_CATEGORY` にカテゴリを足す（税率が 8% なら `REDUCED_RATE_CATEGORIES` にも） |
+
+- 手で1回動かす: `uv run --group purchase barnull-sales purchase-fetch`（`--dry-run` で Asana・Slack に書かない、`--since 2026-10-01` で期間を指定）
+- 止める: `scripts\purchase\uninstall_purchase_task.ps1`

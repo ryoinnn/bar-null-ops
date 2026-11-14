@@ -1,14 +1,537 @@
-<!-- コスト管理：仕入管理（仮のページ。担当: C（仕入））。index.html の殻が fetch して差し込む。
-     このファイルは担当のセッションが丸ごと書き換えてよい。約束: id は「purchase-」で始める／スタイルは shared.css の部品（.card .kpi .lg など）を使い、
-     ページだけのスタイルは .pg-purchase の下に書く／script は type="module" で書き、window.claude.use() で db・mcp・user を使う。 -->
-<div class="pad pg-purchase">
-  <header class="toolbar lg" style="margin-bottom:18px">
-    <div><h1>仕入管理</h1><div class="sub">コスト管理・準備中</div></div>
-    <span class="chip">準備中</span>
-  </header>
-  <section class="card lg lg--text">
-    <h2>このページでできるようになること</h2>
-    <p class="cap">担当: C（仕入）</p>
-    <ul style="margin:8px 0 0;padding-left:1.2em;line-height:1.9"><li>酒屋ごとの仕入の記録（注文・請求書）</li><li>区分（酒類・食材・消耗品・その他）ごとの金額</li><li>取り込めなかった・要確認の記録</li></ul>
-  </section>
+<!-- コスト管理：仕入管理（担当: C（仕入））。index.html の殻が fetch して差し込む。
+     データ: Asana「Bar null 仕入」（非公開。1タスク = NOS の1伝票、商品マスタ = 1商品。docs/profit/contract.md §3、
+     docs/profit/purchasing_requirements.md）を、開いた人の Asana コネクタで読む。明細はタスク本文の「DATA:」の後ろの JSON。
+     画面: 左のサイドバーで期間（年 → 月 → 週）を選ぶ。ダッシュボード（合計・1回あたり・数量 TOP5・区分・AI の示唆）／
+     商品の詳細（その期間に発注のあった商品）／商品マスタ（表示名・区分の入力。Asana の update_tasks）。
+     約束: id は「purchase-」で始める／ページだけのスタイルは .pg-purchase の下／script は type="module"。 -->
+<style>
+.pg-purchase .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:14px 18px}
+.pg-purchase .pur-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-left:auto}
+.pg-purchase .seg{display:inline-flex;padding:3px;border-radius:var(--r-control);background:var(--fill);gap:2px}
+.pg-purchase .seg button{border:0;background:none;padding:6px 14px;border-radius:8px;font:inherit;font-size:13.5px;font-weight:650;color:var(--label-2);cursor:pointer}
+.pg-purchase .seg button[aria-pressed="true"]{background:var(--accent-fill);color:var(--on-accent)}
+.pg-purchase select,.pg-purchase input{font:inherit;font-size:14px;color:var(--label);background:rgba(var(--lg-tint),.5);border:1px solid var(--lg-rim);
+  border-radius:8px;padding:7px 10px;box-shadow:inset 0 1px 0 var(--lg-hi);min-width:0}
+.pg-purchase .kpis{grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr))}
+.pg-purchase .split{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:18px}
+.pg-purchase .rank{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.pg-purchase .rank li{display:grid;grid-template-columns:26px minmax(0,1fr) auto;align-items:center;gap:6px 10px}
+.pg-purchase .rank .no{width:26px;height:26px;border-radius:13px;display:grid;place-items:center;font-size:13px;font-weight:700;background:var(--fill-2);color:var(--label-2)}
+.pg-purchase .rank li:first-child .no{background:var(--accent-fill);color:var(--on-accent)}
+.pg-purchase .rank .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.pg-purchase .rank .q{font-size:15px;font-weight:700;text-align:right}
+.pg-purchase .rank .bar{grid-column:2 / 4;height:6px;border-radius:3px;background:var(--fill-2);overflow:hidden}
+.pg-purchase .rank .bar i{display:block;height:100%;border-radius:3px;background:var(--accent-grad)}
+.pg-purchase .rank .sub{grid-column:2 / 4;font-size:12px;color:var(--label-2);margin-top:-4px}
+.pg-purchase .cats{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.pg-purchase .cats .c{display:grid;grid-template-columns:96px minmax(0,1fr) 92px;align-items:center;gap:10px;font-size:13.5px}
+.pg-purchase .cats .bar{height:10px;border-radius:5px;background:var(--fill-2);overflow:hidden}
+.pg-purchase .cats .bar i{display:block;height:100%;border-radius:5px;background:var(--accent-grad)}
+.pg-purchase .cats b{text-align:right}
+.pg-purchase .daybars{display:flex;align-items:flex-end;gap:4px;height:120px;margin-top:10px;padding-bottom:18px}
+.pg-purchase .daybars .d{flex:1;min-width:6px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;position:relative}
+.pg-purchase .daybars .d i{display:block;width:100%;max-width:26px;border-radius:5px 5px 2px 2px;background:var(--bar);min-height:2px}
+.pg-purchase .daybars .d.has i{background:var(--bar-cur)}
+.pg-purchase .daybars .d span{position:absolute;bottom:-18px;font-size:10.5px;color:var(--label-3)}
+.pg-purchase th.sort{cursor:pointer;user-select:none}
+.pg-purchase th.sort[aria-sort]::after{content:" ▾";color:var(--label-3)}
+.pg-purchase th.sort[aria-sort="ascending"]::after{content:" ▴"}
+.pg-purchase td .sub{display:block;font-size:12px;color:var(--label-2);white-space:normal}
+.pg-purchase td input{width:100%;min-width:140px}
+.pg-purchase tr.draft td{background:color-mix(in srgb, var(--accent) 6%, transparent)}
+.pg-purchase .actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
+.pg-purchase .msg{font-size:13px;color:var(--label-2)}
+.pg-purchase .ai-out{display:flex;flex-direction:column;gap:12px;margin-top:10px;font-size:14px;line-height:1.7}
+.pg-purchase .ai-out h3{margin:0;font-size:13px;color:var(--label-2)}
+.pg-purchase .ai-out ul{margin:2px 0 0;padding-left:1.2em}
+.pg-purchase .ai-out .lead{font-size:16px;font-weight:650}
+</style>
+
+<div class="app pg-purchase" id="purchase-root">
+  <aside class="side lg" id="purchase-side" aria-label="期間">
+    <div class="side-head">
+      <p class="brand">Bar null<small>仕入管理</small></p>
+      <button type="button" class="btn tinted navtoggle" id="purchase-navtoggle" aria-expanded="false" aria-controls="purchase-nav">期間を選ぶ</button>
+    </div>
+    <nav class="nav" id="purchase-nav"><p class="empty">読み込んでいます…</p></nav>
+  </aside>
+  <main class="content">
+    <header class="toolbar lg">
+      <div><h1 id="purchase-title">仕入管理</h1><div class="sub" id="purchase-sub">読み込んでいます…</div></div>
+      <div class="pur-tools">
+        <div class="seg" role="group" aria-label="表示">
+          <button type="button" id="purchase-tab-dash" aria-pressed="true">ダッシュボード</button>
+          <button type="button" id="purchase-tab-items" aria-pressed="false">商品の詳細</button>
+          <button type="button" id="purchase-tab-master" aria-pressed="false">商品マスタ</button>
+        </div>
+        <select id="purchase-env" aria-label="データ"><option value="prod">本番</option><option value="test">テスト</option></select>
+        <button type="button" class="btn plain" id="purchase-reload">更新</button>
+      </div>
+    </header>
+    <div id="purchase-msg"></div>
+    <div id="purchase-view" style="display:contents"></div>
+  </main>
 </div>
+
+<script type="module">
+/* ======================= 設定（docs/profit/contract.md §3。ID は sales/asana_ids.json の purchase） ======================= */
+const SERVER = "Asana";
+const PROJECT = { prod: "", test: "1220538960472686" };   // 本番化（purchase-setup --env prod）のときに prod を入れる
+// 商品マスタの欄（書き込みに使う。カスタムフィールドの gid はワークスペース共通）
+const F = { display: "1220538695260865", cat: "1220538695260993", mstatus: "1220538846823546" };
+const CAT_OPT = { "酒類": "1220538695260994", "ソフトドリンク": "1220538695260995", "食材": "1220538695260996",
+                  "消耗品": "1220538695260997", "その他": "1220538695260998" };
+const CONFIRMED = "1220538846823548";
+const CATS = Object.keys(CAT_OPT);
+const NOS_CAT = { "焼酎": "酒類", "ビール類": "酒類", "果実酒": "酒類", "ウイスキー": "酒類", "スピリッツ": "酒類", "リキュール": "酒類",
+                  "清酒": "酒類", "日本酒": "酒類", "ワイン": "酒類", "ブランデー": "酒類", "飲料": "ソフトドリンク",
+                  "調味料": "食材", "食品": "食材", "雑貨販促品類": "消耗品", "備品類": "消耗品" };
+const OPT = "name,notes,permalink_url,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
+
+const $ = (id) => document.getElementById(id);
+const use = (name) => (window.claude && window.claude.use) ? window.claude.use(name) : Promise.resolve(null);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} },
+};
+const state = {
+  env: PROJECT[store.get("purchase-env")] ? store.get("purchase-env") : (PROJECT.prod ? "prod" : "test"),
+  tab: "dash", sel: null, openYears: {}, sort: { key: "qty", dir: -1 }, masterFilter: "draft",
+  data: null, mcp: null, db: null, sample: undefined, canWrite: null, insights: {}, aiRun: null,
+};
+
+/* ======================= 小さな道具 ======================= */
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k === "text") e.textContent = v;
+    else if (k === "html") e.innerHTML = v;      // 固定の SVG だけに使う
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return e;
+}
+const yen = (v) => v == null ? "—" : "¥" + Math.round(v).toLocaleString("ja-JP");
+const short = (v) => Math.abs(v) >= 10000 ? "¥" + (v / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 1 }) + "万" : yen(v);
+const pct = (v) => v == null || !isFinite(v) ? "—" : (v >= 0 ? "+" : "") + (Math.round(v * 1000) / 10).toLocaleString("ja-JP") + "%";
+const sum = (a, f) => a.reduce((s, x) => s + (f(x) || 0), 0);
+
+/* ---------- 日付と期間（売上管理と同じ: 週は月曜〜日曜、月をまたぐ週は月で区切る） ---------- */
+const toD = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+const toS = (d) => d.toISOString().slice(0, 10);
+const add = (s, n) => { const d = toD(s); d.setUTCDate(d.getUTCDate() + n); return toS(d); };
+const diff = (a, b) => Math.round((toD(b) - toD(a)) / 864e5);
+const monday = (s) => add(s, -((toD(s).getUTCDay() + 6) % 7));
+const md = (s) => { const d = toD(s); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; };
+const ym = (s) => s.slice(0, 7);
+const monthEnd = (s) => { const d = toD(s.slice(0, 8) + "01"); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); return toS(d); };
+const addMonths = (m, n) => { const d = toD(m + "-01"); d.setUTCMonth(d.getUTCMonth() + n); return toS(d).slice(0, 7); };
+const min = (a, b) => a < b ? a : b;
+const today = () => toS(new Date(Date.now() + 9 * 3600e3));   // 日本時間の日付
+function weeksOf(month) {
+  const ms = month + "-01", me = monthEnd(ms), out = [];
+  for (let s = ms, n = 1; s <= me; n++) {
+    const e = min(add(monday(s), 6), me);
+    out.push({ kind: "week", key: `w:${s}`, start: s, end: e, n, month });
+    s = add(e, 1);
+  }
+  return out;
+}
+const monthP = (m) => ({ kind: "month", key: `m:${m}`, start: m + "-01", end: monthEnd(m + "-01"), month: m });
+const yearP = (y) => ({ kind: "year", key: `y:${y}`, start: `${y}-01-01`, end: `${y}-12-31`, year: y });
+function periodByKey(key) {
+  if (!/^(y:\d{4}|m:\d{4}-\d{2}|w:\d{4}-\d{2}-\d{2})$/.test(key || "")) return null;
+  const k = key.slice(0, 1), v = key.slice(2);
+  if (k === "y") return yearP(v);
+  if (k === "m") return monthP(v);
+  return weeksOf(ym(v)).find((w) => w.start === v) || null;
+}
+function label(p) {
+  if (p.kind === "year") return `${p.year}年`;
+  const [y, m] = p.month.split("-").map(Number);
+  return p.kind === "month" ? `${y}年${m}月` : `${y}年${m}月 第${p.n}週`;
+}
+const inProgress = (p) => p.start <= today() && today() <= p.end;
+/* 前の期間（進行中なら同じ日数まで）。週は7日前、月は前月、年は前年 */
+function prevOf(p) {
+  const days = diff(p.start, min(p.end, today()));
+  let s, fullEnd;
+  if (p.kind === "week") { s = add(p.start, -7); fullEnd = add(s, diff(p.start, p.end)); }
+  else if (p.kind === "month") { s = addMonths(p.month, -1) + "-01"; fullEnd = monthEnd(s); }
+  else { s = `${Number(p.year) - 1}-01-01`; fullEnd = `${Number(p.year) - 1}-12-31`; }
+  return { start: s, end: min(add(s, days), fullEnd) };
+}
+
+/* ======================= Asana の読み込み ======================= */
+function payloadOf(res) {
+  if (res && res.payload) return res.payload;
+  const t = (res?.content || []).find((c) => c.type === "text")?.text;
+  try { return t ? JSON.parse(t) : {}; } catch (_) { return {}; }
+}
+function fieldsOf(t) { const f = {}; (t.custom_fields || []).forEach((c) => { f[c.name] = c; }); return f; }
+const txt = (f, k) => (f[k]?.text_value || "").trim();
+const num = (f, k) => f[k]?.number_value ?? null;
+const dt = (f, k) => f[k]?.date_value?.date?.slice(0, 10) || "";
+const en = (f, k) => f[k]?.enum_value?.name || "";
+
+async function listTasks(project, refresh) {
+  const out = []; let offset = null;
+  for (let i = 0; i < 60; i++) {
+    const input = { project, limit: 100, opt_fields: OPT };
+    if (offset) input.offset = offset;
+    const p = payloadOf(await state.mcp.callTool(SERVER, "get_tasks", input, { cache: refresh ? { refresh: true } : { staleTime: 60000 } }));
+    out.push(...(p.data || []));
+    offset = p.next_page?.offset;
+    if (!offset) break;
+  }
+  return out;
+}
+function parseData(notes) {
+  const i = (notes || "").lastIndexOf("DATA:");
+  if (i < 0) return [];
+  try { return JSON.parse(notes.slice(i + 5).trim()); } catch (_) { return []; }
+}
+function parseVoucher(t) {
+  const f = fieldsOf(t), rid = txt(f, "仕入記録ID"), date = dt(f, "営業日");
+  if (!rid.startsWith("P-") || !date || en(f, "仕入ステータス") === "対象外" || txt(f, "店舗")) return null;
+  const lines = parseData(t.notes).map((r) => ({ code: r[0], name: r[1], nosCat: r[2], qty: Number(r[3]) || 0, price: Number(r[4]) || 0,
+                                                 amount: Number(r[5]) || 0, status: r[6] || "", ordered: Number(r[7] ?? r[3]) || 0 }));
+  return { gid: t.gid, rid, date, net: num(f, "仕入金額（税抜）") || 0, tax: num(f, "消費税（推定）") || 0,
+           gross: num(f, "仕入金額（税込）") || 0, lines };
+}
+function parseMaster(t) {
+  const f = fieldsOf(t), rid = txt(f, "仕入記録ID");
+  if (!rid.startsWith("M-")) return null;
+  const code = txt(f, "商品コード"), raw = txt(f, "元の商品名");
+  return { gid: t.gid, key: code || raw, code, raw, display: txt(f, "表示名") || raw,
+           cat: en(f, "仕入区分") || NOS_CAT[txt(f, "NOSカテゴリ")] || "その他", nosCat: txt(f, "NOSカテゴリ"),
+           status: en(f, "確認状態") || "案（自動）" };
+}
+async function load(refresh) {
+  const tasks = await listTasks(PROJECT[state.env], refresh);
+  const masters = tasks.map(parseMaster).filter(Boolean);
+  state.data = { vouchers: tasks.map(parseVoucher).filter(Boolean), masters, byKey: new Map(masters.map((m) => [m.key, m])) };
+}
+
+/* ======================= 集計 ======================= */
+function figures(start, end) {
+  const vs = state.data.vouchers.filter((v) => v.date >= start && v.date <= end);
+  const days = new Set(vs.filter((v) => v.net > 0).map((v) => v.date));
+  const gross = sum(vs, (v) => v.gross), returns = vs.filter((v) => v.net < 0);
+  const shortage = vs.reduce((n, v) => n + v.lines.filter((l) => l.ordered > 0 && l.qty < l.ordered).length, 0);
+  return { vs, gross, net: sum(vs, (v) => v.net), tax: sum(vs, (v) => v.tax), days: days.size, per: days.size ? gross / days.size : null,
+           returns: returns.length, returnAmt: sum(returns, (v) => v.gross), shortage };
+}
+/* 商品ごと（表示名と区分が同じものは合算。返品は差し引く） */
+function items(vs) {
+  const map = new Map();
+  vs.forEach((v) => v.lines.forEach((l) => {
+    const m = state.data.byKey.get(l.code || l.name);
+    const name = m?.display || l.name, cat = m?.cat || NOS_CAT[l.nosCat] || "その他", k = name + "\u0000" + cat;
+    const x = map.get(k) || { name, cat, qty: 0, amount: 0, dates: new Set(), raws: new Set(), draft: false };
+    x.qty += l.qty; x.amount += l.amount; if (l.qty > 0) x.dates.add(v.date); x.raws.add(l.name);
+    if (!m || m.status !== "確認済み") x.draft = true;
+    map.set(k, x);
+  }));
+  return [...map.values()].filter((x) => x.qty !== 0 || x.amount !== 0).map((x) => ({ ...x, times: x.dates.size, unit: x.qty ? x.amount / x.qty : null }));
+}
+function byCat(vs) {
+  const out = Object.fromEntries(CATS.map((c) => [c, 0]));
+  items(vs).forEach((x) => { out[x.cat] = (out[x.cat] || 0) + x.amount; });
+  return out;
+}
+function dataStart() {
+  let first = today();
+  state.data.vouchers.forEach((v) => { if (v.date < first) first = v.date; });
+  return first;
+}
+
+/* ======================= サイドバー ======================= */
+function renderNav() {
+  const nav = $("purchase-nav"); nav.textContent = "";
+  if (!state.data) return;
+  const t = today(), first = dataStart(), sel = state.sel, months = [];
+  for (let m = ym(t); m >= ym(first); m = addMonths(m, -1)) months.push(m);
+  [...new Set(months.map((m) => m.slice(0, 4)))].forEach((y) => {
+    const yp = yearP(y), open = state.openYears[y] ?? (y === t.slice(0, 4) || sel.start.slice(0, 4) === y);
+    const box = h("div", { class: "year", "data-open": String(open) });
+    const yb = h("button", { type: "button", class: "year-btn", "aria-current": String(sel.key === yp.key), "aria-expanded": String(open),
+      onclick: () => { state.openYears[y] = sel.key === yp.key ? !open : true; select(yp); } },
+      h("span", { class: "yl", html: '<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>' }, `${y}年`),
+      h("span", { class: "yv num", text: amountLabel(yp) }));
+    const list = h("div", { class: "months" });
+    months.filter((m) => m.startsWith(y)).forEach((m) => {
+      const mp = monthP(m), mbox = h("div", { class: "month" });
+      const head = rowBtn(mp, `${Number(m.slice(5))}月`, "月の集計", amountLabel(mp)); head.classList.add("month-row");
+      const weeks = h("div", { class: "weeks" });
+      weeksOf(m).filter((w) => w.start <= t).forEach((w) => {
+        const n = diff(w.start, w.end) + 1;
+        weeks.append(rowBtn(w, `第${w.n}週`, `${md(w.start)}〜${md(w.end)}` + (n < 7 ? `（${n}日）` : ""), amountLabel(w)));
+      });
+      mbox.append(head, weeks); list.append(mbox);
+    });
+    box.append(yb, list); nav.append(box);
+  });
+}
+function amountLabel(p) { const x = figures(p.start, p.end); return x.vs.length ? short(x.gross) : ""; }
+function rowBtn(p, title, sub, value) {
+  return h("button", { type: "button", class: "row", "aria-current": String(state.sel.key === p.key), onclick: () => select(p) },
+    h("span", { class: "t" }, h("b", {}, title, inProgress(p) ? h("span", { class: "tag", text: "集計中" }) : null), h("span", { text: sub })),
+    h("span", { class: "v num", text: value }));
+}
+function select(p) {
+  state.sel = p; store.set("purchase-sel", p.key);
+  if (state.tab === "master") state.tab = "dash";
+  $("purchase-side").classList.remove("open"); $("purchase-navtoggle").setAttribute("aria-expanded", "false");
+  render();
+}
+
+/* ======================= 描画 ======================= */
+function setMsg(title, body, retry) {
+  const box = $("purchase-msg"); box.textContent = "";
+  if (!title) return;
+  box.append(h("div", { class: "notice" }, h("strong", { text: title }), body || "",
+    retry ? h("div", { style: "margin-top:10px" }, h("button", { class: "btn tinted", type: "button", onclick: retry, text: "もう一度読み込む" })) : null));
+}
+const kpi = (lb, v, d) => h("div", { class: "kpi lg lg--text" }, h("span", { class: "lb", text: lb }), h("span", { class: "v num", text: v }), h("span", { class: "d", text: d || "　" }));
+const card = (title, cap, ...kids) => h("section", { class: "card lg lg--text" }, h("h2", { text: title }), cap ? h("p", { class: "cap", text: cap }) : null, ...kids);
+const fact = (k, v, sub) => h("div", { class: "fact" }, h("span", { class: "k", text: k }), h("span", { class: "v num", text: v }), sub ? h("span", { class: "k", text: sub }) : null);
+
+function render() {
+  for (const t of ["dash", "items", "master"]) $(`purchase-tab-${t}`).setAttribute("aria-pressed", String(state.tab === t));
+  renderNav();
+  const view = $("purchase-view"); view.textContent = "";
+  if (!state.data) return;
+  const p = state.sel;
+  const drafts = state.data.masters.filter((m) => m.status !== "確認済み").length;
+  $("purchase-title").textContent = state.tab === "master" ? "商品マスタ" : `仕入 ${label(p)}`;
+  $("purchase-sub").textContent = (state.tab === "master"
+    ? `${state.data.masters.length}商品（表示名が案のもの ${drafts}件）`
+    : `${md(p.start)}〜${md(p.end)}${inProgress(p) ? "（集計中）" : ""}・NIGITA（NOS の仕入実績）`) + (state.env === "test" ? "・テストのデータ" : "");
+  if (state.tab === "dash") renderDash(view, p);
+  else if (state.tab === "items") renderItems(view, p);
+  else renderMaster(view);
+}
+
+function renderDash(view, p) {
+  const x = figures(p.start, min(p.end, today())), pv = prevOf(p), y = figures(pv.start, pv.end);
+  const change = (a, b) => b ? `前の期間（${md(pv.start)}〜${md(pv.end)}）比 ${pct(a / b - 1)}` : "前の期間の記録なし";
+  view.append(h("section", { class: "kpis" },
+    kpi("仕入の合計（税込）", yen(x.gross), change(x.gross, y.gross)),
+    kpi("発注回数", `${x.days}回`, "取引日（納品日）の数"),
+    kpi("1回あたりの発注（税込）", yen(x.per), y.per ? change(x.per, y.per) : "　"),
+    kpi("税抜の合計", yen(x.net), `消費税（推定）${yen(x.tax)}`)));
+  if (!x.vs.length) { view.append(card("この期間の仕入", null, h("p", { class: "empty", text: "この期間の仕入の記録はありません。" }))); return; }
+
+  // 発注数ランキング TOP5
+  const its = items(x.vs).filter((i) => i.qty > 0).sort((a, b) => b.qty - a.qty || b.amount - a.amount);
+  const top = its.slice(0, 5), maxQ = top[0]?.qty || 1;
+  const rank = h("ol", { class: "rank" }, ...top.map((i, n) => h("li", {},
+    h("span", { class: "no", text: String(n + 1) }), h("span", { class: "nm", text: i.name, title: [...i.raws].join(" / ") }),
+    h("span", { class: "q num", text: i.qty.toLocaleString("ja-JP") }),
+    h("span", { class: "bar" }, h("i", { style: `width:${i.qty / maxQ * 100}%` })),
+    h("span", { class: "sub num", text: `${yen(i.amount)}（税抜）・${i.times}回` }))));
+  const more = h("div", { class: "actions" }, h("button", { type: "button", class: "btn tinted", text: `商品の詳細（${its.length}商品）`,
+    onclick: () => { state.tab = "items"; render(); } }));
+
+  // 区分ごと
+  const cats = byCat(x.vs), maxC = Math.max(1, ...Object.values(cats));
+  const catBox = h("div", { class: "cats" }, ...CATS.filter((c) => cats[c]).map((c) => h("div", { class: "c" },
+    h("span", { text: c }), h("span", { class: "bar" }, h("i", { style: `width:${Math.max(0, cats[c]) / maxC * 100}%` })),
+    h("b", { class: "num", text: yen(cats[c]) }))));
+
+  // 日ごと（週・月）／月ごと（年）
+  const cols = [];
+  if (p.kind === "year") {
+    for (let m = p.year + "-01"; m <= p.year + "-12"; m = addMonths(m, 1)) {
+      cols.push({ g: figures(m + "-01", monthEnd(m + "-01")).gross, lb: String(Number(m.slice(5))), title: `${Number(m.slice(5))}月` });
+    }
+  } else {
+    for (let d = p.start; d <= p.end; d = add(d, 1)) {
+      const n = toD(d).getUTCDate();
+      cols.push({ g: sum(x.vs.filter((v) => v.date === d), (v) => v.gross), lb: (p.kind === "week" || d === p.start || n % 5 === 0) ? String(n) : "", title: md(d) });
+    }
+  }
+  const maxG = Math.max(1, ...cols.map((c) => c.g));
+  const bars = h("div", { class: "daybars", role: "img", "aria-label": p.kind === "year" ? "月ごとの仕入" : "日ごとの仕入" },
+    ...cols.map((c) => h("div", { class: "d" + (c.g ? " has" : ""), title: `${c.title} ${yen(c.g)}` },
+      h("i", { style: `height:${Math.max(0, c.g) / maxG * 100}%` }), h("span", { class: "num", text: c.lb }))));
+
+  view.append(h("section", { class: "split" },
+    card("発注数ランキング TOP5", "表示名ごとの仕入数量（返品を差し引き）。同数なら金額の大きい順", rank, more),
+    card("区分ごとの仕入（税抜）", "区分は商品マスタの区分（未設定は NOS のカテゴリから）", catBox,
+      h("div", { class: "facts", style: "margin-top:14px" },
+        fact("返品", x.returns ? `${x.returns}件` : "なし", x.returns ? yen(x.returnAmt) : null),
+        fact("欠品のあった品目", x.shortage ? `${x.shortage}件` : "なし")))));
+  view.append(card(p.kind === "year" ? "月ごとの仕入（税込）" : "日ごとの仕入（税込）", null, bars));
+  view.append(aiCard(p, x, y, its));
+}
+
+function renderItems(view, p) {
+  const its = items(figures(p.start, min(p.end, today())).vs);
+  const { key, dir } = state.sort;
+  its.sort((a, b) => (key === "name" || key === "cat" ? a[key].localeCompare(b[key], "ja") : (a[key] ?? 0) - (b[key] ?? 0)) * dir || b.amount - a.amount);
+  const cols = [["name", "商品（表示名）", false], ["cat", "区分", false], ["qty", "数量", true], ["amount", "金額（税抜）", true], ["times", "発注回数", true], ["unit", "平均単価", true]];
+  const head = h("tr", {}, ...cols.map(([k, t, n]) => h("th", { class: "sort" + (n ? " r" : ""), "aria-sort": key === k ? (dir > 0 ? "ascending" : "descending") : null, tabindex: "0",
+    onclick: () => { state.sort = { key: k, dir: key === k ? -dir : (n ? -1 : 1) }; render(); },
+    onkeydown: (e) => { if (e.key === "Enter") e.currentTarget.click(); } }, t)));
+  const body = h("tbody", {}, ...its.map((i) => h("tr", { class: i.draft ? "draft" : null },
+    h("td", {}, i.name, i.draft ? h("span", { class: "sub", text: "表示名は案（商品マスタで確認）" }) : null,
+      i.raws.size > 1 || [...i.raws][0] !== i.name ? h("span", { class: "sub", text: [...i.raws].join(" / ") }) : null),
+    h("td", { text: i.cat }), h("td", { class: "r", text: i.qty.toLocaleString("ja-JP") }), h("td", { class: "r", text: yen(i.amount) }),
+    h("td", { class: "r", text: `${i.times}回` }), h("td", { class: "r", text: yen(i.unit) }))));
+  const total = h("tr", { class: "tot" }, h("td", { text: `合計 ${its.length}商品` }), h("td"), h("td", { class: "r", text: sum(its, (i) => i.qty).toLocaleString("ja-JP") }),
+    h("td", { class: "r", text: yen(sum(its, (i) => i.amount)) }), h("td"), h("td"));
+  view.append(card(`発注のあった商品（${label(p)}）`, "見出しを押すと並べ替えます。金額は税抜の明細額。同じ表示名の商品は合算しています",
+    its.length ? h("div", { class: "tablewrap num", style: "max-height:none" }, h("table", {}, h("thead", {}, head), body, h("tfoot", {}, total)))
+      : h("p", { class: "empty", text: "この期間の仕入の記録はありません。" })));
+}
+
+function renderMaster(view) {
+  const all = [...state.data.masters].sort((a, b) => (a.status === "確認済み") - (b.status === "確認済み") || a.cat.localeCompare(b.cat, "ja") || a.display.localeCompare(b.display, "ja"));
+  const nDraft = all.filter((m) => m.status !== "確認済み").length;
+  const list = state.masterFilter === "draft" ? all.filter((m) => m.status !== "確認済み") : all;
+  const seg = h("div", { class: "seg", role: "group", "aria-label": "表示する商品" },
+    ...[["draft", `案のもの（${nDraft}）`], ["all", `すべて（${all.length}）`]].map(([k, t]) =>
+      h("button", { type: "button", "aria-pressed": String(state.masterFilter === k), text: t, onclick: () => { state.masterFilter = k; render(); } })));
+  const rows = list.map((m) => {
+    const name = h("input", { type: "text", value: m.display, "aria-label": `${m.raw} の表示名`, maxlength: "60" });
+    const cat = h("select", { "aria-label": `${m.raw} の区分` }, ...CATS.map((c) => h("option", { value: c, text: c, selected: c === m.cat })));
+    const msg = h("span", { class: "msg" });
+    const btn = h("button", { type: "button", class: "btn tinted", text: m.status === "確認済み" ? "保存" : "確定", disabled: state.canWrite === false,
+      onclick: () => saveMaster(m, name.value.trim(), cat.value, btn, msg) });
+    name.addEventListener("keydown", (e) => { if (e.key === "Enter") btn.click(); });
+    return h("tr", { class: m.status !== "確認済み" ? "draft" : null },
+      h("td", {}, m.raw, h("span", { class: "sub", text: `${m.code || "コードなし"}・NOS: ${m.nosCat || "—"}` })),
+      h("td", {}, name), h("td", {}, cat),
+      h("td", {}, h("span", { class: "pill " + (m.status === "確認済み" ? "ok" : "rv"), text: m.status })),
+      h("td", {}, btn, " ", msg));
+  });
+  view.append(h("section", { class: "card lg lg--text" },
+    h("div", { style: "display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between" }, h("h2", { text: "仕入商品と表示名" }), seg),
+    h("p", { class: "cap", text: "新しい商品は、取り込みのときに表示名の案を自動で付けます。直して「確定」を押すと確認済みになり、以後は自動で変わりません。同じ表示名を付けた商品は、集計で合算されます。" }),
+    state.canWrite === false ? h("p", { class: "msg", text: "このページから書き込む許可がありません。Asana のタスク（商品マスタのセクション）で「表示名」「仕入区分」「確認状態」を直してください。" }) : null,
+    list.length ? h("div", { class: "tablewrap", style: "max-height:none" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", { text: "NOS の商品名" }), h("th", { text: "表示名" }), h("th", { text: "区分" }), h("th", { text: "状態" }), h("th"))),
+      h("tbody", {}, ...rows))) : h("p", { class: "empty", text: state.masterFilter === "draft" ? "案のままの商品はありません。" : "商品マスタはまだありません。" })));
+}
+async function saveMaster(m, display, cat, btn, msg) {
+  if (!display) { msg.textContent = "表示名を入れてください。"; return; }
+  btn.disabled = true; msg.textContent = "保存しています…";
+  try {
+    const task = { task: m.gid, name: display, custom_fields: { [F.display]: display, [F.cat]: CAT_OPT[cat], [F.mstatus]: CONFIRMED } };
+    const res = payloadOf(await state.mcp.callTool(SERVER, "update_tasks", { tasks: [task] }, { cache: false }));
+    if (res.failed && res.failed.length) throw { code: "tool_error" };
+    Object.assign(m, { display, cat, status: "確認済み" });
+    msg.textContent = "保存しました";
+    setTimeout(() => render(), 600);
+  } catch (e) {
+    if (["not_granted", "not_declared", "capability_disabled", "tool_not_declared"].includes(e?.code)) {
+      state.canWrite = false; msg.textContent = "書き込む許可がありません";
+    } else msg.textContent = "保存できませんでした（" + (e?.code || "エラー") + "）";
+    btn.disabled = false;
+  }
+}
+
+/* ---------- AI の示唆（集計値と商品の表示名ごとの数字だけを渡す） ---------- */
+const insightKey = (p) => `${state.env}_${p.key.replace(":", "_")}`;
+function insightInput(p, x, y, its) {
+  const hist = [];
+  let m = p.kind === "year" ? ym(min(p.end, today())) : ym(p.start);
+  for (let i = 0; i < 6; i++) {
+    const f = figures(m + "-01", monthEnd(m + "-01"));
+    if (f.vs.length) hist.push({ 月: m, 税込: f.gross, 発注回数: f.days, 一回あたり: Math.round(f.per || 0), 区分: byCat(f.vs) });
+    m = addMonths(m, -1);
+  }
+  return { 期間: label(p), 期間は進行中: inProgress(p),
+           この期間: { 税込: x.gross, 税抜: x.net, 発注回数: x.days, 一回あたり: Math.round(x.per || 0), 返品: x.returns, 欠品: x.shortage, 区分: byCat(x.vs) },
+           前の期間: { 税込: y.gross, 発注回数: y.days }, 月ごと: hist,
+           商品: its.sort((a, b) => b.amount - a.amount).slice(0, 20).map((i) => ({ 名前: i.name, 区分: i.cat, 数量: i.qty, 金額: i.amount, 回数: i.times })) };
+}
+function aiPrompt(input) {
+  return `あなたはバー「Bar null」（代官山、夜のバー営業）の経営を手伝う分析担当です。酒屋からの仕入の数字から、示唆をまとめてください。
+- 仕入の推移（前の期間・月ごと）、1回あたりの発注額と発注の頻度、区分の構成、よく仕入れる商品の偏り、返品・欠品を見る
+- まとめて発注して回数を減らす、在庫の持ち方、単価の高い商品の使い方など、実行できる打ち手を書く
+- 数字に基づいて書き、推測には「可能性」と書く。期間が進行中なら、その点を考慮する。売上の数字は渡していないので、原価率には触れない
+- 日本語で簡潔に（各項目60字程度まで）
+JSON だけを返す: {"headline": "ひとことの結論", "good": ["良い点"], "watch": ["注意点"], "actions": ["次の打ち手"]}（配列はそれぞれ1〜3個）
+
+データ:
+${JSON.stringify(input)}`;
+}
+function aiCard(p, x, y, its) {
+  const key = insightKey(p), cached = state.insights[key];
+  const out = h("div", { class: "ai-out" }), msg = h("span", { class: "msg" });
+  const btn = h("button", { type: "button", class: "btn tinted", text: cached ? "最新の数字で作り直す" : "示唆を作成", disabled: !state.sample || !!state.aiRun });
+  const show = (doc) => {
+    out.textContent = "";
+    const r = doc.result || {};
+    out.append(h("div", { class: "lead", text: r.headline || "" }));
+    for (const [t, k] of [["良い点", "good"], ["注意点", "watch"], ["次の打ち手", "actions"]]) {
+      if (Array.isArray(r[k]) && r[k].length) out.append(h("div", {}, h("h3", { text: t }), h("ul", {}, ...r[k].map((s) => h("li", { text: String(s) })))));
+    }
+    out.append(h("p", { class: "cap", style: "margin:0", text: `${new Date(doc.generated_at).toLocaleString("ja-JP")} に作成` }));
+  };
+  if (cached) show(cached);
+  else if (state.db) state.db.doc(`purchase_insights/${key}`).get().then((snap) => {
+    const d = snap && (typeof snap.data === "function" ? snap.data() : snap);
+    if (d && d.result && !state.insights[key]) { state.insights[key] = d; show(d); btn.textContent = "最新の数字で作り直す"; }
+  }).catch(() => {});
+  if (state.sample === null) msg.textContent = "このページから Claude を使う許可がありません。";
+  btn.addEventListener("click", async () => {
+    if (!state.sample || state.aiRun) return;
+    const ctl = new AbortController(); state.aiRun = ctl; btn.disabled = true; msg.textContent = "作成しています…";
+    try {
+      const result = await state.sample.json(aiPrompt(insightInput(p, x, y, [...its])), { signal: ctl.signal, modelTier: "default", cache: false });
+      if (!result || typeof result !== "object" || !result.headline) throw { code: "invalid_json" };
+      const doc = { env: state.env, period: p.key, result, generated_at: new Date().toISOString() };
+      state.insights[key] = doc; show(doc); msg.textContent = ""; btn.textContent = "最新の数字で作り直す";
+      if (state.db) state.db.doc(`purchase_insights/${key}`).set(doc).catch(() => {});
+    } catch (e) {
+      if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled"].includes(e?.code)) { state.sample = null; msg.textContent = "このページから Claude を使う許可がありません。"; }
+      else msg.textContent = e?.code === "rate_limited" ? "混み合っています。時間をおいてお試しください。" : "示唆を作れませんでした（" + (e?.code || "エラー") + "）。";
+    } finally { state.aiRun = null; btn.disabled = !state.sample; }
+  });
+  return card("AI の示唆", "この期間と前の期間・直近6か月の仕入の集計値と、商品（表示名）ごとの数量・金額だけを Claude に渡します",
+    h("div", { class: "actions", style: "margin-top:0" }, btn, msg), out);
+}
+
+/* ======================= 起動 ======================= */
+async function start(refresh) {
+  setMsg(null);
+  $("purchase-sub").textContent = "読み込んでいます…";
+  if (!PROJECT[state.env]) {
+    state.data = null; render(); $("purchase-sub").textContent = "";
+    setMsg("まだ設定されていません", `${state.env === "prod" ? "本番" : "テスト"}用の仕入プロジェクトがまだありません。`); return;
+  }
+  state.mcp = state.mcp || await use("mcp");
+  if (!state.mcp) { $("purchase-sub").textContent = ""; setMsg("Asana につながっていません", "このページで仕入を読むには、claude.ai で Asana（0x0.co.jp のアカウント）を接続し、ページの許可を出してください。", () => start(true)); return; }
+  try {
+    await load(refresh);
+    state.sel = state.sel || periodByKey(store.get("purchase-sel") || "") || monthP(ym(today()));
+    render();
+  } catch (e) {
+    const code = e?.code;
+    console.warn("仕入管理: 読み込みに失敗", code || e?.message || e);
+    $("purchase-sub").textContent = "";
+    setMsg("仕入を読み込めませんでした",
+      code === "server_not_connected" || code === "needs_reauth" ? "claude.ai の設定で Asana を接続（または再接続）してください。"
+        : code === "not_granted" ? "ページの許可（Asana）が出ていません。"
+        : `仕入の Asana プロジェクトは、管理者だけが見られる非公開プロジェクトです。メンバーでない場合は読めません（${code || "エラー"}）。`,
+      () => start(true));
+  }
+}
+$("purchase-env").value = state.env;
+$("purchase-env").addEventListener("change", (e) => { state.env = e.target.value; store.set("purchase-env", state.env); start(); });
+for (const t of ["dash", "items", "master"]) $(`purchase-tab-${t}`).addEventListener("click", () => { state.tab = t; render(); });
+$("purchase-reload").addEventListener("click", () => start(true));
+$("purchase-navtoggle").addEventListener("click", () => {
+  const open = $("purchase-side").classList.toggle("open"); $("purchase-navtoggle").setAttribute("aria-expanded", String(open));
+});
+use("sample").then((s) => { state.sample = s; if (state.data && state.tab === "dash") render(); });
+use("db").then((db) => { state.db = db; });
+start();
+</script>

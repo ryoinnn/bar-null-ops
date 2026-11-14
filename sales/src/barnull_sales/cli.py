@@ -5,6 +5,13 @@
   restore-from-asana --env test|prod [--dry-run]   Firestore を失ったとき、Asana のタスクから伝票の状態を作り直す
   try "メッセージ" [--real-slack] [--real-asana] [--real-claude]
         @Bot メッセージ1通の処理を手元で試す（既定はすべて偽物。--real-* で本物を使う。Slack と Asana はテスト先）
+
+仕入（NOS → Asana「Bar null 仕入」。Playwright を使うので `uv run --group purchase barnull-sales ...`）:
+  purchase-setup --env test|prod [--dry-run]   仕入のプロジェクト・セクション・欄を作る（非公開）
+  purchase-login         ブラウザの画面を開き、本人が NOS にログインする（ログイン状態を PC に保存）
+  purchase-set-login     自動の再ログインに使う NOS の ID・パスワードを資格情報マネージャーに登録する（本人が入力）
+  purchase-fetch [--env test|prod] [--initial | --since YYYY-MM-DD] [--dry-run] [--no-slack] [--headed] [--rename-drafts]
+        仕入実績一覧を読んで Asana に合わせ、Slack に知らせる（既定の env は sales.toml の [purchase] dry_run）
 """
 
 from __future__ import annotations
@@ -35,6 +42,66 @@ def cmd_asana_setup_labor(args: argparse.Namespace) -> None:
     s = settings()
     setup(AsanaAPI(secret("ASANA_PAT")), workspace=s.asana_workspace, team_name=s.asana_team_name, env=args.env,
           ids_path=config_path().parent / "asana_ids.json", dry_run=args.dry_run)
+
+
+def cmd_purchase_setup(args: argparse.Namespace) -> None:
+    from .asana import AsanaAPI
+    from .purchase_asana import setup
+
+    s = settings()
+    setup(AsanaAPI(secret("ASANA_PAT")), workspace=s.asana_workspace, team_name=s.asana_team_name, env=args.env,
+          ids_path=config_path().parent / "asana_ids.json", dry_run=args.dry_run)
+
+
+def cmd_purchase_login(args: argparse.Namespace) -> None:
+    from .purchase_nos import login_interactive
+    from .purchase_run import PROFILE
+
+    ok = login_interactive(PROFILE)
+    print("ログインを保存しました。" if ok else "ログインを確認できませんでした。もう一度実行してください。")
+    sys.exit(0 if ok else 1)
+
+
+def cmd_purchase_set_login(args: argparse.Namespace) -> None:
+    """NOS の ID・パスワードを、本人が入力ウィンドウで資格情報マネージャーに登録する（画面にもログにも出さない）。"""
+    import getpass
+
+    import keyring
+
+    s = settings()
+    import unicodedata
+
+    # 日本語入力がオンのままだと全角になるので、半角に直す（2026-11-15 全角で登録されてログインできなかった）
+    account = unicodedata.normalize("NFKC", input("NOS のアカウント（数字）: ")).strip()
+    password = unicodedata.normalize("NFKC", getpass.getpass("NOS のパスワード（表示されません。半角で）: ")).strip()
+    if not account or not password:
+        sys.exit("空のため登録しませんでした")
+    if not (account.isascii() and password.isascii()):
+        sys.exit("半角の英数字にできない文字があるため登録しませんでした。日本語入力をオフにして、もう一度入力してください")
+    keyring.set_password(s.keyring_service, "NOS_ACCOUNT", account)
+    keyring.set_password(s.keyring_service, "NOS_PASSWORD", password)
+    print(f"資格情報マネージャー（{s.keyring_service}）に NOS_ACCOUNT・NOS_PASSWORD を登録しました。")
+
+
+def cmd_purchase_fetch(args: argparse.Namespace) -> None:
+    import logging
+    from datetime import date
+    from pathlib import Path
+
+    from .purchase_run import run
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)   # リクエストの URL を1行ずつ出さない
+    s = settings()
+    env = args.env or s.purchase.asana_env
+    since = (date.fromisoformat(s.purchase.initial_since) if args.initial
+             else date.fromisoformat(args.since) if args.since else None)
+    today = date.fromisoformat(args.today) if args.today else date.today()
+    r = run(s, env=env, today=today, since=since, headless=not args.headed, dry_run=args.dry_run,
+            notify=not args.no_slack, from_file=Path(args.from_file) if args.from_file else None,
+            rename_drafts=args.rename_drafts)
+    print(r.text)
+    sys.exit(0 if r.ok else 2)
 
 
 def _firestore_with_gcloud():
@@ -173,6 +240,24 @@ def main() -> None:
     t.add_argument("--real-asana", action="store_true")
     t.add_argument("--real-claude", action="store_true")
     t.set_defaults(func=cmd_try)
+    ps = sub.add_parser("purchase-setup")
+    ps.add_argument("--env", choices=["test", "prod"], required=True)
+    ps.add_argument("--dry-run", action="store_true")
+    ps.set_defaults(func=cmd_purchase_setup)
+    sub.add_parser("purchase-login").set_defaults(func=cmd_purchase_login)
+    sub.add_parser("purchase-set-login").set_defaults(func=cmd_purchase_set_login)
+    pf = sub.add_parser("purchase-fetch")
+    pf.add_argument("--env", choices=["test", "prod"])
+    g = pf.add_mutually_exclusive_group()
+    g.add_argument("--initial", action="store_true", help="[purchase] initial_since から読む（初回の取り込み）")
+    g.add_argument("--since", help="読む期間の始まり（YYYY-MM-DD）")
+    pf.add_argument("--today", help="今日の日付として扱う日（試験用）")
+    pf.add_argument("--dry-run", action="store_true", help="Asana・Slack に書かない（NOS は読む）")
+    pf.add_argument("--no-slack", action="store_true")
+    pf.add_argument("--headed", action="store_true", help="ブラウザの画面を出す")
+    pf.add_argument("--rename-drafts", action="store_true", help="案（自動）のままの商品マスタの表示名を Claude で作り直す")
+    pf.add_argument("--from-file", help="NOS を読まず、保存したファイル（samples/purchases/nos_*.json）を使う")
+    pf.set_defaults(func=cmd_purchase_fetch)
     args = p.parse_args()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
