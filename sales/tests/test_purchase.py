@@ -158,3 +158,17 @@ def test_rename_drafts_keeps_confirmed():
     names = {t["record_id"]: t["display_name"] for t in tr.tasks.values() if t["record_id"].startswith("M-")}
     assert names == {"M-C1": "本人の名前", "M-C2": "AIC2", "M-C3": "AIC3"} and st.renamed == 2
     assert "AIC2" in next(t for t in tr.tasks.values() if t["record_id"] == "P-20261112-V1")["notes"]
+
+
+def test_run_result_exit_codes():
+    from barnull_sales.purchase_run import RunResult
+
+    assert RunResult(True, "").exit_code == 0
+    assert RunResult(True, "", review=True).exit_code == 3
+    assert RunResult(False, "").exit_code == 2
+
+
+def test_purchase_slack_off_by_default():
+    from barnull_sales.config import PurchaseConfig
+
+    assert PurchaseConfig().slack is False

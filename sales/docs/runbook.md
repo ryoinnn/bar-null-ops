@@ -186,7 +186,8 @@ uv run barnull-sales report --env prod --date 2026-10-19                # 週報
 - Playwright のブラウザ（画面は出さない）。ログイン状態は `sales/samples/purchases/browser/`、取得した表の控えは `sales/samples/purchases/nos_*.json`、
   ログは `sales/samples/purchases/logs/`（どれも git に入れない）。
 - NOS のセッションはすぐ切れる（`/oms/error?timeout`）。資格情報マネージャー（barnull-sales の NOS_ACCOUNT・NOS_PASSWORD）で自動でログインし直す。
-- 結果は Slack（`[purchase] dry_run = true` のあいだは #test_barnull-sales、本番は #daily_barnull-sales）に毎回知らせる。
+- Slack には知らせない（2026-11-15 本人。`[purchase] slack = false`）。結果は `sales/samples/purchases/last_result.txt`、失敗（終了コード 2）と要確認（3）は PC に通知が出る。
+- 仕入と備品・消耗品は分けて管理する。NIGITA から仕入れた物は、区分が「消耗品」でも仕入で数える（備品・消耗品の記録には入れない）。
 - 2026-11-15 本番化: 本番プロジェクト `1220540183336163`、`dry_run = false`、8/1〜の35伝票を取り込み済み。商品マスタ29件はテストで本人が確定した表示名・区分を写した
 
 ### 最初に一度だけ
@@ -202,7 +203,7 @@ uv run barnull-sales report --env prod --date 2026-10-19                # 週報
 3. A（売上レポート）に本番のプロジェクト ID を知らせる（利益の変動費に使う）
 
 ### よくある対応
-| Slack の知らせ | 対応 |
+| PC の通知・last_result.txt | 対応 |
 |---|---|
 | ★ ログインが切れています／自動でログインできませんでした | パスワードを変えたなら `purchase-set-login` で登録し直す。画面で確かめたいときは `purchase-login`（ブラウザが開くのでログイン） |
 | ★ 追加の確認（認証コード等）を求められました | 自動では進めない。`purchase-login` で本人がログインし、続くようなら NIGITA に確認 |
@@ -211,7 +212,7 @@ uv run barnull-sales report --env prod --date 2026-10-19                # 週報
 | 新しい商品 n件 | ポータルの仕入管理 →「商品マスタ」で表示名・区分を直して「確定」 |
 | 要確認: 区分の分からない NOS カテゴリ | `purchase.py` の `NOS_CATEGORY` にカテゴリを足す（税率が 8% なら `REDUCED_RATE_CATEGORIES` にも） |
 
-- 手で1回動かす: `uv run --group purchase barnull-sales purchase-fetch`（`--dry-run` で Asana・Slack に書かない、`--since 2026-10-01` で期間を指定）
+- 手で1回動かす: `uv run --group purchase barnull-sales purchase-fetch`（`--dry-run` で Asana に書かない、`--since 2026-10-01` で期間を指定）
 - 止める: `scripts\purchase\uninstall_purchase_task.ps1`
 
 ## 備品・消耗品（マネフォのカード「BAR NULL」→ Asana「Bar null 備品消耗品」。2026-11-15 追加）

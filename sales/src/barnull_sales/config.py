@@ -134,6 +134,7 @@ class PurchaseConfig:
     dry_run: bool = True                 # true: テスト用の Asana「Bar null 仕入［テスト］」と #test_barnull-sales に書く
     initial_since: str = "2026-08-01"    # 初回に読む期間の始まり（NOS のデータは 2026-08-09 から）
     model: str = "claude-haiku-5-5"      # 商品名の表示名を作るモデル（Haiku の最新版。2026-11-15 本人指定）
+    slack: bool = False                  # 取り込みの結果を Slack に知らせるか（2026-11-15 本人「不要」。失敗は PC の通知）
 
     @property
     def asana_env(self) -> str:

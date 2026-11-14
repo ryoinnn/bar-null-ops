@@ -1,7 +1,7 @@
 ﻿# run_purchase.ps1 - 仕入の取り込み（NOS の仕入実績一覧 → Asana「Bar null 仕入」）を1回実行する。
 # タスクスケジューラ（install_purchase_task.ps1 で登録）が毎週月曜 9:30 に呼ぶ。手で試すとき:
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\sales\scripts\purchase\run_purchase.ps1
-# 失敗（終了コード 0 以外）のときは PC に通知を出す。Slack への通知は Python 側が行う。
+# 失敗・要確認（終了コード 0 以外）のときは PC に通知を出す。Slack には知らせない（2026-11-15 本人）。
 param([string[]]$Extra = @())
 
 $ErrorActionPreference = "Continue"
@@ -58,7 +58,12 @@ try {
 finally {
     Remove-Item $Lock -Force -ErrorAction SilentlyContinue
 }
+# Slack には知らせない（2026-11-15 本人）。0 以外なら PC に通知を出す（3 = 取り込めたが要確認、それ以外 = 失敗）
 if ($code -ne 0) {
-    Show-Notice "Bar null 仕入の取り込みに失敗" "NOS からの仕入の取り込みが止まりました。Slack とログ（$Log）を確認してください。"
+    $Result = Join-Path $Sales "samples\purchases\last_result.txt"
+    $detail = ""
+    if (Test-Path $Result) { $detail = ((Get-Content -Path $Result -Encoding UTF8 | Select-Object -Skip 1) -join " ") }
+    if ($code -eq 3) { Show-Notice "Bar null 仕入: 要確認" "取り込みましたが確認が必要です。$detail" }
+    else { Show-Notice "Bar null 仕入の取り込みに失敗" "$detail（ログ: $Log）" }
 }
 exit $code

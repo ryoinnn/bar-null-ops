@@ -96,6 +96,7 @@ payroll_since = "2026-12"      # この月より前の給与は計算しない�
 dry_run = false                # true: テスト用の Asana と #test_barnull-sales に書く（2026-11-15 本人の了承で本番に切り替え）
 initial_since = "2026-08-01"   # 初回（purchase-fetch --initial）に読む期間の始まり
 model = "claude-haiku-5-5"     # 商品名の表示名を作るモデル（Haiku の最新版。2026-11-15 本人指定）。取得そのものは Claude を使わない
+slack = false                  # 取り込みの結果を Slack に知らせない（2026-11-15 本人）。失敗・要確認は PC の通知と samples/purchases/last_result.txt
 
 [supplies]
 # 備品・消耗品（マネフォのカード「BAR NULL」→ Asana「Bar null 備品消耗品」。docs/profit/supplies_requirements.md）。

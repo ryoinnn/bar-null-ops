@@ -185,7 +185,7 @@ def cmd_purchase_fetch(args: argparse.Namespace) -> None:
             notify=not args.no_slack, from_file=Path(args.from_file) if args.from_file else None,
             rename_drafts=args.rename_drafts)
     print(r.text)
-    sys.exit(0 if r.ok else 2)
+    sys.exit(r.exit_code)
 
 
 def _firestore_with_gcloud():

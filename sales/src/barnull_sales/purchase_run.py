@@ -1,7 +1,9 @@
-"""仕入の取り込み1回分: NOS を読む → 伝票にまとめる → Asana に合わせる → Slack に知らせる。
+"""仕入の取り込み1回分: NOS を読む → 伝票にまとめる → Asana に合わせる → 結果を残す。
 
 本人の PC のタスクスケジューラから毎週月曜 9:30 に実行する（scripts/purchase/run_purchase.ps1 → `barnull-sales purchase-fetch`）。
-失敗したら Slack に ★ 付きで知らせ、終了コード 2 を返す（スクリプトが PC の通知も出す）。
+Slack には知らせない（2026-11-15 本人「仕入の取得の Slack 通知は不要」。[purchase] slack = true で戻せる）。
+結果は samples/purchases/last_result.txt に書き、終了コードで伝える: 0 = 正常、3 = 取り込めたが要確認、2 = 失敗。
+0 以外のときは、スクリプトが PC に通知を出す。
 """
 
 from __future__ import annotations
@@ -27,6 +29,22 @@ LOGIN_HELP = ("PC で `cd sales; uv run --group purchase barnull-sales purchase-
 class RunResult:
     ok: bool
     text: str
+    review: bool = False   # 取り込めたが、本人に見てほしい点がある（合計の不一致・区分の分からないカテゴリ）
+
+    @property
+    def exit_code(self) -> int:
+        return 2 if not self.ok else 3 if self.review else 0
+
+
+def _keep(result: RunResult) -> RunResult:
+    """最後の結果をファイルに残す（PC の通知とログで見る）。"""
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        stamp = f"{datetime.now():%Y-%m-%d %H:%M}"
+        (DATA_DIR / "last_result.txt").write_text(stamp + "\n" + result.text + "\n", encoding="utf-8")
+    except OSError:
+        log.exception("結果のファイルに書けませんでした")
+    return result
 
 
 def _slack(s: Settings, env: str, text: str) -> None:
@@ -56,6 +74,7 @@ def run(s: Settings, *, env: str, today: date, since: date | None = None, headle
     from .purchase_names import suggest_names
     from .purchase_nos import LoginRequired, NosResult, fetch
 
+    notify = notify and s.purchase.slack
     start, end = fetch_range(today, since)
     period = f"{start.month}/{start.day}〜{end.month}/{end.day}"
     tag = "［テスト］" if env == "test" else ""
@@ -82,24 +101,24 @@ def run(s: Settings, *, env: str, today: date, since: date | None = None, headle
                   lambda items: suggest_names(items, api_key=api_key, model=s.purchase.model),
                   dry_run=dry_run, rename_drafts=rename_drafts, log=lambda m: log.info(m))
     except LoginRequired as e:
-        text = f"★ {s.mention}{tag}仕入の取り込み（NOS）を止めました: {e}\n{LOGIN_HELP}"
+        text = f"★ {s.mention if notify else ''}{tag}仕入の取り込み（NOS）を止めました: {e}\n{LOGIN_HELP}"
         if notify and not dry_run:
             _slack(s, env, text)
-        return RunResult(False, text)
+        return _keep(RunResult(False, text))
     except NosFormatError as e:
-        text = f"★ {s.mention}{tag}仕入の取り込み（NOS）を止めました: 画面の形が変わった可能性があります（{e}）"
+        text = f"★ {s.mention if notify else ''}{tag}仕入の取り込み（NOS）を止めました: 画面の形が変わった可能性があります（{e}）"
         if notify and not dry_run:
             _slack(s, env, text)
-        return RunResult(False, text)
+        return _keep(RunResult(False, text))
     except Exception as e:  # noqa: BLE001  失敗は必ず知らせる
         log.exception("仕入の取り込みに失敗")
-        text = f"★ {s.mention}{tag}仕入の取り込み（NOS）に失敗しました: {type(e).__name__}: {str(e)[:200]}"
+        text = f"★ {s.mention if notify else ''}{tag}仕入の取り込み（NOS）に失敗しました: {type(e).__name__}: {str(e)[:200]}"
         if notify and not dry_run:
             try:
                 _slack(s, env, text)
             except Exception:  # noqa: BLE001
                 log.exception("Slack への通知にも失敗")
-        return RunResult(False, text)
+        return _keep(RunResult(False, text))
 
     gross = sum(v.gross for v in vouchers)
     net = sum(v.net for v in vouchers)
@@ -116,11 +135,11 @@ def run(s: Settings, *, env: str, today: date, since: date | None = None, headle
         out.append("（表示名の案は Claude Haiku を使えず、規則だけで作りました。API キーか PC の Claude Code のログインを確認）")
     problems = mismatch + st.review
     if problems:
-        out[0] = f"★ {s.mention}" + out[0]
+        out[0] = f"★ {s.mention if notify else ''}" + out[0]
         out += [f"要確認: {p}" for p in problems]
     if portal:
         out.append(f"仕入管理: {portal}")
     text = "\n".join(out)
     if notify and not dry_run:
         _slack(s, env, text)
-    return RunResult(True, text)
+    return _keep(RunResult(True, text, review=bool(problems)))
