@@ -59,6 +59,10 @@ def _dispatch(event: dict, kind: str, event_id: str, rec: dict, deps: Deps) -> d
     if kind == "unknown_group_message" or group_id not in deps.settings.allowed_group_ids:
         return _unknown_group(event, deps)
     msg = _to_msg(event, event_id, deps)
+    if not rec.get("message_id"):
+        # 送信者を覚えておく（引用して送り直されたとき、引用元の送信者を担当にするため。line_events は30日で消える）
+        rec.update(message_id=msg.message_id, user_id=msg.user_id, sender=msg.sender)
+        deps.store.set_doc("line_events", event_id, rec)
     if "parsed" in rec:
         parsed = Parsed.from_json(rec["parsed"]) if rec["parsed"] else None
     else:
@@ -84,10 +88,27 @@ def _to_msg(event: dict, event_id: str, deps: Deps) -> Msg:
             sender = deps.line.member_display_name(group_id, user_id)
         except Exception:
             log.warning("表示名の取得に失敗", exc_info=True)
+    origin = _quoted_author(deps, m.get("quotedMessageId"), user_id)
     return Msg(event_id=event_id, group_id=group_id, message_id=m.get("id", ""), user_id=user_id, sender=sender,
                text=strip_mention(m, deps.settings.bot_mention_name),
                sent_at=datetime.fromtimestamp(event.get("timestamp", 0) / 1000, tz=UTC),
-               reply_token=event.get("replyToken"), quote_token=m.get("quoteToken"))
+               reply_token=event.get("replyToken"), quote_token=m.get("quoteToken"),
+               origin_user_id=origin.get("user_id"), origin_sender=origin.get("sender"))
+
+
+def _quoted_author(deps: Deps, quoted_message_id: str | None, user_id: str | None) -> dict:
+    """引用元が @Bot メッセージなら、その送信者（{user_id, sender}）。送り直した本人と同じ・分からなければ {}。"""
+    if not quoted_message_id:
+        return {}
+    try:
+        found = deps.store.find_docs("line_events", "message_id", "==", quoted_message_id)
+    except Exception:
+        log.warning("引用元の送信者を探せなかった", exc_info=True)
+        return {}
+    rec = next((r for r in found.values() if r.get("user_id")), None)
+    if not rec or rec["user_id"] == user_id:
+        return {}
+    return {"user_id": rec["user_id"], "sender": rec.get("sender")}
 
 
 def _ack(event: dict, deps: Deps) -> bool:

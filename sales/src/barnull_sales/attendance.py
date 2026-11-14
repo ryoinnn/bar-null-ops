@@ -198,7 +198,7 @@ def handle(deps: Deps, msg, parsed: Parsed, on_accepted: Callable[[], None]) -> 
         return {"status": "attendance_unparsed"}
     start, end = sp
     index = StaffIndex.load(deps.store)
-    person = resolve_sender(deps, index, msg.user_id, msg.sender)
+    person = resolve_sender(deps, index, msg.author_id, msg.author)   # 引用して送り直したときは引用元の人
     if not person:
         _notice(deps, "送信者が分からない（LINE のプロフィール未同意）", msg.sender, msg.text)
         return {"status": "attendance_unknown_sender"}
@@ -217,8 +217,9 @@ def handle(deps: Deps, msg, parsed: Parsed, on_accepted: Callable[[], None]) -> 
     future = start > msg.sent_at
     if late or future:
         return request_approval(deps, msg, person, d, start, end, "未来の日付" if future else "期限切れ")
-    rec = save_record(deps, person, d, start, end, event_id=msg.event_id, line_user_id=msg.user_id,
-                      display_name=msg.sender, reason="LINE", text=msg.text)
+    rec = save_record(deps, person, d, start, end, event_id=msg.event_id, line_user_id=msg.author_id,
+                      display_name=msg.author, reason="LINE" if not msg.origin_user_id else f"LINE（{msg.sender}さんが引用して送り直し）",
+                      text=msg.text)
     on_accepted()
     return {"status": "attendance", "record_id": rec["record_id"]}
 
@@ -396,7 +397,7 @@ def request_approval(deps: Deps, msg, person: Staff, d: date, start: datetime, e
     if not pend:
         pend = {"event_id": msg.event_id, "state": "waiting", "staff_id": person.staff_id, "business_date": d.isoformat(),
                 "start": start.isoformat(), "end": end.isoformat(), "sent_at": msg.sent_at.isoformat(),
-                "line_user_id": msg.user_id, "display_name": msg.sender, "group_id": msg.group_id,
+                "line_user_id": msg.author_id, "display_name": msg.author, "group_id": msg.group_id,
                 "quote_token": msg.quote_token, "text": msg.text, "why": why, "asked_at": now_iso(), "slack": {}}
         deps.store.set_doc(PENDING, msg.event_id, pend)
     if not pend["slack"].get("ts"):

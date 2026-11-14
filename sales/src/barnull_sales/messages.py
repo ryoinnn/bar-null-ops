@@ -38,6 +38,17 @@ class Msg:
     sent_at: datetime
     reply_token: str | None = None   # LINE の返信トークン（勤怠の「承認待ち」の返信に使う）
     quote_token: str | None = None   # 引用に使う（承認の連絡で元のメッセージを引用する）
+    origin_user_id: str | None = None   # 別の人の @Bot メッセージを引用して送り直したとき、引用元の送信者
+    origin_sender: str | None = None
+
+    @property
+    def author_id(self) -> str | None:
+        """伝票・勤怠の担当にする人（引用して送り直したときは引用元の送信者）。"""
+        return self.origin_user_id or self.user_id
+
+    @property
+    def author(self) -> str | None:
+        return self.origin_sender if self.origin_user_id else self.sender
 
 
 def review(deps: Deps, title: str, msg: Msg) -> None:
@@ -65,7 +76,7 @@ def create_slips(deps: Deps, msg: Msg, parsed: Parsed, on_accepted: Callable[[],
     for i, entry in enumerate(parsed.entries):
         def make(slip_id: str, entry=entry, i=i) -> Slip:
             return build_slip(slip_id=slip_id, event_id=msg.event_id, index=i, entry=entry, group_id=msg.group_id,
-                              message_id=msg.message_id, sender_id=msg.user_id, sender_name=msg.sender,
+                              message_id=msg.message_id, sender_id=msg.author_id, sender_name=msg.author,
                               sent_at=msg.sent_at, raw_text=msg.text, settings=s)
 
         bday = business_date_of(entry, msg.sent_at, s) or bizdate.business_date(msg.sent_at, s.tz, s.day_start)
@@ -74,6 +85,9 @@ def create_slips(deps: Deps, msg: Msg, parsed: Parsed, on_accepted: Callable[[],
     on_accepted()   # 伝票を保存できたので、LINE に「OK」を返す
     for slip in slips:
         publish(deps, slip)
+        if msg.origin_user_id:
+            post(deps, slip, f"{who(msg.sender)}さんが、{who(msg.origin_sender)}さんのメッセージを引用して送り直した伝票です"
+                             f"（担当は {who(msg.origin_sender)}さん）")
     from . import labor_hooks
 
     for slip in slips:
