@@ -397,42 +397,59 @@ function renderMaster(view) {
   const seg = h("div", { class: "seg", role: "group", "aria-label": "表示する商品" },
     ...[["draft", `案のもの（${nDraft}）`], ["all", `すべて（${all.length}）`]].map(([k, t]) =>
       h("button", { type: "button", "aria-pressed": String(state.masterFilter === k), text: t, onclick: () => { state.masterFilter = k; render(); } })));
+  const inputs = [];
+  const msgs = [h("span", { class: "msg" }), h("span", { class: "msg" })];
+  const btns = msgs.map(() => h("button", { type: "button", class: "btn filled", disabled: state.canWrite === false || !list.length,
+    text: state.masterFilter === "draft" ? `${list.length}件をまとめて保存（確認済みにする）` : "変更をまとめて保存",
+    onclick: () => saveMasters(inputs, btns, msgs) }));
   const rows = list.map((m) => {
     const name = h("input", { type: "text", value: m.display, "aria-label": `${m.raw} の表示名`, maxlength: "60" });
     const cat = h("select", { "aria-label": `${m.raw} の区分` }, ...CATS.map((c) => h("option", { value: c, text: c, selected: c === m.cat })));
-    const msg = h("span", { class: "msg" });
-    const btn = h("button", { type: "button", class: "btn tinted", text: m.status === "確認済み" ? "保存" : "確定", disabled: state.canWrite === false,
-      onclick: () => saveMaster(m, name.value.trim(), cat.value, btn, msg) });
-    name.addEventListener("keydown", (e) => { if (e.key === "Enter") btn.click(); });
+    inputs.push({ m, name, cat });
     return h("tr", { class: m.status !== "確認済み" ? "draft" : null },
       h("td", {}, m.raw, h("span", { class: "sub", text: `${m.code || "コードなし"}・NOS: ${m.nosCat || "—"}` })),
       h("td", {}, name), h("td", {}, cat),
-      h("td", {}, h("span", { class: "pill " + (m.status === "確認済み" ? "ok" : "rv"), text: m.status })),
-      h("td", {}, btn, " ", msg));
+      h("td", {}, h("span", { class: "pill " + (m.status === "確認済み" ? "ok" : "rv"), text: m.status })));
   });
+  const bar = (i) => h("div", { class: "actions" }, btns[i], msgs[i]);
   view.append(h("section", { class: "card lg lg--text" },
     h("div", { style: "display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between" }, h("h2", { text: "仕入商品と表示名" }), seg),
-    h("p", { class: "cap", text: "新しい商品は、取り込みのときに表示名の案を自動で付けます。直して「確定」を押すと確認済みになり、以後は自動で変わりません。同じ表示名を付けた商品は、集計で合算されます。" }),
+    h("p", { class: "cap", text: "新しい商品は、取り込みのときに表示名の案を自動で付けます。直したい行だけ直して、最後に「まとめて保存」を押してください。表示している商品がすべて確認済みになり、以後は自動で変わりません。同じ表示名を付けた商品は、集計で合算されます。" }),
     state.canWrite === false ? h("p", { class: "msg", text: "このページから書き込む許可がありません。Asana のタスク（商品マスタのセクション）で「表示名」「仕入区分」「確認状態」を直してください。" }) : null,
+    list.length > 12 ? bar(0) : null,
     list.length ? h("div", { class: "tablewrap", style: "max-height:none" }, h("table", {},
-      h("thead", {}, h("tr", {}, h("th", { text: "NOS の商品名" }), h("th", { text: "表示名" }), h("th", { text: "区分" }), h("th", { text: "状態" }), h("th"))),
-      h("tbody", {}, ...rows))) : h("p", { class: "empty", text: state.masterFilter === "draft" ? "案のままの商品はありません。" : "商品マスタはまだありません。" })));
+      h("thead", {}, h("tr", {}, h("th", { text: "NOS の商品名" }), h("th", { text: "表示名" }), h("th", { text: "区分" }), h("th", { text: "状態" }))),
+      h("tbody", {}, ...rows))) : h("p", { class: "empty", text: state.masterFilter === "draft" ? "案のままの商品はありません。" : "商品マスタはまだありません。" }),
+    list.length ? bar(1) : null));
 }
-async function saveMaster(m, display, cat, btn, msg) {
-  if (!display) { msg.textContent = "表示名を入れてください。"; return; }
-  btn.disabled = true; msg.textContent = "保存しています…";
+/* 表示している商品をまとめて保存する。変えた行と案（自動）の行だけを書き、どれも確認済みにする */
+async function saveMasters(inputs, btns, msgs) {
+  const say = (t) => msgs.forEach((m) => { m.textContent = t; });
+  const empty = inputs.find((x) => !x.name.value.trim());
+  if (empty) { say(`表示名が空の行があります（${empty.m.raw}）。`); empty.name.focus(); return; }
+  const todo = inputs.map((x) => ({ ...x, display: x.name.value.trim(), catV: x.cat.value }))
+    .filter((x) => x.m.status !== "確認済み" || x.display !== x.m.display || x.catV !== x.m.cat);
+  if (!todo.length) { say("変更はありません。"); return; }
+  btns.forEach((b) => { b.disabled = true; });
+  let done = 0;
   try {
-    const task = { task: m.gid, name: display, custom_fields: { [F.display]: display, [F.cat]: CAT_OPT[cat], [F.mstatus]: CONFIRMED } };
-    const res = payloadOf(await state.mcp.callTool(SERVER, "update_tasks", { tasks: [task] }, { cache: false }));
-    if (res.failed && res.failed.length) throw { code: "tool_error" };
-    Object.assign(m, { display, cat, status: "確認済み" });
-    msg.textContent = "保存しました";
-    setTimeout(() => render(), 600);
+    for (let i = 0; i < todo.length; i += 20) {   // 20件ずつ送る
+      const chunk = todo.slice(i, i + 20);
+      say(`保存しています…（${done}/${todo.length}）`);
+      const tasks = chunk.map((x) => ({ task: x.m.gid, name: x.display,
+        custom_fields: { [F.display]: x.display, [F.cat]: CAT_OPT[x.catV], [F.mstatus]: CONFIRMED } }));
+      const res = payloadOf(await state.mcp.callTool(SERVER, "update_tasks", { tasks }, { cache: false }));
+      const failed = new Set((res.failed || []).map((f) => String(f.task || f.gid || f.task_gid || "")));
+      chunk.forEach((x) => { if (!failed.has(x.m.gid)) { Object.assign(x.m, { display: x.display, cat: x.catV, status: "確認済み" }); done++; } });
+      if (failed.size) throw { code: "tool_error" };
+    }
+    say(`${done}件を保存しました。`);
+    setTimeout(() => render(), 800);
   } catch (e) {
     if (["not_granted", "not_declared", "capability_disabled", "tool_not_declared"].includes(e?.code)) {
-      state.canWrite = false; msg.textContent = "書き込む許可がありません";
-    } else msg.textContent = "保存できませんでした（" + (e?.code || "エラー") + "）";
-    btn.disabled = false;
+      state.canWrite = false; say("このページから書き込む許可がありません。");
+    } else say(`${done}件を保存しました。残りは保存できませんでした（${e?.code || "エラー"}）。もう一度押してください。`);
+    btns.forEach((b) => { b.disabled = state.canWrite === false; });
   }
 }
 
