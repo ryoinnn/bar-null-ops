@@ -31,11 +31,8 @@
       <h3>データ</h3>
       <label class="field">読み込むプロジェクト<select id="env"><option value="prod">本番</option><option value="test">テスト</option></select></label>
       <div id="fxbox" hidden>
-        <h3>固定費（月額・税込）</h3>
-        <label class="field col" for="fxfrom">適用開始月<input type="month" id="fxfrom"></label>
-        <div class="fx-list" id="fxlist"></div>
-        <div class="fx-actions"><button type="button" class="btn tinted" id="fxadd">項目を追加</button><button type="button" class="btn filled" id="fxsave">保存</button></div>
-        <p class="hint" id="fxhint">適用開始月を変えて保存すると、その月から新しい金額になります。過去の月はそのままです。</p>
+        <h3>固定費</h3>
+        <p class="hint">固定費の項目と金額は、Asana「Bar null 固定費」で管理しています（管理者だけ）。内容はコスト管理の「固定費」で見られます。</p>
       </div>
     </div>
 
@@ -80,7 +77,7 @@
         <section class="card lg lg--text"><h2>利益の内訳</h2><p class="cap" id="pcap">この期間</p><div id="pstack"></div><div class="facts num" id="pfacts"></div></section>
         <section class="card lg lg--text"><h2>固定費（日割り）</h2><p class="cap" id="fxcap">月額を日割りにした、この期間の分</p><div class="tablewrap" id="fxtable"></div></section>
         <section class="card lg lg--text"><h2>担当者別の勤務時間と人件費</h2><p class="cap" id="lbcap">勤怠に記録された分</p><div class="tablewrap" id="lbtable"></div></section>
-        <p class="foot" id="pfoot">定義：利益＝売上合計（通常営業の伝票金額＋レンタルの店舗収益）−変動費（仕入＋人件費＋備品・消耗品＋Square の決済手数料）−固定費（月額を日割り）／発生ベースは未収を含み、入金ベースは未収の残高を除く／原価率＝仕入÷通常営業の売上、人件費率＝人件費÷売上合計／損益分岐売上＝固定費÷（1−変動費率）／金額は税込、棚卸（在庫の増減）は反映しない／仕入・人件費・備品消耗品は営業日で計上（備品・消耗品のカード明細は1〜2日遅れて入る）</p>
+        <p class="foot" id="pfoot">定義：利益＝売上合計（通常営業の伝票金額＋レンタルの店舗収益）−変動費（仕入＋人件費＋備品・消耗品＋Square の決済手数料）−固定費（Asana「Bar null 固定費」の月額を日割り）／発生ベースは未収を含み、入金ベースは未収の残高を除く／原価率＝仕入÷通常営業の売上、人件費率＝人件費÷売上合計／損益分岐売上＝固定費÷（1−変動費率）／金額は税込、棚卸（在庫の増減）は反映しない／仕入・人件費・備品消耗品は営業日で計上（備品・消耗品のカード明細は1〜2日遅れて入る）</p>
       </div>
       <section class="card lg lg--text"><h2>内訳</h2><p class="cap" id="factscap">この期間</p><div class="facts num" id="facts"></div></section>
       <section class="card lg lg--text" id="slipcard"><h2>伝票</h2><p class="cap">伝票 ID から Asana のタスクを開けます</p><div class="tablewrap" id="slips"></div></section>
@@ -701,9 +698,10 @@ const COST_PROJECTS = {
   purchase: { prod: [], test: ["1220538960472686"] },
   supplies: { prod: ["1220539775332256"], test: ["1220539120594121"] },   // 「Bar null 備品消耗品」（D。contract.md §3b）   // 「Bar null 仕入」（C。contract.md §3）。本番は本番化のときに足す
 };
-const FIXED_DOC = "fixedcosts/barnull";
+// 固定費（E。contract.md §3c）。計算は sales/src/barnull_sales/fixed.py と同じにする（cost.html にも同じ計算がある）
+const FIXED_PROJECT = { prod: "1220539995299165", test: "1220539920443902" };
 const COLORS = { purchase: "var(--accent)", labor: "var(--series-rent)", fee: "var(--warn)", supplies: "#8a63d2", fixed: "color-mix(in srgb, var(--label-2) 75%, transparent)", profit: "var(--green)" };
-Object.assign(state, { cost: null, fixed: null, fixedLoaded: false, profitOK: false, isOwner: false, pinsights: {} });
+Object.assign(state, { cost: null, profitOK: false, isOwner: false, pinsights: {} });
 
 const txt = (c) => (c?.text_value ?? c?.enum_value?.name ?? "").trim();
 function parseAttendance(t) {   // 勤怠（1人 × 1稼働日）。contract.md §2-1
@@ -751,9 +749,11 @@ async function loadLabor(mcp) {               // 人件費: 勤怠と給与
   return { unset: false, att, pay };
 }
 async function loadCosts(mcp) {
-  const out = { labor: null, purchase: null, supplies: null };
+  const out = { labor: null, purchase: null, supplies: null, fixed: null };
   try { out.labor = await loadLabor(mcp); } catch (_) { out.labor = { error: true, att: [], pay: [] }; }
   try { out.purchase = await loadCost(mcp, "purchase", parsePurchase); } catch (_) { out.purchase = { error: true, rows: [], pend: [], first: null }; }
+  try { out.fixed = FIXED_PROJECT[state.env] ? { tasks: await readProject(mcp, FIXED_PROJECT[state.env], parseFixed) } : { unset: true, tasks: [] }; }
+  catch (_) { out.fixed = { error: true, tasks: [] }; }
   try { out.supplies = await loadCost(mcp, "supplies", parseSupplies); } catch (_) { out.supplies = { error: true, rows: [], pend: [], first: null }; }
   state.cost = out; render();
 }
@@ -784,20 +784,44 @@ function coverage(kind, a, b) {
   if (c.first > a) return { s: "partial", from: c.first, pend };
   return { s: "full", pend };
 }
-function fixedVersion(m) { let best = null; ((state.fixed && state.fixed.versions) || []).forEach((v) => { if (v.from <= m && (!best || v.from > best.from)) best = v; }); return best; }
-function fixedStats(a, b) {
-  if (!state.fixedLoaded) return { s: "wait", total: 0, items: [], monthly: 0 };
-  const versions = (state.fixed && state.fixed.versions) || [];
-  if (!versions.length) return { s: "unset", total: 0, items: [], monthly: 0 };
-  const by = new Map(); let total = 0, miss = 0, n = 0;
+/* ---- 固定費の計算（contract.md §3c。fixed.py の month_amounts・period_total と同じ結果にする） ---- */
+const addYM = (m, n) => { const k = Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7)) - 1 + n; return `${String(Math.floor(k / 12)).padStart(4, "0")}-${String(k % 12 + 1).padStart(2, "0")}`; };
+const monthsBetween = (a, b) => (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7));
+function parseFixed(t) {
+  const f = fieldsOf(t), amt = f["金額（税込）"]?.number_value;
+  return { name: (t.name || "").trim(), category: txt(f["固定費区分"]) || "その他", amount: amt ?? null, months: f["按分月数"]?.number_value ?? null,
+           start: txt(f["適用開始月"]), end: txt(f["適用終了月"]) || null, kind: txt(f["固定費種別"]) || "通常", status: txt(f["固定費ステータス"]) || "有効", store: txt(f["店舗"]) };
+}
+const fixedActive = (t, m) => t.status !== "対象外" && !t.store && /^\d{4}-\d{2}$/.test(t.start) && t.start <= m && (!t.end || m <= t.end) && t.amount != null;
+function fixedItemMonth(t, m) {
+  const n = Math.max(Math.trunc(Number(t.months) || 1), 1), total = Math.trunc(t.amount), base = Math.floor(total / n), k = monthsBetween(t.start, m) % n;
+  return base + (k === n - 1 ? total - base * n : 0);
+}
+function fixedMonth(tasks, m) {   // {項目名: {amount, category, kind, task}}。空なら未設定
+  const picked = {};
+  tasks.forEach((t) => {
+    if (!fixedActive(t, m)) return;
+    const cur = picked[t.name];
+    if (!cur) picked[t.name] = t;
+    else if (cur.kind !== "実績" && t.kind === "実績") picked[t.name] = t;
+    else if (cur.kind === t.kind && t.start > cur.start) picked[t.name] = t;
+  });
+  return Object.fromEntries(Object.entries(picked).map(([n, t]) => [n, { amount: fixedItemMonth(t, m), category: t.category, kind: t.kind, task: t }]));
+}
+function fixedStats(a, b) {   // 期間 a〜b: 日 ＝ 月の固定費 ÷ その月の日数
+  const c = state.cost && state.cost.fixed;
+  if (!c) return { s: "wait", total: 0, items: [], monthly: 0 };
+  if (c.unset) return { s: "unset", total: 0, items: [], monthly: 0 };
+  if (c.error) return { s: "error", total: 0, items: [], monthly: 0 };
+  const by = new Map(), cache = {}; let total = 0, miss = 0, n = 0;
   for (let d = a; d <= b; d = add(d, 1)) {
-    n++; const v = fixedVersion(ym(d));
-    if (!v || !v.items.length) { miss++; continue; }
+    n++; const m = ym(d), its = cache[m] = cache[m] || fixedMonth(c.tasks, m), ents = Object.entries(its);
+    if (!ents.length) { miss++; continue; }
     const dim = Number(monthEnd(d).slice(8));
-    v.items.forEach((it) => { const x = by.get(it.name) || { name: it.name, monthly: 0, amount: 0 }; x.monthly = it.monthly; x.amount += it.monthly / dim; by.set(it.name, x); total += it.monthly / dim; });
+    ents.forEach(([name, it]) => { const x = by.get(name) || { name, monthly: 0, amount: 0, category: it.category }; x.monthly = it.amount; x.amount += it.amount / dim; by.set(name, x); total += it.amount / dim; });
   }
-  const v0 = fixedVersion(ym(b));
-  return { s: miss === 0 ? "full" : miss === n ? "none" : "partial", total, items: [...by.values()], monthly: v0 ? v0.items.reduce((x, i) => x + i.monthly, 0) : 0 };
+  const last = fixedMonth(c.tasks, ym(b));
+  return { s: miss === 0 ? "full" : miss === n ? "none" : "partial", total, items: [...by.values()], monthly: Object.values(last).reduce((x, i) => x + i.amount, 0) };
 }
 /* 人件費（contract.md §2-5）: 月の人件費 ＝ 給与の合計。月の一部だけの期間は、勤怠の「時給の額」を稼働日で数え、
    バック・調整（給与 − 時給の分）は日割りで足す。給与の記録が無い月は、勤怠の時給の分だけ（一部のみの扱い）。
@@ -894,7 +918,7 @@ function tableOf(heads, rows, total) {
 function renderProfit(p, today) {
   const show = state.profitOK;
   ["psect", "pcover", "pkpis", "pdetail"].forEach((id) => { $(id).hidden = !show; });
-  $("fxbox").hidden = !state.isOwner;
+  $("fxbox").hidden = !state.profitOK;
   if (!show) return;
   if (!state.rows) { [0, 1, 2, 3].forEach((i) => setPKpi(i, "—", [i === 0 ? "Asana につながると表示されます" : "　"])); return; }
   const P = profitOf(p, today), end = P.b;
@@ -915,9 +939,9 @@ function renderProfit(p, today) {
   }
   const parts = [`仕入 ${noRec(P.cov.purchase) ? "—" : yen(P.pur.total)}`, `人件費 ${noRec(P.cov.labor) ? "—" : yen(P.lab.cost)}`, `備品 ${noRec(P.cov.supplies) ? "—" : yen(P.sup.total)}`, `手数料 ${yen(P.fee)}`];
   setPKpi(2, yen(P.variable), [P.complete ? `売上の ${pc(P.varRate)}` : "記録済みの分だけ", `　${parts.join("・")}`]);
-  const fxNone = ["unset", "wait", "none"].includes(P.fx.s);
+  const fxNone = ["unset", "wait", "none", "error"].includes(P.fx.s);
   setPKpi(3, fxNone ? "—" : yen(P.fx.total),
-    [P.fx.s === "unset" ? "右上の設定から入力します" : P.fx.s === "wait" ? "読み込み中" : P.fx.s === "none" ? "この期間は固定費の適用開始月より前です" : `月額の合計 ${yen(P.fx.monthly)} を日割り`]);
+    [P.fx.s === "unset" ? "この環境の固定費のプロジェクトは未設定です" : P.fx.s === "error" ? "読み込めませんでした" : P.fx.s === "wait" ? "読み込み中" : P.fx.s === "none" ? "この期間は固定費の適用開始月より前です" : `月額の合計 ${yen(P.fx.monthly)} を日割り`]);
 
   $("pcap").textContent = `${md(p.start)}〜${md(end)}`;
   $("pstack").textContent = ""; $("pstack").append(stackNode(P));
@@ -935,10 +959,10 @@ function renderProfit(p, today) {
   facts.forEach(([k, v]) => { const f = el("div", "fact"), a = el("span", "k"), b = el("span", "v"); a.textContent = k; b.textContent = v; f.append(a, b); box.append(f); });
 
   const fb = $("fxtable"); fb.textContent = "";
-  if (P.fx.s === "unset" || P.fx.s === "wait") {
-    const e = el("p", "empty"); e.textContent = P.fx.s === "wait" ? "読み込み中です。" : "固定費が未入力です。右上の設定（管理者のみ）から、項目と月額を入力します。"; fb.append(e);
+  if (P.fx.s === "unset" || P.fx.s === "wait" || P.fx.s === "error") {
+    const e = el("p", "empty"); e.textContent = P.fx.s === "wait" ? "読み込み中です。" : P.fx.s === "error" ? "固定費を読み込めませんでした。" : "この環境の固定費（Asana「Bar null 固定費」）はまだ設定されていません。"; fb.append(e);
   } else {
-    if (P.fx.s !== "full") { const e = el("p", "empty"); e.textContent = "この期間の一部は、固定費の適用開始月より前です。"; fb.append(e); }
+    if (P.fx.s !== "full") { const e = el("p", "empty"); e.textContent = "この期間の一部は、固定費の項目が無い月です（未設定の月は数えていません）。"; fb.append(e); }
     if (P.fx.items.length) fb.append(tableOf([["項目"], ["月額", true], ["この期間", true]], P.fx.items.map((i) => [i.name, yen(i.monthly), yen(i.amount)]), ["合計", yen(P.fx.monthly), yen(P.fx.total)]));
   }
 
@@ -956,48 +980,6 @@ function renderProfit(p, today) {
   }
 }
 
-/* ---- 固定費の入力（設定の中。本人だけ） ---- */
-const fx = { draft: { from: "", items: [] }, dirty: false };
-const rid = () => Math.random().toString(36).slice(2, 9);
-function fxInit(force) {
-  if (fx.dirty && !force) return;
-  const m = ym(todayBiz()), v = fixedVersion(m);
-  fx.draft = { from: v ? v.from : m, items: (v ? v.items : []).map((i) => ({ ...i })) }; fx.dirty = false; fxRender();
-}
-function fxRender() {
-  const box = $("fxlist"); box.textContent = ""; $("fxfrom").value = fx.draft.from;
-  if (!fx.draft.items.length) { const e = el("p", "hint"); e.textContent = "項目がありません。「項目を追加」で、家賃・光熱費などを入れます。"; box.append(e); }
-  fx.draft.items.forEach((it) => {
-    const row = el("div", "fx-row"), n = el("input"), a = el("input", "amt"), d = el("button", "fx-del");
-    n.type = "text"; n.id = `fxn-${it.id}`; n.value = it.name || ""; n.maxLength = 40; n.placeholder = "項目名"; n.setAttribute("aria-label", "項目名"); n.dataset.id = it.id; n.dataset.k = "name";
-    a.type = "number"; a.id = `fxa-${it.id}`; a.min = "0"; a.step = "1000"; a.value = it.monthly ?? ""; a.placeholder = "月額"; a.setAttribute("aria-label", "月額（円）"); a.dataset.id = it.id; a.dataset.k = "monthly";
-    d.type = "button"; d.textContent = "×"; d.setAttribute("aria-label", "この項目を削除"); d.dataset.del = it.id;
-    row.append(n, a, d); box.append(row);
-  });
-}
-async function fxSave() {
-  const hint = $("fxhint"), d = fx.draft;
-  if (!state.db || !state.isOwner) return;
-  if (!/^\d{4}-\d{2}$/.test(d.from)) { hint.textContent = "適用開始月を入れてください。"; return; }
-  const items = d.items.map((i) => ({ id: i.id, name: String(i.name || "").trim().slice(0, 40), monthly: Math.round(Number(i.monthly)) }))
-    .filter((i) => i.name && Number.isFinite(i.monthly) && i.monthly >= 0);
-  const versions = (((state.fixed && state.fixed.versions) || []).filter((v) => v.from !== d.from)).concat([{ from: d.from, items }]).sort((x, y) => x.from.localeCompare(y.from));
-  $("fxsave").disabled = true;
-  try { await state.db.doc(FIXED_DOC).set({ versions, updated_at: new Date().toISOString() }); fx.dirty = false; hint.textContent = `保存しました（${d.from.replace("-", "年")}月から）。`; }
-  catch (_) { hint.textContent = "保存できませんでした。時間をおいて、もう一度お試しください。"; }
-  $("fxsave").disabled = false;
-}
-$("fxlist").addEventListener("input", (e) => {
-  const t = e.target, it = fx.draft.items.find((i) => i.id === t.dataset.id); if (!it) return;
-  it[t.dataset.k] = t.dataset.k === "monthly" ? (t.value === "" ? "" : Number(t.value)) : t.value; fx.dirty = true;
-});
-$("fxlist").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-del]"); if (!b) return;
-  fx.draft.items = fx.draft.items.filter((i) => i.id !== b.dataset.del); fx.dirty = true; fxRender();
-});
-$("fxfrom").addEventListener("change", (e) => { fx.draft.from = e.target.value; fx.dirty = true; });
-$("fxadd").addEventListener("click", () => { fx.draft.items.push({ id: rid(), name: "", monthly: "" }); fx.dirty = true; fxRender(); const l = $("fxlist").querySelector(".fx-row:last-child input"); if (l) l.focus(); });
-$("fxsave").addEventListener("click", fxSave);
 
 /* ---- AI に渡す利益・コストの集計（時給・個人別の人件費は含めない） ---- */
 function profitData(p) {
@@ -1615,9 +1597,6 @@ Lens.init();
       state.snaps = m; render();
     }, () => {});
     if (state.profitOK) {
-      db.doc(FIXED_DOC).onSnapshot((snap) => {
-        state.fixed = snap.exists ? snap.data() : null; state.fixedLoaded = true; fxInit(); render();
-      }, () => { state.fixedLoaded = true; render(); });
       db.collection("profit_insights").onSnapshot((snap) => {
         const m = {}; snap.docs.forEach((d) => { m[d.id] = d.data(); });
         state.pinsights = { ...state.pinsights, ...m }; renderAI();

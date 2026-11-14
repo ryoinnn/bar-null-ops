@@ -3,9 +3,9 @@
      約束: id は「cost-」で始める／スタイルは .pg-cost の下（色のトークンだけ :root）／script は type="module"。
      数える範囲は docs/profit/contract.md（人件費 §2-5 ＝ 給与の合計、固定費 ＝ db の fixedcosts/barnull、決済手数料 ＝ 伝票の「決済手数料」）。 -->
 <style>
-:root{ --c-labor:#2a78d6; --c-purchase:#D6124F; --c-supplies:#7c4dcc; --c-fee:#B25000; --c-fixed:rgba(110,110,122,.55); --c-rev:var(--label) }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --c-labor:#3987e5; --c-purchase:#EE4A7C; --c-supplies:#9470e0; --c-fee:#C97800; --c-fixed:rgba(200,200,212,.40) }}
-:root[data-theme="dark"]{ --c-labor:#3987e5; --c-purchase:#EE4A7C; --c-supplies:#9470e0; --c-fee:#C97800; --c-fixed:rgba(200,200,212,.40) }
+:root{ --fx-rent:#3b6fd4; --fx-util:#12968a; --fx-svc:#c27a12; --fx-pay:#b0447a; --c-labor:#2a78d6; --c-purchase:#D6124F; --c-supplies:#7c4dcc; --c-fee:#B25000; --c-fixed:rgba(110,110,122,.55); --c-rev:var(--label) }
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){ --fx-rent:#5585e0; --fx-util:#16998c; --fx-svc:#b87a18; --fx-pay:#c4568c; --c-labor:#3987e5; --c-purchase:#EE4A7C; --c-supplies:#9470e0; --c-fee:#C97800; --c-fixed:rgba(200,200,212,.40) }}
+:root[data-theme="dark"]{ --fx-rent:#5585e0; --fx-util:#16998c; --fx-svc:#b87a18; --fx-pay:#c4568c; --c-labor:#3987e5; --c-purchase:#EE4A7C; --c-supplies:#9470e0; --c-fee:#C97800; --c-fixed:rgba(200,200,212,.40) }
 .pg-cost{display:flex;flex-direction:column;gap:18px;max-width:1240px}
 .pg-cost .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:14px 18px}
 .pg-cost .toolbar h1{margin:0}
@@ -62,6 +62,18 @@
 .pg-cost .spark{display:block;width:100%;height:34px}
 .pg-cost .spark rect{opacity:.45} .pg-cost .spark rect.on{opacity:1}
 .pg-cost .note{margin:0;font-size:12.5px;color:var(--label-2)}
+.pg-cost .hb-row .n small{display:block;font-size:11.5px;color:var(--label-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pg-cost .mark{display:inline-block;margin-left:6px;padding:0 6px;border-radius:5px;font-size:11px;font-weight:650;background:var(--fill-2);color:var(--label-2);vertical-align:1px}
+.pg-cost .catrows{display:flex;flex-direction:column;gap:10px}
+.pg-cost .catrow{display:grid;grid-template-columns:minmax(90px,8.5em) minmax(0,1fr) auto;gap:10px;align-items:center;font-size:14px}
+.pg-cost .catrow .t{height:12px;border-radius:0 4px 4px 0;min-width:2px}
+.pg-cost .catrow .v{font-weight:650;text-align:right;white-space:nowrap}
+.pg-cost .catrow .v small{font-weight:500;color:var(--label-2);margin-left:6px}
+.pg-cost .exdiv{margin-top:12px;padding-top:10px;border-top:1px solid var(--separator);display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.pg-cost .changes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.pg-cost .changes li{display:grid;grid-template-columns:4.5em minmax(0,1fr) auto;gap:10px;align-items:baseline;font-size:14px}
+.pg-cost .changes .when{color:var(--label-2);font-size:13px}
+.pg-cost .changes .amt{font-weight:650;white-space:nowrap}
 @media (max-width: 560px){ .pg-cost .toolbar{padding:12px} .pg-cost .mstep b{min-width:6.5em} }
 </style>
 
@@ -89,12 +101,16 @@
   <section class="view" id="cost-v-fixed" aria-label="固定費" hidden>
     <section class="kpis" id="cost-k-fixed"></section>
     <div class="grid2">
+      <section class="card lg lg--text"><h2>区分別</h2><p class="cap" id="cost-fx-catcap">この月の月額（税込）</p><div id="cost-fx-cats"></div></section>
       <section class="card lg lg--text"><h2>項目別</h2><p class="cap" id="cost-fx-cap">月額（税込）</p><div id="cost-fx-items"></div></section>
-      <section class="card lg lg--text chart"><h2>固定費の推移</h2><p class="cap">直近6か月・月額</p><div id="cost-c-fixed"></div></section>
     </div>
-    <section class="card lg lg--text box"><div class="box-head"><h2>項目と金額の編集</h2></div>
-      <p class="note">固定費の項目と月額は、売上管理の右上の設定（持ち主だけ）で、適用開始月ごとに入力します。</p>
-      <a class="btn tinted go" href="#sales">売上管理を開く</a></section>
+    <section class="card lg lg--text chart"><h2>固定費の推移</h2><p class="cap">直近6か月・区分ごと。月の下は売上合計に対する割合</p><div id="cost-c-fixed"></div></section>
+    <div class="grid2">
+      <section class="card lg lg--text"><h2>今後3か月の変わり目</h2><p class="cap">金額が変わる・始まる・終わる項目</p><div id="cost-fx-next"></div></section>
+      <section class="card lg lg--text box"><div class="box-head"><h2>項目と金額の編集</h2></div>
+        <p class="note">固定費は Asana「Bar null 固定費」で管理しています（管理者だけ）。値上げは新しい適用開始月のタスクを足し、請求額が月で変わるもの（光熱費など）は「実績」で入れます。</p>
+        <a class="btn tinted go" id="cost-fx-asana" href="#" target="_blank" rel="noopener">Asana で開く</a></section>
+    </div>
   </section>
 
   <!-- 変動費 -->
@@ -104,7 +120,7 @@
     <section class="card lg lg--text chart"><h2>変動費の推移</h2><p class="cap">直近6か月・月ごと</p><div id="cost-c-var"></div></section>
   </section>
 
-  <p class="foot" id="cost-foot">定義：固定費＝月額（売上管理の設定で入力。月の途中でも月額のまま表示）／変動費＝人件費（給与の合計。今月は見込み）＋仕入（NIGITA）＋備品・消耗品（カード BAR NULL。明細は1〜2日遅れ）＋決済手数料（Square）／売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値のある月だけ）／金額は税込</p>
+  <p class="foot" id="cost-foot">定義：固定費＝Asana「Bar null 固定費」の月額（年払い等は按分。月の途中でも月額のまま表示。返済・配当を含む）／変動費＝人件費（給与の合計。今月は見込み）＋仕入（NIGITA）＋備品・消耗品（カード BAR NULL。明細は1〜2日遅れ）＋決済手数料（Square）／売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値のある月だけ）／金額は税込</p>
 </div>
 
 <script type="module">
@@ -113,7 +129,7 @@ const SLIPS = { prod: "1219600211224482", test: "1219599891506891" };
 const PAYROLL = { prod: "", test: "1220538739321087" };   // 給与（contract.md §2-3）。本番は本番化のときに足す
 const PURCHASE = { prod: [], test: ["1220538960472686"] }; // 仕入（C。contract.md §3）。本番は本番化のときに足す
 const SUPPLIES = { prod: ["1220539775332256"], test: ["1220539120594121"] };   // 備品・消耗品（D。contract.md §3b）
-const FIXED_DOC = "fixedcosts/barnull";
+const FIXED_PROJECT = { prod: "1220539995299165", test: "1220539920443902" };   // 固定費（E。contract.md §3c）
 const OPT = "name,permalink_url,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
 
 const $ = (id) => document.getElementById(id);
@@ -139,9 +155,13 @@ const CATS = [   // 変動費の内訳（色は検証済みの順番。固定費
   { key: "fee", name: "決済手数料", color: "var(--c-fee)", route: null },
 ];
 const FIXED = { key: "fixed", name: "固定費", color: "var(--c-fixed)" };
+const FX_CATS = [{ name: "家賃・共益費", color: "var(--fx-rent)" }, { name: "光熱・設備", color: "var(--fx-util)" }, { name: "契約・サービス", color: "var(--fx-svc)" },
+                 { name: "返済・配当", color: "var(--fx-pay)" }, { name: "その他", color: "var(--c-fixed)" }];
+const fxColor = (c) => (FX_CATS.find((x) => x.name === c) || FX_CATS[4]).color;
+const fxCatSum = (f, c) => f.items.filter((i) => (FX_CATS.some((x) => x.name === i.category) ? i.category : "その他") === c).reduce((x, i) => x + i.monthly, 0);
 
 const st = { env: SLIPS[store.get("barnull-env")] ? store.get("barnull-env") : "prod", month: todayBiz().slice(0, 7), view: "cost",
-             slips: null, rentals: null, payroll: null, payrollState: "wait", purchase: null, purchaseState: "wait", supplies: null, suppliesState: "wait", fixed: null, fixedLoaded: false, error: null, mcp: undefined, db: null };
+             slips: null, rentals: null, payroll: null, payrollState: "wait", purchase: null, purchaseState: "wait", fixedTasks: null, fixedState: "wait", supplies: null, suppliesState: "wait", error: null, mcp: undefined };
 $("cost-env").value = st.env;
 
 /* ---------- 読み込み ---------- */
@@ -158,7 +178,7 @@ async function readAll(id) {
   return out;
 }
 async function load() {
-  st.slips = null; st.rentals = null; st.payroll = null; st.payrollState = "wait"; st.purchase = null; st.purchaseState = "wait"; st.supplies = null; st.suppliesState = "wait"; st.error = null; render();
+  st.slips = null; st.rentals = null; st.payroll = null; st.payrollState = "wait"; st.purchase = null; st.purchaseState = "wait"; st.fixedTasks = null; st.fixedState = "wait"; st.supplies = null; st.suppliesState = "wait"; st.error = null; render();
   if (!st.mcp) { render(); return; }
   try {
     const tasks = await readAll(SLIPS[st.env]);
@@ -173,6 +193,11 @@ async function load() {
     });
     st.slips = slips; st.rentals = rentals;
   } catch (e) { st.error = e; }
+  render();
+  try {   // 固定費（§3c）
+    if (!FIXED_PROJECT[st.env]) st.fixedState = "unset";
+    else { st.fixedTasks = (await readAll(FIXED_PROJECT[st.env])).map(parseFixed); st.fixedState = "ok"; }
+  } catch (_) { st.fixedState = "error"; }
   render();
   try {
     if (!PAYROLL[st.env]) { st.payrollState = "unset"; }
@@ -217,13 +242,34 @@ async function load() {
 }
 
 /* ---------- 月ごとの集計 ---------- */
+/* 固定費（contract.md §3c。sales/src/barnull_sales/fixed.py の month_amounts と同じ結果にする。sales.html にも同じ計算がある） */
+const monthsBetween = (a, b) => (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7));
+function parseFixed(t) {
+  const f = fieldsOf(t), amt = f["金額（税込）"]?.number_value;
+  return { name: (t.name || "").trim(), url: t.permalink_url || "", category: txt(f["固定費区分"]) || "その他", amount: amt ?? null, months: f["按分月数"]?.number_value ?? null,
+           start: txt(f["適用開始月"]), end: txt(f["適用終了月"]) || null, kind: txt(f["固定費種別"]) || "通常", status: txt(f["固定費ステータス"]) || "有効", store: txt(f["店舗"]) };
+}
+const fixedActive = (t, m) => t.status !== "対象外" && !t.store && /^\d{4}-\d{2}$/.test(t.start) && t.start <= m && (!t.end || m <= t.end) && t.amount != null;
+function fixedItemMonth(t, m) {
+  const n = Math.max(Math.trunc(Number(t.months) || 1), 1), total = Math.trunc(t.amount), base = Math.floor(total / n), k = monthsBetween(t.start, m) % n;
+  return base + (k === n - 1 ? total - base * n : 0);
+}
+function fixedMonth(tasks, m) {
+  const picked = {};
+  tasks.forEach((t) => {
+    if (!fixedActive(t, m)) return;
+    const cur = picked[t.name];
+    if (!cur) picked[t.name] = t;
+    else if (cur.kind !== "実績" && t.kind === "実績") picked[t.name] = t;
+    else if (cur.kind === t.kind && t.start > cur.start) picked[t.name] = t;
+  });
+  return Object.values(picked).map((t) => ({ name: t.name, monthly: fixedItemMonth(t, m), category: t.category, kind: t.kind, task: t }));
+}
 function fixedOf(m) {
-  if (!st.fixedLoaded) return { s: "wait", total: null, items: [] };
-  const vs = (st.fixed && st.fixed.versions) || [];
-  if (!vs.length) return { s: "unset", total: null, items: [] };
-  let best = null; vs.forEach((v) => { if (v.from <= m && (!best || v.from > best.from)) best = v; });
-  if (!best || !best.items.length) return { s: "none", total: null, items: [] };
-  return { s: "ok", total: best.items.reduce((x, i) => x + (i.monthly || 0), 0), items: best.items, from: best.from };
+  if (st.fixedState !== "ok") return { s: st.fixedState, total: null, items: [] };
+  const items = fixedMonth(st.fixedTasks, m);
+  if (!items.length) return { s: "none", total: null, items: [] };
+  return { s: "ok", total: items.reduce((x, i) => x + i.monthly, 0), items };
 }
 function monthOf(m) {
   const sl = st.slips ? (st.slips[m] || { sales: 0, fee: 0, n: 0 }) : null, rent = st.rentals ? st.rentals[m] : undefined;
@@ -262,8 +308,8 @@ function legend(items, rev) {
   return l;
 }
 /* 月ごとの積み上げ棒（同じ円の軸に売上合計の目盛りを重ねる。軸は1本） */
-function stackChart(months, series, showRev) {
-  const W = 680, H = 230, L = 46, R = 8, T = 16, B = 26, iw = W - L - R, ih = H - T - B;
+function stackChart(months, series, showRev, extra) {   // extra: {label, get(M) → 文字}（月の下と表に出す）
+  const W = 680, H = extra ? 244 : 230, L = 46, R = 8, T = 16, B = extra ? 40 : 26, iw = W - L - R, ih = H - T - B;
   const tot = months.map((M) => series.reduce((x, s) => x + (s.get(M) || 0), 0));
   const max = Math.max(1, ...tot, ...(showRev ? months.map((M) => M.revenue || 0) : [0]));
   const nice = (() => { const p = Math.pow(10, Math.floor(Math.log10(max))); const n = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((k) => k * p >= max) * p; return n; })();
@@ -282,15 +328,15 @@ function stackChart(months, series, showRev) {
     let rv = "";
     if (showRev && M.revenue) { const ry = y(M.revenue); rv = `<line class="rv" x1="${x - 6}" x2="${x + bw + 6}" y1="${ry}" y2="${ry}"><title>${esc(mLabel(M.m))} 売上合計 ${yen(M.revenue)}</title></line>`; }
     const lab = on && tot[i] ? `<text class="lab" x="${x + bw / 2}" y="${y(tot[i]) - 6}" text-anchor="middle">${man(tot[i])}</text>` : "";
-    g += `<g class="col${on ? " on" : ""}">${segs}${rv}${lab}<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle"${on ? ' class="lab"' : ""}>${mShort(M.m)}</text></g>`;
+    g += `<g class="col${on ? " on" : ""}">${segs}${rv}${lab}<text x="${x + bw / 2}" y="${H - (extra ? 22 : 8)}" text-anchor="middle"${on ? ' class="lab"' : ""}>${mShort(M.m)}</text>${extra ? `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${esc(extra.get(M))}</text>` : ""}</g>`;
   });
   const wrap = el("div");
   wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="月ごとの推移">${g}</svg>`;
   wrap.append(legend(series, showRev));
   // 表で見る
   const d = el("details", "tbl"), s = el("summary", "", "表で見る"), tw = el("div", "tablewrap"), t = el("table", "rtable");
-  t.innerHTML = `<thead><tr><th>月</th>${series.map((x) => `<th class="n">${esc(x.name)}</th>`).join("")}<th class="n">合計</th>${showRev ? '<th class="n">売上合計</th>' : ""}</tr></thead><tbody>` +
-    months.map((M, i) => `<tr><td>${esc(mLabel(M.m))}</td>${series.map((x) => `<td class="n num">${x.get(M) == null ? "—" : yen(x.get(M))}</td>`).join("")}<td class="n num">${yen(tot[i])}</td>${showRev ? `<td class="n num">${yen(M.revenue)}</td>` : ""}</tr>`).join("") + "</tbody>";
+  t.innerHTML = `<thead><tr><th>月</th>${series.map((x) => `<th class="n">${esc(x.name)}</th>`).join("")}<th class="n">合計</th>${showRev ? '<th class="n">売上合計</th>' : ""}${extra ? `<th class="n">${esc(extra.label)}</th>` : ""}</tr></thead><tbody>` +
+    months.map((M, i) => `<tr><td>${esc(mLabel(M.m))}</td>${series.map((x) => `<td class="n num">${x.get(M) == null ? "—" : yen(x.get(M))}</td>`).join("")}<td class="n num">${yen(tot[i])}</td>${showRev ? `<td class="n num">${yen(M.revenue)}</td>` : ""}${extra ? `<td class="n num">${esc(extra.get(M))}</td>` : ""}</tr>`).join("") + "</tbody>";
   tw.append(t); d.append(s, tw); wrap.append(d);
   return wrap;
 }
@@ -335,8 +381,8 @@ function renderAll(M, months) {
   // 遷移の箱（固定費・変動費）
   const bx = $("cost-boxes"); bx.textContent = "";
   const fb = el("section", "card lg lg--text box"), fh = el("div", "box-head"), fh2 = el("h2"), fd = el("i", "dot"); fd.style.background = FIXED.color; fh2.append(fd, "固定費"); fh.append(fh2);
-  fb.append(fh, el("div", "big num", M.fixed == null ? "—" : yen(M.fixed)), el("div", "sub", M.fixed == null ? STATE_TEXT[M.c.fixed.s] : `月額・${M.c.fixed.f.items.length}項目・コストの ${pc(M.fixed / (M.known || 1))}`));
-  if (M.c.fixed.f.items.length) fb.append(band(M.c.fixed.f.items.map((i, n) => ({ name: i.name, v: i.monthly, color: `color-mix(in srgb, var(--c-fixed) ${100 - n * 12}%, transparent)` })), M.fixed));
+  fb.append(fh, el("div", "big num", M.fixed == null ? "—" : yen(M.fixed)), el("div", "sub", M.fixed == null ? STATE_TEXT[M.c.fixed.s] : `月額・${M.c.fixed.f.items.length}項目・コストの ${pc(M.fixed / (M.known || 1))}・返済・配当を除くと ${yen(M.fixed - fxCatSum(M.c.fixed.f, "返済・配当"))}`));
+  if (M.c.fixed.f.items.length) { fb.append(band(FX_CATS.map((c) => ({ name: c.name, v: fxCatSum(M.c.fixed.f, c.name), color: c.color })), M.fixed)); fb.append(legend(FX_CATS.filter((c) => fxCatSum(M.c.fixed.f, c.name)))); }
   const fa = el("a", "btn filled go", "固定費を見る"); fa.href = "#cost-fixed"; fb.append(fa);
   const vb = el("section", "card lg lg--text box"), vh = el("div", "box-head"), vh2 = el("h2"); vh2.append("変動費"); vh.append(vh2);
   const parts = CATS.map((c) => ({ ...c, v: M.c[c.key].v || 0 }));
@@ -346,25 +392,68 @@ function renderAll(M, months) {
 }
 
 function renderFixed(M, months) {
-  const f = M.c.fixed.f, k = $("cost-k-fixed"); k.textContent = "";
+  const f = M.c.fixed.f, P = months[months.length - 2], k = $("cost-k-fixed"); k.textContent = "";
+  const varOK = CATS.every((c) => ["ok", "est"].includes(M.c[c.key].s)), varRate = varOK && M.revenue ? M.varKnown / M.revenue : null;
+  const be = M.fixed != null && varRate != null && varRate < 1 ? M.fixed / (1 - varRate) : null;
+  const dlt = M.fixed != null && P.fixed != null ? M.fixed - P.fixed : null;
   k.append(
-    kpi("固定費（月額）", M.fixed == null ? "—" : yen(M.fixed), M.fixed == null ? STATE_TEXT[f.s] : `適用開始 ${mLabel(f.from)}`, M.fixed == null),
+    kpi("固定費（月額）", M.fixed == null ? "—" : yen(M.fixed), M.fixed == null ? STATE_TEXT[f.s] : `1日あたり ${yen(M.fixed / daysIn(M.m))}`, M.fixed == null),
     kpi("売上に対する割合", M.fixed != null && M.revenue ? pc(M.fixed / M.revenue) : "—", M.revenue ? `売上合計 ${yen(M.revenue)}` : "売上合計がまだありません", !(M.fixed != null && M.revenue)),
-    kpi("1日あたり", M.fixed == null ? "—" : yen(M.fixed / daysIn(M.m)), `${daysIn(M.m)}日で割った額`, M.fixed == null),
-    kpi("項目数", f.items.length ? `${f.items.length}項目` : "—", f.items.length ? `最大は ${[...f.items].sort((a, b) => b.monthly - a.monthly)[0].name}` : "", !f.items.length));
+    kpi("前月との差", dlt == null ? "—" : (dlt > 0 ? "+" : dlt < 0 ? "−" : "±") + yen(Math.abs(dlt)).replace("¥", "¥"), P.fixed != null ? `前月 ${yen(P.fixed)}` : "前月は未設定", dlt == null),
+    kpi("損益分岐売上", be == null ? "—" : yen(be), be == null ? (M.fixed == null ? "固定費が未設定" : "変動費がすべて記録済みになると出します") : `売上合計は損益分岐の ${pc(M.revenue / be)}（${M.revenue >= be ? "+" : "−"}${yen(Math.abs(M.revenue - be))}）`, be == null));
+  // 区分別
+  const cb = $("cost-fx-cats"); cb.textContent = "";
+  if (!f.items.length) cb.append(el("p", "empty", f.s === "wait" ? "読み込み中です。" : f.s === "unset" ? "この環境の固定費（Asana「Bar null 固定費」）はまだ設定されていません。" : f.s === "error" ? "固定費を読み込めませんでした。" : "この月の固定費の項目はありません（未設定）。"));
+  else {
+    const rows = el("div", "catrows"), sums = FX_CATS.map((c) => ({ ...c, v: fxCatSum(f, c.name) })).filter((c) => c.v), mx = Math.max(...sums.map((c) => c.v));
+    sums.forEach((c) => { const r = el("div", "catrow"), t = el("div"), bar = el("div", "t"); bar.style.width = `${Math.max(1, c.v / mx * 100)}%`; bar.style.background = c.color; t.append(bar);
+      const v = el("div", "v num"); v.append(yen(c.v), el("small", "", pc(c.v / M.fixed))); r.append(el("div", "", c.name), t, v); rows.append(r); });
+    const pay = fxCatSum(f, "返済・配当"), ex = el("div", "exdiv"); ex.append(el("span", "", "返済・配当を除いた固定費（会計上の費用の参考）"), el("b", "num", yen(M.fixed - pay)));
+    cb.append(rows, ex);
+  }
+  // 項目別
   const box = $("cost-fx-items"); box.textContent = "";
-  if (!f.items.length) { box.append(el("p", "empty", f.s === "wait" ? "読み込み中です。" : "固定費がまだ入力されていません。売上管理の右上の設定から入力します。")); }
+  if (!f.items.length) box.append(el("p", "empty", "—"));
   else {
     const hb = el("div", "hb"), mx = Math.max(...f.items.map((i) => i.monthly));
     [...f.items].sort((a, b) => b.monthly - a.monthly).forEach((i) => {
-      const r = el("div", "hb-row"), t = el("div"), bar = el("div", "t"); bar.style.width = `${Math.max(1, i.monthly / mx * 100)}%`; t.append(bar);
+      const t = i.task, n = Math.max(Math.trunc(Number(t.months) || 1), 1);
+      const r = el("div", "hb-row"), nm = el("div", "n"), b = el("b", "", i.name); nm.append(b);
+      if (i.kind === "実績") b.append(el("span", "mark", "実績"));
+      if (n > 1) b.append(el("span", "mark", `${n}か月で按分`));
+      nm.append(el("small", "", `${i.category}・${mLabel(t.start)}〜${t.end ? mLabel(t.end) : ""}${n > 1 ? `・1回 ${yen(t.amount)}` : ""}`));
+      const tw = el("div"), bar = el("div", "t"); bar.style.width = `${Math.max(1, i.monthly / mx * 100)}%`; bar.style.background = fxColor(i.category); tw.append(bar);
       const v = el("div", "v num"); v.append(yen(i.monthly), el("small", "", pc(i.monthly / M.fixed)));
-      r.append(el("div", "n", i.name), t, v); r.title = `${i.name} 月額 ${yen(i.monthly)}`; hb.append(r);
+      r.append(nm, tw, v); r.title = `${i.name} ${yen(i.monthly)}`; hb.append(r);
     });
     box.append(hb);
   }
-  $("cost-fx-cap").textContent = f.from ? `月額（税込）・${mLabel(f.from)}から` : "月額（税込）";
-  const ch = $("cost-c-fixed"); ch.textContent = ""; ch.append(stackChart(months, [{ ...FIXED, get: (X) => X.c.fixed.v }], false));
+  $("cost-fx-cap").textContent = `月額（税込）・${mLabel(M.m)}`;
+  // 推移（区分の積み上げ。月の下は売上合計に対する割合）
+  const ch = $("cost-c-fixed"); ch.textContent = "";
+  ch.append(stackChart(months, FX_CATS.filter((c) => months.some((X) => X.c.fixed.v != null && fxCatSum(X.c.fixed.f, c.name))).map((c) => ({ ...c, get: (X) => X.c.fixed.v == null ? null : fxCatSum(X.c.fixed.f, c.name) || null })), false,
+    { label: "売上に対する割合", get: (X) => X.fixed != null && X.revenue ? pc(X.fixed / X.revenue) : "—" }));
+  // 今後3か月の変わり目
+  const nx = $("cost-fx-next"); nx.textContent = "";
+  if (st.fixedState !== "ok") nx.append(el("p", "empty", STATE_TEXT[st.fixedState] || ""));
+  else {
+    const list = el("ul", "changes"), at = (m) => Object.fromEntries(fixedMonth(st.fixedTasks, m).map((i) => [i.name, i])); let before = at(M.m);
+    for (let j = 1; j <= 3; j++) {
+      const m = addM(M.m, j), now = at(m);
+      new Set([...Object.keys(before), ...Object.keys(now)]).forEach((n) => {
+        const a = before[n] && before[n].monthly, b = now[n] && now[n].monthly;
+        if (a === b) return;
+        if (before[n] && now[n] && before[n].task === now[n].task) return;   // 同じタスクの按分の端数は変わり目ではない
+        const li = el("li"); li.append(el("span", "when", mShort(m)));
+        li.append(el("span", "", a == null ? `${n}（始まる）` : b == null ? `${n}（終わる）` : n));
+        li.append(el("span", "amt num", a == null ? yen(b) : b == null ? `−${yen(a)}` : `${yen(a)} → ${yen(b)}`));
+        list.append(li);
+      });
+      before = now;
+    }
+    nx.append(list.children.length ? list : el("p", "empty", "今後3か月で金額が変わる項目はありません（年払いの按分も月額は同じです）。"));
+  }
+  const a = $("cost-fx-asana"); a.href = FIXED_PROJECT[st.env] ? `https://app.asana.com/0/${FIXED_PROJECT[st.env]}/list` : "#"; a.setAttribute("aria-disabled", String(!FIXED_PROJECT[st.env]));
 }
 
 function renderVar(M, months) {
@@ -397,10 +486,7 @@ setView(document.documentElement.dataset.route);
 
 (async function start() {
   render();
-  const [mcp, db] = await Promise.all([use("mcp"), use("db")]);
-  st.mcp = mcp; st.db = db;
-  if (db) db.doc(FIXED_DOC).onSnapshot((s) => { st.fixed = s.exists ? s.data() : null; st.fixedLoaded = true; render(); }, () => { st.fixedLoaded = true; render(); });
-  else st.fixedLoaded = true;
+  st.mcp = await use("mcp");
   load();
 })();
 </script>
