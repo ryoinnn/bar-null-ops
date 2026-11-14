@@ -205,6 +205,7 @@ function parseTask(t) {
            unpaidStatus: f["未収ステータス"]?.enum_value?.name || "なし",
            fee: f["決済手数料"]?.number_value || 0, square: f["Square決済額"]?.number_value || 0,
            customer: (f["顧客名"]?.text_value || "").trim(), staff: (f["担当（LINE）"]?.text_value || "").trim(),
+           promoter: (f["プロモーター"]?.text_value || "").trim(),   // contract.md §2-2。空 ＝ プロモーター経由ではない
            slipId: f["伝票ID"]?.text_value || "", url: t.permalink_url || "" };
 }
 function payloadOf(res) {
@@ -597,8 +598,14 @@ function renderFacts(p, today, cur, prev) {
   const bestDay = Object.entries(daysMap).sort((a, b) => b[1] - a[1])[0];
   const sq = cur.rows.reduce((x, r) => x + r.square, 0), fee = cur.rows.reduce((x, r) => x + r.fee, 0);
   const rep = repeatStats(cur.rows, p.start);
+  // プロモーター経由（伝票の「プロモーター」に名前がある伝票）。売上の合計は変えず、内訳として出す
+  const promo = {}; cur.rows.forEach((r) => { if (r.promoter) { const x = promo[r.promoter] = promo[r.promoter] || { n: 0, s: 0 }; x.n++; x.s += r.amount; } });
+  const pList = Object.entries(promo).sort((a, b) => b[1].s - a[1].s);
+  const pN = pList.reduce((x, [, v]) => x + v.n, 0), pS = pList.reduce((x, [, v]) => x + v.s, 0);
   const facts = [
     ["売上", yen(cur.sales)], ["予約数", `${cur.count}組`], ["客単価", yen(cur.unit)],
+    ...(pN ? [["プロモーター経由", `${pN}組・${yen(pS)}（売上の ${cur.sales ? Math.round(pS / cur.sales * 100) : 0}%）`],
+              ["プロモーター別", pList.map(([k, v]) => `${k} ${v.n}組・${yen(v.s)}`).join("、")]] : []),
     ["伝票のあった日", `${cur.openDays}日 / ${cur.days}日`],
     ["いちばん売上の高い日", bestDay ? `${md(bestDay[0])}（${WD[wdi(bestDay[0])]}）${yen(bestDay[1])}` : "—"],
     ["リピートのお客様", cur.count ? `${rep.repeatSlips}組（${Math.round(rep.repeatSlips / cur.count * 100)}%）` : "—"],
