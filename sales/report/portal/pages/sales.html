@@ -60,7 +60,7 @@
       </section>
 
 
-      <h2 class="sect" id="psect" hidden>利益<small>売上 − 変動費（仕入・人件費・決済手数料）− 固定費</small></h2>
+      <h2 class="sect" id="psect" hidden>利益<small>売上 − 変動費（仕入・人件費・備品消耗品・決済手数料）− 固定費</small></h2>
       <div class="cov" id="pcover" hidden></div>
       <section class="kpis" id="pkpis" aria-label="利益の主要な数字" hidden>
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">利益（発生ベース）</span><span class="v num">—</span><span class="d">　</span></div>
@@ -80,7 +80,7 @@
         <section class="card lg lg--text"><h2>利益の内訳</h2><p class="cap" id="pcap">この期間</p><div id="pstack"></div><div class="facts num" id="pfacts"></div></section>
         <section class="card lg lg--text"><h2>固定費（日割り）</h2><p class="cap" id="fxcap">月額を日割りにした、この期間の分</p><div class="tablewrap" id="fxtable"></div></section>
         <section class="card lg lg--text"><h2>担当者別の勤務時間と人件費</h2><p class="cap" id="lbcap">勤怠に記録された分</p><div class="tablewrap" id="lbtable"></div></section>
-        <p class="foot" id="pfoot">定義：利益＝売上合計（通常営業の伝票金額＋レンタルの店舗収益）−変動費（仕入＋人件費＋Square の決済手数料）−固定費（月額を日割り）／発生ベースは未収を含み、入金ベースは未収の残高を除く／原価率＝仕入÷通常営業の売上、人件費率＝人件費÷売上合計／損益分岐売上＝固定費÷（1−変動費率）／金額は税込、棚卸（在庫の増減）は反映しない／仕入・人件費は営業日で計上</p>
+        <p class="foot" id="pfoot">定義：利益＝売上合計（通常営業の伝票金額＋レンタルの店舗収益）−変動費（仕入＋人件費＋備品・消耗品＋Square の決済手数料）−固定費（月額を日割り）／発生ベースは未収を含み、入金ベースは未収の残高を除く／原価率＝仕入÷通常営業の売上、人件費率＝人件費÷売上合計／損益分岐売上＝固定費÷（1−変動費率）／金額は税込、棚卸（在庫の増減）は反映しない／仕入・人件費・備品消耗品は営業日で計上（備品・消耗品のカード明細は1〜2日遅れて入る）</p>
       </div>
       <section class="card lg lg--text"><h2>内訳</h2><p class="cap" id="factscap">この期間</p><div class="facts num" id="facts"></div></section>
       <section class="card lg lg--text" id="slipcard"><h2>伝票</h2><p class="cap">伝票 ID から Asana のタスクを開けます</p><div class="tablewrap" id="slips"></div></section>
@@ -698,10 +698,11 @@ function noticeBox(title, body) { const d = el("div", "notice"), s = el("strong"
 const COST_PROJECTS = {
   // 人件費（B。contract.md §2）: 勤怠と給与の2つを読む。ID は sales/asana_ids.json の labor.{test|prod}。本番は本番化のときに足す
   labor:    { prod: { attendance: "", payroll: "" }, test: { attendance: "1220538844505828", payroll: "1220538739321087" } },
-  purchase: { prod: [], test: ["1220538960472686"] },   // 「Bar null 仕入」（C。contract.md §3）。本番は本番化のときに足す
+  purchase: { prod: [], test: ["1220538960472686"] },
+  supplies: { prod: ["1220539775332256"], test: ["1220539120594121"] },   // 「Bar null 備品消耗品」（D。contract.md §3b）   // 「Bar null 仕入」（C。contract.md §3）。本番は本番化のときに足す
 };
 const FIXED_DOC = "fixedcosts/barnull";
-const COLORS = { purchase: "var(--accent)", labor: "var(--series-rent)", fee: "var(--warn)", fixed: "color-mix(in srgb, var(--label-2) 75%, transparent)", profit: "var(--green)" };
+const COLORS = { purchase: "var(--accent)", labor: "var(--series-rent)", fee: "var(--warn)", supplies: "#8a63d2", fixed: "color-mix(in srgb, var(--label-2) 75%, transparent)", profit: "var(--green)" };
 Object.assign(state, { cost: null, fixed: null, fixedLoaded: false, profitOK: false, isOwner: false, pinsights: {} });
 
 const txt = (c) => (c?.text_value ?? c?.enum_value?.name ?? "").trim();
@@ -722,7 +723,7 @@ function parsePurchase(t) {   // 仕入の伝票（contract.md §3）: 仕入記
   if (!txt(f["仕入記録ID"]).startsWith("P-") || !date || status === "対象外" || txt(f["店舗"])) return null;
   return { date, status: "数える", kind: "合計（税込）", amount: f["仕入金額（税込）"]?.number_value ?? null };
 }
-const COUNTED = { purchase: "数える" };   // 仕入は「取り込み済み」「要確認」のどちらも数える（§3）
+const COUNTED = { purchase: "数える", supplies: "数える" };   // 仕入は「取り込み済み」「要確認」のどちらも数える（§3）
 async function readProject(mcp, id, parse) {
   const all = []; let offset = null;
   for (let i = 0; i < 40; i++) {
@@ -750,9 +751,10 @@ async function loadLabor(mcp) {               // 人件費: 勤怠と給与
   return { unset: false, att, pay };
 }
 async function loadCosts(mcp) {
-  const out = { labor: null, purchase: null };
+  const out = { labor: null, purchase: null, supplies: null };
   try { out.labor = await loadLabor(mcp); } catch (_) { out.labor = { error: true, att: [], pay: [] }; }
   try { out.purchase = await loadCost(mcp, "purchase", parsePurchase); } catch (_) { out.purchase = { error: true, rows: [], pend: [], first: null }; }
+  try { out.supplies = await loadCost(mcp, "supplies", parseSupplies); } catch (_) { out.supplies = { error: true, rows: [], pend: [], first: null }; }
   state.cost = out; render();
 }
 
@@ -824,6 +826,16 @@ function laborIn(a, b) {
   const hours = att.reduce((x, r) => x + r.hours, 0);
   return { rows: att, by, workers: Object.values(by).filter((v) => v.cost > 0 || v.hours > 0).length, hours, cost, noCost: 0 };
 }
+function parseSupplies(t) {   // 備品・消耗品（contract.md §3b）: 営業日がある、備品ステータスが対象外でない、店舗が空。金額は税込（返金はマイナス）
+  const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10);
+  if (!date || txt(f["備品ステータス"]) === "対象外" || txt(f["店舗"])) return null;
+  return { date, status: "数える", kind: txt(f["備品区分"]) || "備品・消耗品", amount: f["金額（税込）"]?.number_value ?? null };
+}
+function suppliesIn(a, b) {
+  const c = state.cost && state.cost.supplies, rows = ((c && c.rows) || []).filter((r) => r.date >= a && r.date <= b), kinds = {};
+  rows.forEach((r) => { kinds[r.kind] = (kinds[r.kind] || 0) + (r.amount || 0); });
+  return { rows, kinds, total: rows.reduce((x, r) => x + (r.amount || 0), 0), noAmount: rows.filter((r) => r.amount == null).length };
+}
 function purchaseIn(a, b) {
   const c = state.cost && state.cost.purchase, rows = ((c && c.rows) || []).filter((r) => r.date >= a && r.date <= b), kinds = {};
   rows.forEach((r) => { kinds[r.kind] = (kinds[r.kind] || 0) + (r.amount || 0); });
@@ -833,15 +845,16 @@ function profitOf(p, today) {
   const a = p.start, b = min(p.end, today), bar = sum(a, b), rent = rentalIn(a, b);
   const fee = bar.rows.reduce((x, r) => x + r.fee, 0);
   const openUnpaid = bar.rows.filter((r) => r.unpaid > 0 && r.unpaidStatus !== "回収入金確認済み").reduce((x, r) => x + r.unpaid, 0);
-  const lab = laborIn(a, b), pur = purchaseIn(a, b), fx = fixedStats(a, b);
-  const cov = { purchase: coverage("purchase", a, b), labor: coverage("labor", a, b), fixed: { s: fx.s }, rental: { s: state.rental ? "full" : state.rentalError ? "error" : "wait" } };
+  const lab = laborIn(a, b), pur = purchaseIn(a, b), sup = suppliesIn(a, b), fx = fixedStats(a, b);
+  const cov = { purchase: coverage("purchase", a, b), supplies: coverage("supplies", a, b), labor: coverage("labor", a, b), fixed: { s: fx.s }, rental: { s: state.rental ? "full" : state.rentalError ? "error" : "wait" } };
   if (cov.labor.s === "full" && lab.noCost) cov.labor = { s: "partial", why: `額の無い記録 ${lab.noCost}件` };
   if (cov.purchase.s === "full" && pur.noAmount) cov.purchase = { s: "partial", why: `金額の無い記録 ${pur.noAmount}件` };
-  const revenue = bar.sales + rent.net, variable = pur.total + lab.cost + fee;
-  const missing = Object.entries({ purchase: "仕入", labor: "人件費", fixed: "固定費", rental: "レンタル収益" }).filter(([k]) => cov[k].s !== "full").map(([, v]) => v);
+  if (cov.supplies.s === "full" && sup.noAmount) cov.supplies = { s: "partial", why: `金額の無い記録 ${sup.noAmount}件` };
+  const revenue = bar.sales + rent.net, variable = pur.total + lab.cost + sup.total + fee;
+  const missing = Object.entries({ purchase: "仕入", labor: "人件費", supplies: "備品・消耗品", fixed: "固定費", rental: "レンタル収益" }).filter(([k]) => cov[k].s !== "full").map(([, v]) => v);
   const complete = !missing.length, profit = revenue - variable - fx.total;
   const varRate = revenue > 0 ? variable / revenue : null;
-  return { a, b, bar, rent, fee, openUnpaid, lab, pur, fx, cov, revenue, variable, missing, complete, profit,
+  return { a, b, bar, rent, fee, openUnpaid, lab, pur, sup, fx, cov, revenue, variable, missing, complete, profit,
            profitCash: profit - openUnpaid, margin: revenue > 0 ? profit / revenue : null,
            cogPct: bar.sales > 0 ? pur.total / bar.sales : null, laborPct: revenue > 0 ? lab.cost / revenue : null, varRate,
            breakeven: complete && varRate != null && varRate < 1 ? fx.total / (1 - varRate) : null };
@@ -857,7 +870,7 @@ function setPKpi(i, value, nodes) {
 function stackNode(P) {   // 売上の使いみちの帯と凡例
   const wrap = el("div", "pstack");
   if (!(P.revenue > 0)) { const e = el("p", "empty"); e.textContent = "この期間は売上がありません。"; wrap.append(e); return wrap; }
-  const segs = [["purchase", "仕入", P.pur.total], ["labor", "人件費", P.lab.cost], ["fee", "決済手数料", P.fee], ["fixed", "固定費", P.fx.total],
+  const segs = [["purchase", "仕入", P.pur.total], ["labor", "人件費", P.lab.cost], ["supplies", "備品・消耗品", P.sup.total], ["fee", "決済手数料", P.fee], ["fixed", "固定費", P.fx.total],
                 ["profit", "利益", P.complete && P.profit > 0 ? P.profit : 0]].filter((s) => s[2] > 0);
   const used = segs.reduce((x, s) => x + s[2], 0), denom = Math.max(P.revenue, used) || 1;
   const bar = el("div", "stack"); bar.setAttribute("role", "img"); bar.setAttribute("aria-label", "売上の使いみち");
@@ -886,7 +899,7 @@ function renderProfit(p, today) {
   if (!state.rows) { [0, 1, 2, 3].forEach((i) => setPKpi(i, "—", [i === 0 ? "Asana につながると表示されます" : "　"])); return; }
   const P = profitOf(p, today), end = P.b;
   const cv = $("pcover"); cv.textContent = "";
-  [["仕入", P.cov.purchase], ["人件費", P.cov.labor], ["固定費", P.cov.fixed], ["レンタル収益（速報）", P.cov.rental]].forEach(([n, c]) => {
+  [["仕入", P.cov.purchase], ["人件費", P.cov.labor], ["備品・消耗品", P.cov.supplies], ["固定費", P.cov.fixed], ["レンタル収益（速報）", P.cov.rental]].forEach(([n, c]) => {
     const s = el("span", "chip " + (c.s === "full" ? "ok" : "miss")); s.append(el("i", "dot"), `${n}：${COV_TEXT(c)}`);
     const note = [c.why, c.pend ? `未確定の記録 ${c.pend}件は数えていません` : ""].filter(Boolean).join("・"); if (note) s.title = note;
     cv.append(s);
@@ -900,7 +913,7 @@ function renderProfit(p, today) {
     setPKpi(0, "—", [`断定できません（${miss}）`]);
     setPKpi(1, "—", [`未収 ${yen(P.openUnpaid)} を除いた利益。同じ理由で出せません`]);
   }
-  const parts = [`仕入 ${noRec(P.cov.purchase) ? "—" : yen(P.pur.total)}`, `人件費 ${noRec(P.cov.labor) ? "—" : yen(P.lab.cost)}`, `手数料 ${yen(P.fee)}`];
+  const parts = [`仕入 ${noRec(P.cov.purchase) ? "—" : yen(P.pur.total)}`, `人件費 ${noRec(P.cov.labor) ? "—" : yen(P.lab.cost)}`, `備品 ${noRec(P.cov.supplies) ? "—" : yen(P.sup.total)}`, `手数料 ${yen(P.fee)}`];
   setPKpi(2, yen(P.variable), [P.complete ? `売上の ${pc(P.varRate)}` : "記録済みの分だけ", `　${parts.join("・")}`]);
   const fxNone = ["unset", "wait", "none"].includes(P.fx.s);
   setPKpi(3, fxNone ? "—" : yen(P.fx.total),
@@ -917,6 +930,7 @@ function renderProfit(p, today) {
     ["損益分岐売上（この期間）", P.breakeven != null ? `${yen(P.breakeven)}（売上は ${pc(P.revenue / P.breakeven)}）` : "—"],
     ["決済手数料（Square）", yen(P.fee)], ["未収の残高", yen(P.openUnpaid)],
     ...Object.entries(P.pur.kinds).map(([k, v]) => [`仕入：${k}`, yen(v)]),
+    ...Object.entries(P.sup.kinds).map(([k, v]) => [`備品・消耗品：${k}`, yen(v)]),
   ];
   facts.forEach(([k, v]) => { const f = el("div", "fact"), a = el("span", "k"), b = el("span", "v"); a.textContent = k; b.textContent = v; f.append(a, b); box.append(f); });
 
@@ -992,25 +1006,26 @@ function profitData(p) {
   for (let i = 5; i >= 0; i--) {
     const m = addMonths(end, -i), M = profitOf(monthP(ym(m)), today);
     monthly.push([ym(m), r0(M.revenue), M.cov.purchase.s === "full" ? r0(M.pur.total) : null, M.cov.labor.s === "full" ? r0(M.lab.cost) : null,
-                  r0(M.fee), M.cov.fixed.s === "full" ? r0(M.fx.total) : null, M.complete ? r0(M.profit) : null]);
+                  M.cov.supplies.s === "full" ? r0(M.sup.total) : null, r0(M.fee), M.cov.fixed.s === "full" ? r0(M.fx.total) : null, M.complete ? r0(M.profit) : null]);
   }
   return {
     note: "利益＝売上合計（通常営業の売上＋レンタルの店舗収益）−変動費（仕入＋人件費＋決済手数料）−固定費（月額の日割り）。税込。棚卸は反映しない。coverage が full でない費用は未記録で、その期間の利益は断定できない（profit は null）",
     coverage: Object.fromEntries(Object.entries(P.cov).map(([k, c]) => [k, c.s])),
     this_period: { bar_sales: r0(P.bar.sales), rental_store_revenue: r0(P.rent.net), revenue_total: r0(P.revenue),
-      purchase: r0(P.pur.total), labor_cost: r0(P.lab.cost), card_fee: r0(P.fee), fixed_cost_prorated: r0(P.fx.total), variable_cost: r0(P.variable),
+      purchase: r0(P.pur.total), labor_cost: r0(P.lab.cost), supplies: r0(P.sup.total), card_fee: r0(P.fee), fixed_cost_prorated: r0(P.fx.total), variable_cost: r0(P.variable),
       profit_accrual: P.complete ? r0(P.profit) : null, profit_cash_basis: P.complete ? r0(P.profitCash) : null, unpaid_outstanding: r0(P.openUnpaid),
       cost_of_goods_pct: P.cogPct == null ? null : +(P.cogPct * 100).toFixed(1), labor_pct: P.laborPct == null ? null : +(P.laborPct * 100).toFixed(1),
       variable_pct: P.varRate == null ? null : +(P.varRate * 100).toFixed(1), breakeven_sales: P.breakeven == null ? null : r0(P.breakeven),
       labor_hours_total: P.lab.workers >= 2 ? +P.lab.hours.toFixed(1) : null },
     fixed_cost_items: P.fx.items.map((i) => ({ name: i.name, monthly: r0(i.monthly), prorated: r0(i.amount) })),
+    supplies_by_kind: Object.fromEntries(Object.entries(P.sup.kinds).map(([k, v]) => [k, r0(v)])),
     purchase_by_kind: Object.fromEntries(Object.entries(P.pur.kinds).map(([k, v]) => [k, r0(v)])),
-    monthly_last_6: { columns: ["month", "revenue_total", "purchase", "labor_cost", "card_fee", "fixed_cost", "profit"], rows: monthly },
+    monthly_last_6: { columns: ["month", "revenue_total", "purchase", "labor_cost", "supplies", "card_fee", "fixed_cost", "profit"], rows: monthly },
   };
 }
-const costNow = (p) => { const P = profitOf(p, todayBiz()); return Math.round(P.pur.total + P.lab.cost + P.fx.total); };
+const costNow = (p) => { const P = profitOf(p, todayBiz()); return Math.round(P.pur.total + P.lab.cost + P.sup.total + P.fx.total); };
 
-const PROFIT_RULES = `- 利益・コスト（profit）: 売上合計（通常営業＋レンタルの店舗収益）から、仕入・人件費・決済手数料・固定費（月額の日割り）を引いたものが利益。総評（overall）は売上の観点でまとめ、利益とコストは profit 欄に書く。
+const PROFIT_RULES = `- 利益・コスト（profit）: 売上合計（通常営業＋レンタルの店舗収益）から、仕入・人件費・備品消耗品・決済手数料・固定費（月額の日割り）を引いたものが利益。総評（overall）は売上の観点でまとめ、利益とコストは profit 欄に書く。
   coverage が "full" でない費用は未記録で、その期間の利益は断定できない（profit_accrual は null）。その場合は、記録済みの費用だけで言えること（原価率・人件費率など）と何が未記録かを書き、黒字・赤字や利益額を言い切らない。
   原価率・人件費率の良し悪しは、データの推移（直近6か月の比較）で判断する。業界の標準値を事実として断定しない。
   損益分岐売上と今の売上の差、固定費と変動費のどちらが利益を左右しているか、仕入・人件費・決済手数料で見直せる所を打ち手にする。

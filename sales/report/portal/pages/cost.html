@@ -104,7 +104,7 @@
     <section class="card lg lg--text chart"><h2>変動費の推移</h2><p class="cap">直近6か月・月ごと</p><div id="cost-c-var"></div></section>
   </section>
 
-  <p class="foot" id="cost-foot">定義：固定費＝月額（売上管理の設定で入力。月の途中でも月額のまま表示）／変動費＝人件費（給与の合計。今月は見込み）＋仕入＋備品・消耗品＋決済手数料（Square）／売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値のある月だけ）／金額は税込</p>
+  <p class="foot" id="cost-foot">定義：固定費＝月額（売上管理の設定で入力。月の途中でも月額のまま表示）／変動費＝人件費（給与の合計。今月は見込み）＋仕入（NIGITA）＋備品・消耗品（カード BAR NULL。明細は1〜2日遅れ）＋決済手数料（Square）／売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値のある月だけ）／金額は税込</p>
 </div>
 
 <script type="module">
@@ -112,7 +112,7 @@
 const SLIPS = { prod: "1219600211224482", test: "1219599891506891" };
 const PAYROLL = { prod: "", test: "1220538739321087" };   // 給与（contract.md §2-3）。本番は本番化のときに足す
 const PURCHASE = { prod: [], test: ["1220538960472686"] }; // 仕入（C。contract.md §3）。本番は本番化のときに足す
-const SUPPLIES = { prod: [], test: [] };                  // 備品・消耗品（これから作る）
+const SUPPLIES = { prod: ["1220539775332256"], test: ["1220539120594121"] };   // 備品・消耗品（D。contract.md §3b）
 const FIXED_DOC = "fixedcosts/barnull";
 const OPT = "name,permalink_url,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
 
@@ -141,7 +141,7 @@ const CATS = [   // 変動費の内訳（色は検証済みの順番。固定費
 const FIXED = { key: "fixed", name: "固定費", color: "var(--c-fixed)" };
 
 const st = { env: SLIPS[store.get("barnull-env")] ? store.get("barnull-env") : "prod", month: todayBiz().slice(0, 7), view: "cost",
-             slips: null, rentals: null, payroll: null, payrollState: "wait", purchase: null, purchaseState: "wait", fixed: null, fixedLoaded: false, error: null, mcp: undefined, db: null };
+             slips: null, rentals: null, payroll: null, payrollState: "wait", purchase: null, purchaseState: "wait", supplies: null, suppliesState: "wait", fixed: null, fixedLoaded: false, error: null, mcp: undefined, db: null };
 $("cost-env").value = st.env;
 
 /* ---------- 読み込み ---------- */
@@ -158,7 +158,7 @@ async function readAll(id) {
   return out;
 }
 async function load() {
-  st.slips = null; st.rentals = null; st.payroll = null; st.payrollState = "wait"; st.purchase = null; st.purchaseState = "wait"; st.error = null; render();
+  st.slips = null; st.rentals = null; st.payroll = null; st.payrollState = "wait"; st.purchase = null; st.purchaseState = "wait"; st.supplies = null; st.suppliesState = "wait"; st.error = null; render();
   if (!st.mcp) { render(); return; }
   try {
     const tasks = await readAll(SLIPS[st.env]);
@@ -200,6 +200,20 @@ async function load() {
     }
   } catch (_) { st.purchaseState = "error"; }
   render();
+  try {   // 備品・消耗品（§3b）: 営業日がある、備品ステータスが対象外でない、店舗が空。金額は「金額（税込）」（返金はマイナス）
+    if (!SUPPLIES[st.env].length) { st.suppliesState = "unset"; }
+    else {
+      const sup = {};
+      for (const id of SUPPLIES[st.env]) (await readAll(id)).forEach((t) => {
+        const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10);
+        if (!date || txt(f["備品ステータス"]) === "対象外" || txt(f["店舗"])) return;
+        const m = date.slice(0, 7), x = sup[m] = sup[m] || { total: 0, kinds: {} }, v = f["金額（税込）"]?.number_value || 0, k = txt(f["備品区分"]) || "備品・消耗品";
+        x.total += v; x.kinds[k] = (x.kinds[k] || 0) + v;
+      });
+      st.supplies = sup; st.suppliesState = "ok";
+    }
+  } catch (_) { st.suppliesState = "error"; }
+  render();
 }
 
 /* ---------- 月ごとの集計 ---------- */
@@ -217,7 +231,7 @@ function monthOf(m) {
   const c = {
     labor: st.payrollState === "ok" ? (pay ? { s: pay.est ? "est" : "ok", v: pay.total } : { s: "none", v: null }) : { s: st.payrollState, v: null },
     purchase: st.purchaseState === "ok" ? (st.purchase[m] != null ? { s: "ok", v: st.purchase[m] } : { s: "none", v: null }) : { s: st.purchaseState, v: null },
-    supplies: SUPPLIES[st.env].length ? { s: "wait", v: null } : { s: "soon", v: null },
+    supplies: st.suppliesState === "ok" ? (st.supplies[m] ? { s: "ok", v: st.supplies[m].total, kinds: st.supplies[m].kinds } : { s: "none", v: null }) : { s: st.suppliesState, v: null },
     fee: sl ? { s: "ok", v: sl.fee } : { s: st.error ? "error" : "wait", v: null },
     fixed: (() => { const f = fixedOf(m); return { s: f.s, v: f.total, f }; })(),
   };
@@ -364,7 +378,7 @@ function renderVar(M, months) {
   CATS.forEach((c) => {
     const x = M.c[c.key], card = el("section", "card lg lg--text box cat"), h = el("div", "box-head"), h2 = el("h2"), d = el("i", "dot"); d.style.background = c.color; h2.append(d, c.name);
     h.append(h2, chip("", x.s)); h.lastChild.firstChild.nextSibling.textContent = STATE_TEXT[x.s];
-    card.append(h, el("div", "big num", x.v == null ? "—" : yen(x.v)), el("div", "sub", x.v != null ? ratioText(x.v, M) : c.key === "supplies" ? "これから作ります" : c.key === "purchase" ? "仕入の記録先が決まると表示されます" : STATE_TEXT[x.s]));
+    card.append(h, el("div", "big num", x.v == null ? "—" : yen(x.v)), el("div", "sub", x.v != null ? ratioText(x.v, M) + (x.kinds ? "・" + Object.entries(x.kinds).sort((p, q) => q[1] - p[1]).map(([kk, vv]) => `${kk} ${yen(vv)}`).join("・") : "") : STATE_TEXT[x.s]));
     const sp = el("div"); sp.innerHTML = spark(months, (X) => X.c[c.key].v, c.color); card.append(sp);
     if (c.route) { const a = el("a", "btn tinted go", `${c.name}の詳細`); a.href = "#" + c.route; card.append(a); }
     else card.append(el("p", "note", "Square の決済手数料。伝票から自動で数えます"));
