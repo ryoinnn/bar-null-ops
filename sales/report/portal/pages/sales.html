@@ -696,53 +696,83 @@ function noticeBox(title, body) { const d = el("div", "notice"), s = el("strong"
    費用が「記録済み」でない期間は、利益を断定せず「—」にする（記録済みの分だけの参考値は添える）。
    利益のセクションは、固定費を読める人（Editor 以上）にだけ見せる。 */
 const COST_PROJECTS = {
-  labor:    { prod: [], test: [] },   // 「Bar null 人件費（勤怠）」（額を別プロジェクトに分けたら両方入れる）
-  purchase: { prod: [], test: [] },   // 「Bar null 仕入」
+  // 人件費（B。contract.md §2）: 勤怠と給与の2つを読む。ID は sales/asana_ids.json の labor.{test|prod}。本番は本番化のときに足す
+  labor:    { prod: { attendance: "", payroll: "" }, test: { attendance: "1220538844505828", payroll: "1220538739321087" } },
+  purchase: { prod: [], test: [] },   // 「Bar null 仕入」（C）
 };
 const FIXED_DOC = "fixedcosts/barnull";
 const COLORS = { purchase: "var(--accent)", labor: "var(--series-rent)", fee: "var(--warn)", fixed: "color-mix(in srgb, var(--label-2) 75%, transparent)", profit: "var(--green)" };
 Object.assign(state, { cost: null, fixed: null, fixedLoaded: false, profitOK: false, isOwner: false, pinsights: {} });
 
-function parseLabor(t) {
-  const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10), status = f["状態"]?.enum_value?.name || "";
-  if (!date || status === "対象外" || (f["店舗"]?.text_value || "").trim()) return null;
-  return { date, status, staff: (f["担当者"]?.text_value || "").trim(), hours: f["勤務時間（h）"]?.number_value ?? null, cost: f["人件費（円）"]?.number_value ?? null };
+const txt = (c) => (c?.text_value ?? c?.enum_value?.name ?? "").trim();
+function parseAttendance(t) {   // 勤怠（1人 × 1稼働日）。contract.md §2-1
+  const f = fieldsOf(t), date = f["稼働日"]?.date_value?.date?.slice(0, 10);
+  if (!date || txt(f["勤怠ステータス"]) === "対象外" || txt(f["店舗"])) return null;
+  return { date, name: txt(f["スタッフ名"]) || txt(f["LINE名"]) || "（名前なし）", line: txt(f["LINE名"]),
+           hours: f["稼働時間（h）"]?.number_value || 0, wage: f["時給の額"]?.number_value ?? null };
+}
+function parsePayroll(t) {      // 給与（1人 × 1か月）。contract.md §2-3
+  const f = fieldsOf(t), month = txt(f["対象月"]);
+  if (!/^\d{4}-\d{2}$/.test(month)) return null;
+  return { month, name: txt(f["スタッフ名"]) || "（名前なし）", wagePart: f["時給の分"]?.number_value || 0,
+           pay: f["給与"]?.number_value ?? null, status: txt(f["給与ステータス"]) };
 }
 function parsePurchase(t) {
   const f = fieldsOf(t), date = f["営業日"]?.date_value?.date?.slice(0, 10), status = f["状態"]?.enum_value?.name || "";
   if (!date || status === "対象外" || (f["店舗"]?.text_value || "").trim()) return null;
   return { date, status, kind: f["区分"]?.enum_value?.name || "その他", amount: f["金額（円）"]?.number_value ?? null };
 }
-const COUNTED = { labor: "確定", purchase: "取り込み済み" };
-async function loadCost(mcp, kind, parse) {
+const COUNTED = { purchase: "取り込み済み" };
+async function readProject(mcp, id, parse) {
+  const all = []; let offset = null;
+  for (let i = 0; i < 40; i++) {
+    const input = { project: id, limit: 100, opt_fields: OPT };
+    if (offset) input.offset = offset;
+    const p = payloadOf(await mcp.callTool(SERVER, TOOL, input, { cache: { staleTime: 60000 } }));
+    (p.data || []).forEach((t) => { const r = parse(t); if (r) all.push(r); });
+    offset = p.next_page?.offset;
+    if (!offset) break;
+  }
+  return all;
+}
+async function loadCost(mcp, kind, parse) {   // 仕入
   const ids = COST_PROJECTS[kind][state.env] || [];
   if (!ids.length) return { unset: true, rows: [], pend: [], first: null };
-  const all = [];
-  for (const id of ids) {
-    let offset = null;
-    for (let i = 0; i < 40; i++) {
-      const input = { project: id, limit: 100, opt_fields: OPT };
-      if (offset) input.offset = offset;
-      const p = payloadOf(await mcp.callTool(SERVER, TOOL, input, { cache: { staleTime: 60000 } }));
-      (p.data || []).forEach((t) => { const r = parse(t); if (r) all.push(r); });
-      offset = p.next_page?.offset;
-      if (!offset) break;
-    }
-  }
+  const all = []; for (const id of ids) all.push(...await readProject(mcp, id, parse));
   const rows = all.filter((r) => r.status === COUNTED[kind]), pend = all.filter((r) => r.status !== COUNTED[kind]);
   const first = all.reduce((a, r) => (!a || r.date < a) ? r.date : a, null);
   return { unset: false, rows, pend, first };
 }
+async function loadLabor(mcp) {               // 人件費: 勤怠と給与
+  const ids = COST_PROJECTS.labor[state.env] || {};
+  if (!ids.attendance || !ids.payroll) return { unset: true, att: [], pay: [] };
+  const [att, pay] = await Promise.all([readProject(mcp, ids.attendance, parseAttendance), readProject(mcp, ids.payroll, parsePayroll)]);
+  return { unset: false, att, pay };
+}
 async function loadCosts(mcp) {
   const out = { labor: null, purchase: null };
-  for (const [kind, parse] of [["labor", parseLabor], ["purchase", parsePurchase]]) {
-    try { out[kind] = await loadCost(mcp, kind, parse); } catch (_) { out[kind] = { error: true, rows: [], pend: [], first: null }; }
-  }
+  try { out.labor = await loadLabor(mcp); } catch (_) { out.labor = { error: true, att: [], pay: [] }; }
+  try { out.purchase = await loadCost(mcp, "purchase", parsePurchase); } catch (_) { out.purchase = { error: true, rows: [], pend: [], first: null }; }
   state.cost = out; render();
 }
 
 /* 期間 a〜b の記録の状態: full（記録済み）・partial（一部のみ）・none（未記録）・unset（未設定）・error・wait */
+const monthsIn = (a, b) => { const out = []; for (let m = monthStart(a); m <= b; m = addMonths(m, 1)) out.push(m); return out; };
+/* 人件費: 期間にかかる月すべてに給与の記録があれば「記録済み」（見込みなら注記）。一部の月だけなら「一部のみ」 */
+function laborCoverage(a, b) {
+  const c = state.cost && state.cost.labor;
+  if (!c) return { s: "wait" };
+  if (c.unset) return { s: "unset" };
+  if (c.error) return { s: "error" };
+  const ms = monthsIn(a, b), have = ms.filter((m) => c.pay.some((r) => r.month === ym(m)));
+  const est = c.pay.some((r) => have.includes(r.month + "-01") && r.status === "見込み");
+  const attIn = c.att.some((r) => r.date >= a && r.date <= b);
+  if (!have.length) return attIn ? { s: "partial", why: "給与の記録がまだ無い（勤怠の時給の分だけ）" } : { s: "none" };
+  if (have.length < ms.length) { const miss = ms.filter((m) => !have.includes(m)).map((m) => `${Number(m.slice(5, 7))}月`); return { s: "partial", from: have[0] > a ? have[0] : null, why: `給与の記録が無い月：${miss.join("・")}`, est }; }
+  return { s: "full", est };
+}
 function coverage(kind, a, b) {
+  if (kind === "labor") return laborCoverage(a, b);
   const c = state.cost && state.cost[kind];
   if (!c) return { s: "wait" };
   if (c.unset) return { s: "unset" };
@@ -767,10 +797,27 @@ function fixedStats(a, b) {
   const v0 = fixedVersion(ym(b));
   return { s: miss === 0 ? "full" : miss === n ? "none" : "partial", total, items: [...by.values()], monthly: v0 ? v0.items.reduce((x, i) => x + i.monthly, 0) : 0 };
 }
+/* 人件費（contract.md §2-5）: 月の人件費 ＝ 給与の合計。月の一部だけの期間は、勤怠の「時給の額」を稼働日で数え、
+   バック・調整（給与 − 時給の分）は日割りで足す。給与の記録が無い月は、勤怠の時給の分だけ（一部のみの扱い）。 */
 function laborIn(a, b) {
-  const c = state.cost && state.cost.labor, rows = ((c && c.rows) || []).filter((r) => r.date >= a && r.date <= b), by = {};
-  rows.forEach((r) => { const k = r.staff || "（担当者の記録なし）"; const x = by[k] = by[k] || { hours: 0, cost: 0, days: new Set() }; x.hours += r.hours || 0; x.cost += r.cost || 0; x.days.add(r.date); });
-  return { rows, by, workers: Object.keys(by).length, hours: rows.reduce((x, r) => x + (r.hours || 0), 0), cost: rows.reduce((x, r) => x + (r.cost || 0), 0), noCost: rows.filter((r) => r.cost == null).length };
+  const c = state.cost && state.cost.labor, att = ((c && c.att) || []).filter((r) => r.date >= a && r.date <= b), by = {};
+  const get = (n) => by[n] = by[n] || { days: new Set(), hours: 0, wage: 0, back: 0, cost: 0 };
+  att.forEach((r) => { const x = get(r.name); x.days.add(r.date); x.hours += r.hours; x.wage += r.wage || 0; });
+  let cost = 0;
+  monthsIn(a, b).forEach((m) => {
+    const me = monthEnd(m), ma = m > a ? m : a, mb = min(me, b), whole = ma === m && mb === me;
+    const part = (diff(ma, mb) + 1) / Number(me.slice(8));
+    const wageOf = {}; att.filter((r) => r.date >= ma && r.date <= mb).forEach((r) => { wageOf[r.name] = (wageOf[r.name] || 0) + (r.wage || 0); });
+    const pays = ((c && c.pay) || []).filter((r) => r.month === ym(m));
+    pays.forEach((r) => {
+      const x = get(r.name), w = wageOf[r.name] || 0, extra = (r.pay ?? r.wagePart) - r.wagePart;
+      const v = whole ? (r.pay ?? r.wagePart) : w + extra * part;
+      x.back += v - w; x.cost += v; cost += v; delete wageOf[r.name];
+    });
+    Object.entries(wageOf).forEach(([n, w]) => { get(n).cost += w; cost += w; });   // 給与の記録が無い人・月は時給の分だけ
+  });
+  const hours = att.reduce((x, r) => x + r.hours, 0);
+  return { rows: att, by, workers: Object.values(by).filter((v) => v.cost > 0 || v.hours > 0).length, hours, cost, noCost: 0 };
 }
 function purchaseIn(a, b) {
   const c = state.cost && state.cost.purchase, rows = ((c && c.rows) || []).filter((r) => r.date >= a && r.date <= b), kinds = {};
@@ -795,7 +842,7 @@ function profitOf(p, today) {
            breakeven: complete && varRate != null && varRate < 1 ? fx.total / (1 - varRate) : null };
 }
 const pc = (x) => x == null ? "—" : `${(x * 100).toFixed(1)}%`;
-const COV_TEXT = (c) => ({ full: "記録済み", partial: c.from ? `一部のみ（${md(c.from)}〜）` : "一部のみ", none: "未記録", unset: "未設定", error: "読めませんでした", wait: "読み込み中" }[c.s]);
+const COV_TEXT = (c) => ({ full: c.est ? "記録済み（見込みを含む）" : "記録済み", partial: c.from ? `一部のみ（${md(c.from)}〜）` : "一部のみ", none: "未記録", unset: "未設定", error: "読めませんでした", wait: "読み込み中" }[c.s]);
 const noRec = (c) => c.s === "none" || c.s === "unset" || c.s === "wait" || c.s === "error";
 
 function setPKpi(i, value, nodes) {
@@ -877,15 +924,16 @@ function renderProfit(p, today) {
   }
 
   const lb = $("lbtable"), lc = P.cov.labor; lb.textContent = "";
-  $("lbcap").textContent = lc.s === "full" ? "勤怠に記録された分（確定のみ）" : `人件費：${COV_TEXT(lc)}`;
+  $("lbcap").textContent = (lc.s === "full" ? "勤怠と給与の記録から" + (lc.est ? "（給与は見込みを含む）" : "") : `人件費：${COV_TEXT(lc)}`) + "。バック・調整は月の一部の期間では日割り";
   if (!P.lab.workers) {
-    const e = el("p", "empty"); e.textContent = lc.s === "unset" ? "勤怠の記録先（Asana のプロジェクト）がまだ設定されていません。" : lc.s === "wait" ? "読み込み中です。" : lc.s === "error" ? "勤怠を読み込めませんでした。" : "この期間の勤怠は未記録です。"; lb.append(e);
+    const e = el("p", "empty"); e.textContent = lc.s === "unset" ? "勤怠・給与の記録先（Asana のプロジェクト）が、この環境ではまだ設定されていません。" : lc.s === "wait" ? "読み込み中です。" : lc.s === "error" ? "勤怠・給与を読み込めませんでした。" : "この期間の勤怠・給与は未記録です。"; lb.append(e);
   } else {
-    const rows = Object.entries(P.lab.by).sort((x, y) => y[1].cost - x[1].cost).map(([n, v]) =>
-      [n, `${v.days.size}日`, `${v.hours.toFixed(1)}h`, `${(v.hours / v.days.size).toFixed(1)}h`, yen(v.cost), P.lab.cost ? pc(v.cost / P.lab.cost) : "—"]);
-    lb.append(tableOf([["担当"], ["勤務日数", true], ["勤務時間", true], ["1日あたり", true], ["人件費", true], ["割合", true]], rows,
-      ["合計", "", `${P.lab.hours.toFixed(1)}h`, "", yen(P.lab.cost), ""]));
-    if (lc.pend) { const e = el("p", "empty"); e.textContent = `未確定（勤務中・要確認）の記録 ${lc.pend}件は数えていません。`; lb.append(e); }
+    const list = Object.entries(P.lab.by).filter(([, v]) => v.cost > 0 || v.hours > 0).sort((x, y) => y[1].cost - x[1].cost);
+    const rows = list.map(([n, v]) => [n, `${v.days.size}日`, `${v.hours.toFixed(1)}h`, yen(v.wage), yen(v.back), yen(v.cost), P.lab.cost ? pc(v.cost / P.lab.cost) : "—"]);
+    const tw = list.reduce((x, [, v]) => x + v.wage, 0), tb = list.reduce((x, [, v]) => x + v.back, 0);
+    lb.append(tableOf([["スタッフ"], ["稼働日数", true], ["稼働時間", true], ["時給の分", true], ["バック・調整", true], ["人件費", true], ["割合", true]], rows,
+      ["合計", "", `${P.lab.hours.toFixed(1)}h`, yen(tw), yen(tb), yen(P.lab.cost), ""]));
+    if (lc.why) { const e = el("p", "empty"); e.textContent = lc.why + "。"; lb.append(e); }
   }
 }
 
