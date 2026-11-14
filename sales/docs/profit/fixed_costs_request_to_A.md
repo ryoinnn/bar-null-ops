@@ -3,8 +3,8 @@
 データの約束は [contract.md](contract.md) §3c。計算の正解は Python の `sales/src/barnull_sales/fixed.py`（`month_amounts`・`period_total`）と `tests/test_fixed.py`。
 
 ## 1. 読み先
-- プロジェクト: `sales/asana_ids.json` の `fixed.{test|prod}.project`（テスト `1220539920443902`。本番は本人の確認後に作る。空の間は「未設定」）。
-  `COST_PROJECTS` に `fixed: { prod: "", test: "1220539920443902" }` のように足す。
+- プロジェクト: `sales/asana_ids.json` の `fixed.{test|prod}.project`（本番 `1220539995299165`、テスト `1220539920443902`。2026-11-15 作成・写し済み）。
+  `COST_PROJECTS` に `fixed: { prod: "1220539995299165", test: "1220539920443902" }` のように足す。
 - 読む欄: タスク名（項目）、固定費区分、金額（税込）、按分月数、適用開始月、適用終了月、固定費種別、固定費ステータス、店舗。
 - `pages/cost.html` の `fixedOf(m)` と、`pages/sales.html` の `fixedVersion`・`fixedStats` を、§3c の計算に置き換える:
   1. 有効・店舗が空・適用開始月 ≤ M ≤ 適用終了月（空は上限なし）を集める。
