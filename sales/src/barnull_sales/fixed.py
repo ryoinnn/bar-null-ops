@@ -162,11 +162,15 @@ def _values(r: dict) -> dict:
 
 # ---------- 月・日の固定費 ----------
 
+_YM = re.compile(r"\d{4}-\d{2}")
+
+
 def _active(t: dict, ym: str, store: str) -> bool:
-    if t.get("status", "有効") == "対象外" or (t.get("store") or "") != store:
+    """その月に効くタスクか。前後の空白は無視し、適用開始月が YYYY-MM でないものは数えない（ポータルの common.js と同じ）。"""
+    if t.get("status", "有効") == "対象外" or (t.get("store") or "").strip() != store:
         return False
-    s, e = t.get("start"), t.get("end")
-    return bool(s) and s <= ym and (not e or ym <= e) and t.get("amount") is not None
+    s, e = (t.get("start") or "").strip(), (t.get("end") or "").strip()
+    return bool(_YM.fullmatch(s)) and s <= ym and (not e or ym <= e) and t.get("amount") is not None
 
 
 def item_month_amount(t: dict, ym: str) -> int:
@@ -175,7 +179,7 @@ def item_month_amount(t: dict, ym: str) -> int:
     n = max(n, 1)
     total = int(t["amount"])
     base = total // n
-    k = months_between(t["start"], ym) % n
+    k = months_between(t["start"].strip(), ym) % n
     return base + (total - base * n if k == n - 1 else 0)
 
 
@@ -185,14 +189,14 @@ def month_amounts(tasks: list[dict], ym: str, store: str = "") -> dict[str, dict
     for t in tasks:
         if not _active(t, ym, store):
             continue
-        name = t.get("name", "")
+        name = (t.get("name") or "").strip()      # 「家賃 」と「家賃」は同じ項目
         cur = picked.get(name)
         kind = t.get("kind") or "通常"
         if cur is None:
             picked[name] = t
         elif (cur.get("kind") or "通常") != "実績" and kind == "実績":
             picked[name] = t
-        elif (cur.get("kind") or "通常") == kind and t["start"] > cur["start"]:
+        elif (cur.get("kind") or "通常") == kind and t["start"].strip() > cur["start"].strip():
             picked[name] = t
     return {n: {"amount": item_month_amount(t, ym), "category": t.get("category") or "その他",
                 "kind": t.get("kind") or "通常"} for n, t in picked.items()}

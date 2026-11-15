@@ -91,3 +91,16 @@ def test_period_total_prorates_by_days():
     v = fixed.period_total(ts, date(2026, 2, 27), date(2026, 3, 2))
     assert abs(v - (3000 * 2 / 28 + 3100 * 2 / 31)) < 1e-9
     assert fixed.period_total(ts, date(2025, 12, 1), date(2025, 12, 31)) is None
+
+
+def test_month_rules_ignore_spaces_and_bad_month_format():
+    """ポータル（common.js の BN.fixed）と同じ扱い: 前後の空白は無視、適用開始月が YYYY-MM でないものは数えない。"""
+    base = {"category": "その他", "months": 1, "end": "", "kind": "通常", "status": "有効", "store": ""}
+    ts = [
+        {**base, "name": "家賃", "amount": 300000, "start": "2026-01"},
+        {**base, "name": "家賃 ", "amount": 330000, "start": " 2026-10 "},     # 空白つき: 同じ項目の値上げ
+        {**base, "name": "形式違い", "amount": 7777, "start": "2026/01"},        # 例外にせず、数えない
+        {**base, "name": "店舗の空白", "amount": 500, "start": "2026-01", "store": " "},
+    ]
+    assert {n: v["amount"] for n, v in fixed.month_amounts(ts, "2026-09").items()} == {"家賃": 300000, "店舗の空白": 500}
+    assert {n: v["amount"] for n, v in fixed.month_amounts(ts, "2026-11").items()} == {"家賃": 330000, "店舗の空白": 500}
