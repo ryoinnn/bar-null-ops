@@ -76,19 +76,20 @@
 </div>
 
 <script type="module">
-/* ======================= 設定（docs/profit/contract.md §2。ID は sales/asana_ids.json の labor） ======================= */
-const SERVER = "Asana";
-const LABOR = {
-  prod: { attendance: "1220540459660621", staff: "1220540292450542", payroll: "1220540272766453" },   // 2026-11-15 作成
-  test: { attendance: "1220538844505828", staff: "1220538673010390", payroll: "1220538739321087" },
-};
-const SALES = { prod: "1219600211224482", test: "1219599891506891" };   // 伝票（本人の売上）
+/* ======================= 設定（docs/profit/contract.md §2。読むプロジェクトの ID・環境・Asana の読み書きは common.js の BN） ======================= */
+const BN = window.BN;
 // 台帳の欄（書き込みに使う。カスタムフィールドの gid はワークスペース共通）
 const F = { real: "1220538844483838", line: "1220538739161116", kind: "1220538692870113", joined: "1220538692871045",
             wage: "1220538672971380", wageFrom: "1220538692881961", rate: "1220538739255903" };
 const KIND_OPT = { "スタッフ": "1220538692870114", "プロモーター": "1220538692870115", "管理者": "1220538692870116" };
 const KINDS = ["スタッフ", "プロモーター"];
-const OPT = "name,permalink_url,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
+// 読み込みで必ず要る項目（無ければ 0 円と出さずに、読み込みの失敗にする）
+const REQUIRED = {
+  ledger: ["スタッフID", "区分"],
+  attendance: ["稼働日", "勤怠ステータス", "店舗", "スタッフID", "時給の額"],
+  payroll: ["対象月", "給与", "スタッフID"],
+  slips: ["営業日", "伝票金額", "伝票ステータス", "担当（LINE）"],
+};
 
 const $ = (id) => document.getElementById(id);
 const use = (name) => (window.claude && window.claude.use) ? window.claude.use(name) : Promise.resolve(null);
@@ -97,9 +98,12 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} },
 };
 const state = {
-  env: LABOR[store.get("staff-env")]?.attendance ? store.get("staff-env") : (LABOR.prod.attendance ? "prod" : "test"),
   tab: "overview", sid: null, sel: null, openYears: {},
-  data: null, error: null, mcp: null, db: null, sample: undefined, canWrite: null, insights: {}, aiRun: null,
+  data: null,      // { env, staff, att, pay, slips, at }。env は読み込んだときの環境（表示・保存・示唆のキーはこれを使う）
+  ver: null,       // 最後に読み込みを始めたときの BN.version()
+  busy: false,     // 保存中
+  flash: null,     // 保存の結果（{ sid, text }）。読み直しの再描画のあとに1回だけ出す
+  mcp: null, db: null, sample: undefined, canWrite: null, insights: {}, aiRun: null,
 };
 
 /* ======================= 小さな道具 ======================= */
@@ -129,7 +133,6 @@ const hm = (iso) => iso ? iso.slice(11, 16) : "";
 const toD = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
 const toS = (d) => d.toISOString().slice(0, 10);
 const add = (s, n) => { const d = toD(s); d.setUTCDate(d.getUTCDate() + n); return toS(d); };
-const diff = (a, b) => Math.round((toD(b) - toD(a)) / 864e5);
 const monday = (s) => add(s, -((toD(s).getUTCDay() + 6) % 7));
 const md = (s) => { const d = toD(s); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; };
 const dayLabel = (s) => `${md(s)}（${"日月火水木金土"[toD(s).getUTCDay()]}）`;
@@ -137,7 +140,7 @@ const ym = (s) => s.slice(0, 7);
 const monthEnd = (s) => { const d = toD(s.slice(0, 8) + "01"); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); return toS(d); };
 const addMonths = (m, n) => { const d = toD(m + "-01"); d.setUTCMonth(d.getUTCMonth() + n); return toS(d).slice(0, 7); };
 const min = (a, b) => a < b ? a : b;
-const today = () => toS(new Date(Date.now() + 9 * 3600e3));   // 日本時間の日付
+const today = () => BN.todayBiz();   // 営業日（6:00 区切り）の今日。全ページ共通
 function weeksOf(month) {
   const ms = month + "-01", me = monthEnd(ms), out = [];
   for (let s = ms, n = 1; s <= me; n++) {
@@ -150,7 +153,7 @@ function weeksOf(month) {
 const monthP = (m) => ({ kind: "month", key: `m:${m}`, start: m + "-01", end: monthEnd(m + "-01"), month: m });
 const yearP = (y) => ({ kind: "year", key: `y:${y}`, start: `${y}-01-01`, end: `${y}-12-31`, year: y });
 function periodByKey(key) {
-  if (!/^(y:\d{4}|m:\d{4}-\d{2}|w:\d{4}-\d{2}-\d{2})$/.test(key || "")) return null;
+  if (!/^(y:\d{4}|m:\d{4}-(0[1-9]|1[0-2])|w:\d{4}-(0[1-9]|1[0-2])-\d{2})$/.test(key || "")) return null;
   const k = key.slice(0, 1), v = key.slice(2);
   if (k === "y") return yearP(v);
   if (k === "m") return monthP(v);
@@ -164,30 +167,13 @@ function label(p) {
 const inProgress = (p) => p.start <= today() && today() <= p.end;
 const monthsIn = (p) => { const out = []; for (let m = ym(p.start); m <= ym(p.end); m = addMonths(m, 1)) out.push(m); return out; };
 
-/* ======================= Asana の読み込み ======================= */
-function payloadOf(res) {
-  if (res && res.payload) return res.payload;
-  const t = (res?.content || []).find((c) => c.type === "text")?.text;
-  try { return t ? JSON.parse(t) : {}; } catch (_) { return {}; }
-}
-function fieldsOf(t) { const f = {}; (t.custom_fields || []).forEach((c) => { f[c.name] = c; }); return f; }
-const txt = (f, k) => (f[k]?.text_value || "").trim();
-const num = (f, k) => f[k]?.number_value ?? null;
-const dt = (f, k) => f[k]?.date_value?.date?.slice(0, 10) || "";
+/* ======================= Asana の読み込み（読むのは BN.readAll。ここは項目の読み方だけ） ======================= */
+const fieldsOf = BN.fieldsOf;
+const txt = (f, k) => BN.txt(f[k]);
+const num = (f, k) => BN.num(f[k]);
+const dt = (f, k) => BN.dateOf(f[k]) || "";
 const en = (f, k) => f[k]?.enum_value?.name || "";
 
-async function listTasks(project, refresh) {
-  const out = []; let offset = null;
-  for (let i = 0; i < 60; i++) {
-    const input = { project, limit: 100, opt_fields: OPT };
-    if (offset) input.offset = offset;
-    const p = payloadOf(await state.mcp.callTool(SERVER, "get_tasks", input, { cache: refresh ? { refresh: true } : { staleTime: 60000 } }));
-    out.push(...(p.data || []));
-    offset = p.next_page?.offset;
-    if (!offset) break;
-  }
-  return out;
-}
 function parseStaff(t) {
   const f = fieldsOf(t), real = txt(f, "本名"), line = txt(f, "LINE名");
   return { gid: t.gid, url: t.permalink_url || "", sid: txt(f, "スタッフID") || "A" + t.gid, real, line,
@@ -202,11 +188,11 @@ function parseAtt(t) {
 }
 function parsePay(t) {
   const f = fieldsOf(t), month = txt(f, "対象月");
-  if (!month) return null;
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return null;   // 手で入った書式違い（「10月」など）は読まない
   return { sid: txt(f, "スタッフID"), month, name: txt(f, "スタッフ名"), kind: en(f, "区分"), days: num(f, "勤務日数") || 0,
            hours: num(f, "稼働時間（h）") || 0, sales: num(f, "売上（本人）") || 0, count: num(f, "顧客組数") || 0,
            wagePart: num(f, "時給の分") || 0, rate: num(f, "バック率（%）"), back: num(f, "バック") || 0,
-           adj: num(f, "調整額") || 0, reason: txt(f, "調整の理由"), pay: num(f, "給与") || 0, status: en(f, "給与ステータス") || "見込み",
+           adj: num(f, "調整額") || 0, reason: txt(f, "調整の理由"), pay: num(f, "給与"), status: en(f, "給与ステータス") || "不明",
            url: t.permalink_url || "" };
 }
 function parseSlip(t) {
@@ -214,17 +200,45 @@ function parseSlip(t) {
   if (!date || amount == null || en(f, "伝票ステータス") === "対象外" || txt(f, "伝票ID").startsWith("RS-")) return null;
   return { date, amount, promoter: txt(f, "プロモーター"), sender: txt(f, "担当（LINE）") };
 }
+/* 読み込んで描画する。返り値: true ＝ 読めた／false ＝ 失敗（画面に出した）／undefined ＝ 後から始まった読み込みに替わった */
 async function load(refresh) {
-  const ids = LABOR[state.env];
-  const [st, at, pa, sl] = await Promise.all([ids.staff, ids.attendance, ids.payroll, SALES[state.env]].map((p) => listTasks(p, refresh)));
-  const d = { staff: st.map(parseStaff), att: at.map(parseAtt).filter(Boolean), pay: pa.map(parsePay).filter(Boolean),
-              slips: sl.map(parseSlip).filter(Boolean), at: Date.now() };
-  // 伝票の持ち主（プロモーターフラグ → その名前、無ければ送った人）。名前は台帳の LINE名、無ければ本名で照合（worker と同じ順）
-  const norm = (s) => (s || "").normalize("NFKC").replace(/\s/g, "").replace(/(様|さま|さん)/gu, "");
-  const index = (attr) => { const m = new Map(), dup = new Set(); d.staff.forEach((s) => { const k = norm(s[attr]); if (!k) return; if (m.has(k)) dup.add(k); m.set(k, s.sid); }); dup.forEach((k) => m.delete(k)); return m; };
-  const byLine = index("line"), byReal = index("real");
-  d.slips.forEach((s) => { const k = norm(s.promoter || s.sender); s.sid = byLine.get(k) || byReal.get(k) || null; });
-  state.data = d;
+  const live = BN.gen("staff"), env = BN.env.get();   // 途中で環境を読み直さない（古い読み込みの結果は捨てる）
+  state.ver = BN.version();
+  setMsg(null);
+  $("staff-sub").textContent = "読み込んでいます…";
+  try {
+    state.mcp = state.mcp || await use("mcp");
+    if (!live()) return;
+    if (!state.mcp) {
+      if (state.data) render(); else $("staff-sub").textContent = "";
+      setMsg("Asana につながっていません", "このページで勤怠・給与を読むには、claude.ai で Asana（0x0.co.jp のアカウント）を接続し、ページの許可を出してください。", () => load(true));
+      return false;
+    }
+    const [st, at, pa, sl] = await Promise.all(["ledger", "attendance", "payroll", "slips"].map((k) =>
+      BN.readAll(state.mcp, BN.IDS[k][env], { refresh, required: REQUIRED[k] })));
+    if (!live()) return;
+    const d = { env, staff: st.map(parseStaff), att: at.map(parseAtt).filter(Boolean), pay: pa.map(parsePay).filter(Boolean),
+                slips: sl.map(parseSlip).filter(Boolean), at: Date.now() };
+    // 伝票の持ち主（プロモーターフラグ → その名前、無ければ送った人）。名前は台帳の LINE名、無ければ本名で照合（worker の by_name と同じ順）
+    const norm = (s) => (s || "").normalize("NFKC").replace(/\s/g, "").replace(/(様|さま|さん)/gu, "");
+    const index = (attr) => { const m = new Map(); d.staff.forEach((s) => { const k = norm(s[attr]); if (k) m.set(k, m.has(k) ? null : s.sid); }); return m; };   // 2人以上に合う名前は null
+    const byLine = index("line"), byReal = index("real");
+    // LINE名が2人以上で重なるときは決めない（本名の照合に進まない。worker と同じ）
+    const owner = (k) => byLine.has(k) ? byLine.get(k) : (byReal.get(k) || null);
+    d.slips.forEach((s) => { const k = norm(s.promoter || s.sender); s.sid = owner(k); s.lost = !!k && !s.sid; });
+    state.data = d;
+    state.sel = state.sel || periodByKey(store.get("staff-sel") || "") || monthP(ym(today()));
+    render();
+    return true;
+  } catch (e) {
+    if (!live()) return;
+    console.warn("スタッフ管理: 読み込みに失敗", e?.code || e?.message || e);
+    if (state.data) render(); else $("staff-sub").textContent = "";   // 前に読めた内容（同じ環境）があれば、時刻つきで残す
+    setMsg("勤怠・給与を読み込めませんでした",
+      BN.errText(e, "Asana") + "（勤怠・台帳・給与の Asana プロジェクトは、管理者だけが見られる非公開プロジェクトです。メンバーでない場合は読めません。）",
+      () => load(true));
+    return false;
+  }
 }
 
 /* ======================= 集計 ======================= */
@@ -238,7 +252,7 @@ function people() {
 }
 /* その人のその期間。月の給与の記録がある月は記録の値（調整額を含む）、無い月・週は勤怠と伝票から計算する */
 function figures(p, period) {
-  const d = state.data, end = min(period.end, today());
+  const d = state.data;
   const att = d.att.filter((r) => r.sid === p.sid && r.date >= period.start && r.date <= period.end).sort((a, b) => a.date.localeCompare(b.date));
   const slips = d.slips.filter((s) => s.sid === p.sid && s.date >= period.start && s.date <= period.end);
   const calc = (a, s) => {
@@ -252,7 +266,9 @@ function figures(p, period) {
     out = { days: 0, hours: 0, sales: 0, count: 0, wagePart: 0, back: 0, adj: 0, cost: 0 }; const st = new Set();
     monthsIn(period).forEach((m) => {
       const doc = d.pay.find((r) => r.sid === p.sid && r.month === m);
-      const x = doc ? { ...doc, cost: doc.pay } : calc(att.filter((r) => ym(r.date) === m), slips.filter((s) => ym(s.date) === m));
+      // 「給与」が空の記録は、時給の分だけを数えて印を付ける（contract.md §2-5。¥0 と見せない）
+      if (doc && doc.pay == null) out.noPay = true;
+      const x = doc ? { ...doc, cost: doc.pay ?? doc.wagePart } : calc(att.filter((r) => ym(r.date) === m), slips.filter((s) => ym(s.date) === m));
       if (!doc && !x.days && !x.sales) return;
       st.add(doc ? doc.status : "勤怠と伝票から計算");
       for (const k of ["days", "hours", "sales", "count", "wagePart", "back", "adj", "cost"]) out[k] += x[k] || 0;
@@ -260,7 +276,8 @@ function figures(p, period) {
     });
     out.status = [...st].join("・") || "記録なし";
   }
-  return { ...out, att, slips, rate: p.rate, end };
+  // 給与の記録がある月は、そのときのバック率（台帳の今の率ではない）。時給の額が空の勤務は ¥0 に見えるので印を付ける
+  return { ...out, att, slips, rate: out.doc ? out.doc.rate : p.rate, noWage: p.kind !== "プロモーター" && att.some((r) => r.wageAmt == null) };
 }
 const active = (x) => x.days || x.sales || x.cost;
 function dataStart() {
@@ -292,7 +309,7 @@ function renderNav() {
       const head = rowBtn(mp, `${Number(m.slice(5))}月`, "月の集計", costLabel(mp)); head.classList.add("month-row");
       const weeks = h("div", { class: "weeks" });
       weeksOf(m).filter((w) => w.start <= t).forEach((w) => {
-        const n = diff(w.start, w.end) + 1;
+        const n = BN.dayDiff(w.start, w.end) + 1;
         weeks.append(rowBtn(w, `第${w.n}週`, `${md(w.start)}〜${md(w.end)}` + (n < 7 ? `（${n}日）` : ""), costLabel(w)));
       });
       mbox.append(head, weeks); list.append(mbox);
@@ -307,6 +324,7 @@ function rowBtn(p, title, sub, value) {
     h("span", { class: "v num", text: value }));
 }
 function select(p) {
+  stopAi();
   state.sel = p; store.set("staff-sel", p.key);
   $("staff-side").classList.remove("open"); $("staff-navtoggle").setAttribute("aria-expanded", "false");
   render();
@@ -338,7 +356,7 @@ function render() {
   renderNav();
   if (!state.data) return;
   const p = state.sel;
-  $("staff-sub").textContent = `${state.env === "test" ? "テスト用のデータ・" : ""}${label(p)}${inProgress(p) ? "（集計中・今日まで）" : ""}・` +
+  $("staff-sub").textContent = `${state.data.env === "test" ?"テスト用のデータ・" : ""}${label(p)}${inProgress(p) ? "（集計中・今日まで）" : ""}・` +
     `${new Date(state.data.at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} 時点`;
   if (state.sid) return renderPerson(view);
   if (state.tab === "payroll") return renderPayroll(view);
@@ -356,10 +374,20 @@ function renderOverview(view) {
   const wages = people().filter((p) => p.kind === "スタッフ" && p.wage != null).map((p) => p.wage);
   const rates = people().filter((p) => p.rate != null).map((p) => p.rate);
   const hsum = sum(staffRows, (r) => r.x.hours);
+  // 集計に入っていない記録（この期間）を、黙って落とさずに知らせる
+  const inPer = (s) => s >= per.start && s <= per.end;
+  const lost = state.data.slips.filter((s) => s.lost && inPer(s.date));
+  const noSid = state.data.att.filter((r) => !r.sid && inPer(r.date)).length
+    + (per.kind === "week" ? 0 : state.data.pay.filter((r) => !r.sid && inPer(r.month + "-01")).length);
+  const notes = [
+    lost.length ? `担当を照合できない伝票 ${lost.length}件・${yen(sum(lost, (s) => s.amount))}（台帳の LINE名を確かめてください）` : null,
+    noSid ? `スタッフID の無い記録 ${noSid}件（集計に入っていません）` : null].filter(Boolean);
+  const noWage = act.filter((r) => r.x.noWage).length;
+  if (notes.length) view.append(h("div", { class: "notice" }, ...notes.map((t) => h("div", { text: t }))));
   view.append(
     h("section", { class: "kpis" },
       kpi("スタッフが作った売上", yen(sales), `${label(per)}・管理者を除く`),
-      kpi("コスト（給与）", yen(cost), inProgress(per) ? "その日時点の給与" : statusText(act)),
+      kpi("コスト（給与）", yen(cost), (inProgress(per) ? "その日時点の給与" : statusText(act)) + (noWage ? `・時給未設定 ${noWage}人` : "") + (act.some((r) => r.x.noPay) ? "・給与が空の記録あり（時給の分だけ）" : "")),
       kpi("コスト率", pct(ratio), ratio == null ? "売上がまだありません" : `売上 ¥1 あたり ${ratio.toFixed(2)} 円`),
       kpi("人数", `${act.length}人`, `スタッフ ${staffRows.length}・プロモーター ${promRows.length}`)),
     card("売上とコスト", "売上のうち、給与（時給の分 ＋ バック ＋ 調整額）に使った割合",
@@ -396,7 +424,8 @@ function peopleTable(rows) {
     if (!list.length) continue;
     tb.append(h("tr", { class: "sec" }, h("td", { colspan: 6, text: kind || "区分が未設定（台帳に入れてください）" })));
     list.forEach((r) => tb.append(clickRow(() => openPerson(r.p.sid),
-      h("td", {}, h("b", { text: r.p.name }), r.p.line && r.p.line !== r.p.name ? h("div", { class: "sub", text: `LINE：${r.p.line}` }) : null),
+      h("td", {}, h("b", { text: r.p.name }), r.x.noWage ? [" ", h("span", { class: "pill rv", text: "時給未設定" })] : null,
+        r.p.line && r.p.line !== r.p.name ? h("div", { class: "sub", text: `LINE：${r.p.line}` }) : null),
       h("td", { class: "n", text: r.x.days ? `${r.x.days}日` : "—" }), h("td", { class: "n", text: r.x.hours ? hrs(r.x.hours) : "—" }),
       h("td", { class: "n", text: yen(r.x.sales) }), h("td", { class: "n", text: yen(r.x.cost) }), h("td", {}, meter(r.x.sales ? r.x.cost / r.x.sales : null)))));
   }
@@ -414,7 +443,7 @@ function renderPayroll(view) {
       months.length ? tableWrap(["月", "人数", "給与の合計", "状態"], [1, 2], h("tbody", {}, ...months.map((mm) => {
         const rows = state.data.pay.filter((r) => r.month === mm);
         return clickRow(() => select(monthP(mm)), h("td", {}, h("b", { text: label(monthP(mm)) })), h("td", { class: "n", text: `${rows.length}人` }),
-          h("td", { class: "n", text: yen(sum(rows, (r) => r.pay)) }), h("td", { text: [...new Set(rows.map((r) => r.status))].join("・") }));
+          h("td", { class: "n", text: yen(sum(rows, (r) => r.pay ?? r.wagePart)) }), h("td", { text: [...new Set(rows.map((r) => r.status))].join("・") }));
       }))) : h("p", { class: "empty", text: "この年の給与の記録はまだありません。" })));
     return;
   }
@@ -423,20 +452,23 @@ function renderPayroll(view) {
   if (!rows.length) { view.append(card(`${label(monthP(m))}の給与`, cap, h("p", { class: "empty", text: "この月の給与の記録はまだありません。" }))); return; }
   const tb = h("tbody");
   for (const kind of KINDS.concat([""])) {
-    const list = rows.filter((r) => (r.kind || "") === kind).sort((a, b) => b.pay - a.pay);
+    const list = rows.filter((r) => (r.kind || "") === kind).sort((a, b) => (b.pay ?? b.wagePart) - (a.pay ?? a.wagePart));
     if (!list.length) continue;
     tb.append(h("tr", { class: "sec" }, h("td", { colspan: 9, text: kind || "区分が未設定" })));
-    list.forEach((r) => tb.append(clickRow(() => { state.sel = monthP(m); openPerson(r.sid); },
-      h("td", {}, h("b", { text: r.name })), h("td", { class: "n", text: `${r.days}日` }), h("td", { class: "n", text: hrs(r.hours) }),
-      h("td", { class: "n", text: yen(r.sales) }), h("td", { class: "n", text: yen(r.wagePart) }), h("td", { class: "n", text: yen(r.back) }),
-      h("td", { class: "n", text: r.adj ? yen(r.adj) : "—" }), h("td", { class: "n" }, h("b", { text: yen(r.pay) })), h("td", {}, statusPill(r.status)))));
+    list.forEach((r) => {
+      const cells = [h("td", {}, h("b", { text: r.name })), h("td", { class: "n", text: `${r.days}日` }), h("td", { class: "n", text: hrs(r.hours) }),
+        h("td", { class: "n", text: yen(r.sales) }), h("td", { class: "n", text: yen(r.wagePart) }), h("td", { class: "n", text: yen(r.back) }),
+        h("td", { class: "n", text: r.adj ? yen(r.adj) : "—" }), h("td", { class: "n" }, h("b", { text: yen(r.pay) })), h("td", {}, statusPill(r.status))];
+      // スタッフID の無い記録は、開く先（個人）が無いので押せない行にする
+      tb.append(r.sid ? clickRow(() => { state.sel = monthP(m); openPerson(r.sid); }, ...cells) : h("tr", {}, ...cells));
+    });
   }
   tb.append(h("tr", { class: "tot" }, h("td", { text: "合計" }), h("td", { class: "n", text: `${sum(rows, (r) => r.days)}日` }), h("td", { class: "n", text: hrs(sum(rows, (r) => r.hours)) }),
     h("td", { class: "n", text: yen(sum(rows, (r) => r.sales)) }), h("td", { class: "n", text: yen(sum(rows, (r) => r.wagePart)) }), h("td", { class: "n", text: yen(sum(rows, (r) => r.back)) }),
-    h("td", { class: "n", text: yen(sum(rows, (r) => r.adj)) }), h("td", { class: "n", text: yen(sum(rows, (r) => r.pay)) }), h("td")));
+    h("td", { class: "n", text: yen(sum(rows, (r) => r.adj)) }), h("td", { class: "n", text: yen(sum(rows, (r) => r.pay ?? r.wagePart)) }), h("td")));
   view.append(
     h("section", { class: "kpis" },
-      kpi("給与の合計", yen(sum(rows, (r) => r.pay)), label(monthP(m))),
+      kpi("給与の合計", yen(sum(rows, (r) => r.pay ?? r.wagePart)), label(monthP(m)) + (rows.some((r) => r.pay == null) ? "・給与が空の記録あり（時給の分だけ）" : "")),
       kpi("時給の分", yen(sum(rows, (r) => r.wagePart)), `勤務 ${hrs(sum(rows, (r) => r.hours))}`),
       kpi("バック", yen(sum(rows, (r) => r.back)), `売上 ${yen(sum(rows, (r) => r.sales))}`),
       kpi("状態", [...new Set(rows.map((r) => r.status))].join("・"), `${rows.length}人`)),
@@ -444,16 +476,16 @@ function renderPayroll(view) {
 }
 
 /* ---------- 個人 ---------- */
-function openPerson(sid) { state.sid = sid; render(); window.scrollTo({ top: 0 }); }
+function openPerson(sid) { stopAi(); state.sid = sid; render(); window.scrollTo({ top: 0 }); }
 function renderPerson(view) {
   const p = people().find((x) => x.sid === state.sid) || state.data.staff.find((x) => x.sid === state.sid);
   if (!p) { state.sid = null; return render(); }
   $("staff-title").textContent = p.name;
   const per = state.sel, x = figures(p, per), ratio = x.cost ? x.sales / x.cost : null;
-  view.append(h("div", {}, h("button", { type: "button", class: "btn plain", onclick: () => { state.sid = null; render(); }, text: "← 一覧へ戻る" })));
+  view.append(h("div", {}, h("button", { type: "button", class: "btn plain", onclick: () => { stopAi(); state.sid = null; render(); }, text: "← 一覧へ戻る" })));
   view.append(h("section", { class: "kpis" },
     kpi("売上", yen(x.sales), `${label(per)}・本人の売上`),
-    kpi("コスト（給与）", yen(x.cost), x.status),
+    kpi("コスト（給与）", yen(x.cost), x.status + (x.noWage ? "・時給未設定の勤務あり" : "") + (x.noPay ? "・給与が空の記録あり（時給の分だけ）" : "")),
     kpi("売上 ÷ コスト", times(ratio), x.sales ? `コスト率 ${pct(x.cost / x.sales)}` : ""),
     kpi("勤務時間", hrs(x.hours), `${x.days}日`),
     kpi("顧客組数", `${x.count}組`, x.count ? `1組あたり ${yen(x.sales / x.count)}` : "")));
@@ -485,7 +517,7 @@ function dailyCard(p, x) {
   return card("日ごと", cap, tableWrap(["日付", "時間帯", "勤務時間", "組数", "売上", "時給の額"], [2, 3, 4, 5], tb));
 }
 function conditionsCard(p) {
-  const canEdit = state.canWrite !== false && !!p.gid;
+  const canEdit = state.canWrite !== false && !!p.gid && !state.busy;
   const f = {
     real: h("input", { value: p.real || "", placeholder: "例：山田 花子", "aria-label": "本名" }),
     line: h("input", { value: p.line || "", placeholder: "LINE の表示名", "aria-label": "LINE名" }),
@@ -496,8 +528,11 @@ function conditionsCard(p) {
     rate: h("input", { type: "number", min: 0, max: 100, step: 0.5, inputmode: "decimal", value: p.rate ?? "", "aria-label": "バック率" }),
   };
   if (!canEdit) Object.values(f).forEach((e) => e.setAttribute("disabled", ""));
-  const msg = h("span", { class: "msg" });
-  const save = h("button", { type: "button", class: "btn filled", text: "保存（Asana の台帳）", disabled: !canEdit, onclick: () => saveConditions(p, f, save, msg) });
+  // 保存の結果は、読み直しの再描画のあとにここへ出す（1回だけ）
+  const msg = h("span", { class: "msg", text: state.flash && state.flash.sid === p.sid ? state.flash.text : "" });
+  state.flash = null;
+  const ask = { sig: "" };   // 確かめの文を出した変更の内容。同じ内容でもう一度押されたら送る
+  const save = h("button", { type: "button", class: "btn filled", text: "保存（Asana の台帳）", disabled: !canEdit, onclick: () => saveConditions(p, f, save, msg, ask) });
   return card("勤務条件", "LINE名は、勤怠・伝票を送った人と伝票のプロモーターフラグを、この人に結び付ける名前です。画面では本名で表示します",
     h("div", { class: "form" },
       h("label", {}, "本名", f.real), h("label", {}, "LINE名", f.line), h("label", {}, "区分", f.kind), h("label", {}, "入社日", f.joined),
@@ -509,46 +544,88 @@ function conditionsCard(p) {
       !p.gid ? h("span", { class: "msg", text: "台帳にまだありません（初めて勤怠を送ると自動で作られます）。" }) : null,
       state.canWrite === false ? h("span", { class: "msg", text: "このページから書き込む許可がありません。Asana で編集してください。" }) : null));
 }
-async function saveConditions(p, f, btn, msg) {
-  const v = (e) => e.value.trim(), cf = {};
-  if (v(f.real) !== (p.real || "")) cf[F.real] = v(f.real);
-  if (v(f.line) !== (p.line || "")) cf[F.line] = v(f.line);
-  if (f.kind.value && f.kind.value !== p.kind) cf[F.kind] = KIND_OPT[f.kind.value];
-  if (v(f.joined) && v(f.joined) !== p.joined) cf[F.joined] = { date: v(f.joined) };
-  if (v(f.wage) !== "" && Number(v(f.wage)) !== p.wage) cf[F.wage] = Number(v(f.wage));
-  if (v(f.wageFrom) && v(f.wageFrom) !== p.wageFrom) cf[F.wageFrom] = { date: v(f.wageFrom) };
+const COND_LABEL = { real: "本名", line: "LINE名", kind: "区分", joined: "入社日", wage: "時給", wageFrom: "時給の適用開始日", rate: "バック率" };
+async function saveConditions(p, f, btn, msg, ask) {
+  if (state.busy || !state.data) return;
+  const v = (e) => e.value.trim(), cf = {}, t = today();
+  // 入力の検査（外れた値は Asana に送らない）
+  const okDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && toS(toD(s)) === s;
+  const wrong = (k, ok) => f[k].validity?.badInput || (v(f[k]) !== "" && !ok(v(f[k])));
+  const bad = [
+    wrong("wage", (s) => /^\d+$/.test(s)) ? "時給（0 以上の整数）" : null,
+    wrong("rate", (s) => Number(s) >= 0 && Number(s) <= 100) ? "バック率（0〜100）" : null,
+    wrong("joined", okDate) ? "入社日（YYYY-MM-DD）" : null,
+    wrong("wageFrom", okDate) ? "時給の適用開始日（YYYY-MM-DD）" : null].filter(Boolean);
+  if (bad.length) { msg.textContent = "入力を確かめてください：" + bad.join("、"); return; }
+  // 空にする変更は送れない（「変更はありません」と出さずに、できないと伝える）
+  const was = { real: p.real || "", line: p.line || "", kind: p.kind || "", joined: p.joined || "", wage: p.wage ?? "", wageFrom: p.wageFrom || "", rate: p.rate ?? "" };
+  const blank = Object.keys(COND_LABEL).filter((k) => v(f[k]) === "" && was[k] !== "");
+  if (blank.length) { msg.textContent = "空にする変更は、ここではできません（Asana で直してください）：" + blank.map((k) => COND_LABEL[k]).join("、"); return; }
+  if (v(f.real) !== was.real) cf[F.real] = v(f.real);
+  if (v(f.line) !== was.line) cf[F.line] = v(f.line);
+  if (v(f.kind) !== was.kind) cf[F.kind] = KIND_OPT[v(f.kind)];
+  if (v(f.joined) !== was.joined) cf[F.joined] = { date: v(f.joined) };
+  const wageNew = v(f.wage) !== "" && Number(v(f.wage)) !== p.wage;
+  if (wageNew) cf[F.wage] = Number(v(f.wage));
+  if (v(f.wageFrom) !== was.wageFrom) cf[F.wageFrom] = { date: v(f.wageFrom) };
   if (v(f.rate) !== "" && Number(v(f.rate)) !== p.rate) cf[F.rate] = Number(v(f.rate));
   if (!Object.keys(cf).length) { msg.textContent = "変更はありません。"; return; }
-  btn.disabled = true; msg.textContent = "保存しています…";
-  try {
-    const task = { task: p.gid, custom_fields: cf }, name = v(f.real) || v(f.line);
-    if (name && name !== p.name) task.name = name;
-    const res = payloadOf(await state.mcp.callTool(SERVER, "update_tasks", { tasks: [task] }, { cache: false }));
-    if (res.failed && res.failed.length) throw { code: "tool_error" };
-    msg.textContent = "保存しました。勤怠・給与には30分以内に反映されます。";
-    await load(true); render();
-  } catch (e) {
-    if (["not_granted", "not_declared", "capability_disabled", "tool_not_declared"].includes(e?.code)) {
-      state.canWrite = false; msg.textContent = "このページから書き込む許可がありません。「Asana で編集」から直してください。";
-    } else msg.textContent = "保存できませんでした（" + (e?.code || "エラー") + "）。";
-    btn.disabled = false;
+  // 時給だけを変えて適用開始日が前のままだと、worker がその日からの履歴を新しい額で上書きし、過去の勤務と給与を計算し直す（labor_hooks の _apply_wage）
+  // 初めて時給を入れるとき（前の時給が無い）は、適用開始日が空でもよい（worker は過去の勤務すべてに当てる）
+  if (wageNew && p.wage != null && v(f.wageFrom) !== t && (!v(f.wageFrom) || v(f.wageFrom) === was.wageFrom)) {
+    f.wageFrom.value = t;
+    msg.textContent = "時給を変えるときは、新しい時給の適用開始日が要ります。今日からにしました。日付を確かめて、もう一度「保存」を押してください。";
+    return;
   }
+  // 影響の大きい変更は、1回知らせてから送る（同じ内容でもう一度押したら送る）
+  const warn = [];
+  if (cf[F.wageFrom] && v(f.wageFrom) < t && v(f.wage) !== "") warn.push("時給の適用開始日が過去の日です。この日以降の勤務の時給の額と給与が計算し直されます。");
+  if (cf[F.kind] && v(f.kind) === "管理者") warn.push("管理者にすると、この画面の一覧と集計に出なくなります（戻すのは Asana で）。");
+  const sig = JSON.stringify(cf);
+  if (warn.length && ask.sig !== sig) { ask.sig = sig; msg.textContent = warn.join("") + "よければもう一度「保存」を押してください。"; return; }
+
+  const env = state.data.env, task = { task: p.gid, custom_fields: cf }, name = v(f.real) || v(f.line);
+  if (name && name !== p.name) task.name = name;
+  // 保存中は、この保存に関わる入力・ボタンと「更新」・環境の切り替えを止める
+  const lock = (on) => { state.busy = on; [btn, $("staff-reload"), $("staff-env"), ...Object.values(f)].forEach((e) => { e.disabled = on; }); };
+  lock(true); msg.textContent = "保存しています…";
+  let text, wrote = false, ok;
+  try {
+    try {
+      wrote = await BN.writeTasks(state.mcp, [task], env) === "ok";
+      text = wrote ? "保存しました。勤怠・給与には30分以内に反映されます。" : "保存の結果を確認できませんでした。読み直した内容を確認してください";
+    } catch (e) {
+      console.warn("スタッフ管理: 保存に失敗", e?.code || e?.message || e);
+      if (BN.writeDenied(e)) {
+        state.canWrite = false; text = "このページから書き込む許可がありません。「Asana で編集」から直してください。";
+      } else text = BN.errText(e, "Asana", "save");
+    }
+    ok = await load(true);   // どの場合も読み直して、実際の状態を表示する
+  } finally { lock(false); }
+  if (ok === undefined) { if (state.data) render(); else if (state.ver !== BN.version()) load(true); return; }   // 後から始まった読み込みに替わった。入力が無効のまま残らないよう描き直す
+  // 保存の成否と、読み直しの成否は別に伝える
+  state.flash = { sid: p.sid, text: ok ? text : wrote ? "保存しました。読み直しに失敗しました" : text + "（読み直しにも失敗しました）" };
+  render();
 }
 
 /* ---------- AI の示唆（その人の数字だけを渡す。名前は渡さない） ---------- */
-const insightKey = (p, per) => `${state.env}_${p.sid}_${per.key.replace(":", "_")}`;
+const insightKey = (env, p, per) => `${env}_${p.sid}_${per.key.replace(":", "_")}`;
+/* 別の人・期間・環境へ移ったら、実行中の示唆を止める */
+function stopAi() { if (state.aiRun) { state.aiRun.abort(); state.aiRun = null; } }
 function insightInput(p, per, x) {
   const hist = [];
   let m = per.kind === "year" ? ym(min(per.end, today())) : ym(per.start);
   for (let i = 0; i < 6; i++) {
     const y = figures(p, monthP(m));
-    if (active(y)) hist.push({ 月: m, 売上: y.sales, 給与: y.cost, 時給の分: y.wagePart, バック: y.back, 勤務時間: Math.round(y.hours * 100) / 100, 勤務日数: y.days, 顧客組数: y.count });
+    if (active(y)) hist.push({ 月: m, 売上: y.sales, 給与: y.cost, 勤務日数: y.days, 顧客組数: y.count });
     m = addMonths(m, -1);
   }
   const team = teamTotal(per);
-  return { 区分: p.kind || "未設定", 時給: p.kind === "プロモーター" ? null : p.wage, バック率: p.rate, 期間: label(per), 期間は進行中: inProgress(per),
-           この期間: { 売上: x.sales, 給与: x.cost, 勤務時間: Math.round(x.hours * 100) / 100, 勤務日数: x.days, 顧客組数: x.count },
-           月ごと: hist, 店全体の同じ期間: team };
+  // 時給とバック率は AI に渡さない（contract.md §1）。割り算で出せる数字（時給の分・バックの内訳、勤務時間）も渡さず、給与は合計だけにする。
+  // 店全体の給与は、3人以上のときだけ渡す（2人だと引き算でもう1人の給与になる）
+  return { 区分: p.kind || "未設定", 期間: label(per), 期間は進行中: inProgress(per),
+           この期間: { 売上: x.sales, 給与: x.cost, 勤務日数: x.days, 顧客組数: x.count },
+           月ごと: hist, 店全体の同じ期間: { sales: team.sales, cost: team.n >= 3 ? team.cost : null, n: team.n } };
 }
 function aiPrompt(input) {
   return `あなたはバー「Bar null」の経営を手伝う分析担当です。あるスタッフ（名前は伏せる）の数字から、示唆をまとめてください。
@@ -561,7 +638,7 @@ JSON だけを返す: {"headline": "ひとことの結論", "good": ["良い点"
 ${JSON.stringify(input)}`;
 }
 function aiCard(p, x) {
-  const per = state.sel, key = insightKey(p, per), cached = state.insights[key];
+  const per = state.sel, env = state.data.env, key = insightKey(env, p, per), cached = state.insights[key];   // env は、この表示のデータを読んだ環境
   const out = h("div", { class: "ai-out" }), msg = h("span", { class: "msg" });
   const btn = h("button", { type: "button", class: "btn tinted", text: cached ? "最新の数字で作り直す" : "示唆を作成", disabled: !state.sample || !!state.aiRun });
   const show = (doc) => {
@@ -577,60 +654,58 @@ function aiCard(p, x) {
   else if (state.db) state.db.doc(`staff_insights/${key}`).get().then((snap) => {
     const d = snap && (typeof snap.data === "function" ? snap.data() : snap);
     if (d && d.result && !state.insights[key]) { state.insights[key] = d; show(d); btn.textContent = "最新の数字で作り直す"; }
-  }).catch(() => {});
+  }).catch(() => { if (!msg.textContent) msg.textContent = "保存済みの示唆を読めませんでした。"; });
   if (state.sample === null) msg.textContent = "このページから Claude を使う許可がありません。";
   btn.addEventListener("click", async () => {
     if (!state.sample || state.aiRun) return;
     const ctl = new AbortController(); state.aiRun = ctl; btn.disabled = true; msg.textContent = "作成しています…";
     try {
       const result = await state.sample.json(aiPrompt(insightInput(p, per, x)), { signal: ctl.signal, modelTier: "default", cache: false });
+      if (ctl.signal.aborted) return;   // 別の人・期間・環境へ移った（結果は使わない）
       if (!result || typeof result !== "object" || !result.headline) throw { code: "invalid_json" };
-      const doc = { env: state.env, sid: p.sid, period: per.key, result, generated_at: new Date().toISOString() };
+      const doc = { env, sid: p.sid, period: per.key, result, generated_at: new Date().toISOString() };
       state.insights[key] = doc; show(doc); msg.textContent = ""; btn.textContent = "最新の数字で作り直す";
-      if (state.db) state.db.doc(`staff_insights/${key}`).set(doc).catch(() => {});
+      if (state.db) Promise.resolve().then(() => state.db.doc(`staff_insights/${key}`).set(doc))
+        .catch(() => { msg.textContent = "示唆は作りましたが、保存できませんでした（開き直すと消えます）。"; });
     } catch (e) {
+      if (ctl.signal.aborted) return;
       if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled"].includes(e?.code)) { state.sample = null; msg.textContent = "このページから Claude を使う許可がありません。"; }
       else msg.textContent = e?.code === "rate_limited" ? "混み合っています。時間をおいてお試しください。" : "示唆を作れませんでした（" + (e?.code || "エラー") + "）。";
-    } finally { state.aiRun = null; btn.disabled = !state.sample; }
+    } finally {
+      if (state.aiRun === ctl) state.aiRun = null;
+      if (btn.isConnected) btn.disabled = !state.sample;
+      // 実行中に同じ表示が描き直されていたら、新しいボタンが無効のまま残らないように描き直す
+      else if (!ctl.signal.aborted && !state.aiRun && !state.busy && state.data && state.sid === p.sid) render();
+    }
   });
   return card("AI の示唆", "この人の売上・給与・勤務の数字（前月まで）と店全体の合計だけを Claude に渡します。名前は渡しません",
     h("div", { class: "actions", style: "margin-top:0" }, btn, msg), out);
 }
 
 /* ======================= 起動 ======================= */
-async function start(refresh) {
-  setMsg(null);
-  $("staff-sub").textContent = "読み込んでいます…";
-  if (!LABOR[state.env].attendance) {
-    state.data = null; render(); $("staff-sub").textContent = "";
-    setMsg("まだ設定されていません", `${state.env === "prod" ? "本番" : "テスト"}用のプロジェクトがまだありません。`); return;
-  }
-  state.mcp = state.mcp || await use("mcp");
-  if (!state.mcp) { $("staff-sub").textContent = ""; setMsg("Asana につながっていません", "このページで勤怠・給与を読むには、claude.ai で Asana（0x0.co.jp のアカウント）を接続し、ページの許可を出してください。", () => start(true)); return; }
-  try {
-    await load(refresh);
-    state.sel = state.sel || periodByKey(store.get("staff-sel") || "") || monthP(ym(today()));
-    render();
-  } catch (e) {
-    const code = e?.code;
-    console.warn("スタッフ管理: 読み込みに失敗", code || e?.message || e);
-    $("staff-sub").textContent = "";
-    setMsg("勤怠・給与を読み込めませんでした",
-      code === "server_not_connected" || code === "needs_reauth" ? "claude.ai の設定で Asana を接続（または再接続）してください。"
-        : code === "not_granted" ? "ページの許可（Asana）が出ていません。"
-        : `勤怠・台帳・給与の Asana プロジェクトは、管理者だけが見られる非公開プロジェクトです。メンバーでない場合は読めません（${code || "エラー"}）。`,
-      () => start(true));
-  }
-}
-$("staff-env").value = state.env;
-$("staff-env").addEventListener("change", (e) => { state.env = e.target.value; store.set("staff-env", state.env); state.sid = null; start(); });
-$("staff-tab-overview").addEventListener("click", () => { state.tab = "overview"; state.sid = null; render(); });
-$("staff-tab-payroll").addEventListener("click", () => { state.tab = "payroll"; state.sid = null; render(); });
-$("staff-reload").addEventListener("click", () => start(true));
+$("staff-env").value = BN.env.get();
+$("staff-env").addEventListener("change", (e) => BN.env.set(e.target.value));   // 読み直しは下の portal:env で行う
+/* 環境が変わったら（ほかのページでの切り替えも）、前の環境の表や保存ボタンを残さないよう、先に消してから読み直す */
+window.addEventListener("portal:env", () => {
+  $("staff-env").value = BN.env.get();
+  stopAi(); state.sid = null; state.data = null; state.flash = null;
+  $("staff-title").textContent = "スタッフ管理";
+  render();
+  // 非表示の間は読まない（全ページが一斉に読むのを避ける）。戻ったとき（portal:route）に読む
+  const box = $("staff-env").closest(".page");
+  if (box && box.hidden) { BN.gen("staff"); state.ver = -1; } else load();
+});
+/* このページに戻ったとき、ほかのページの書き込みがあれば読み直す */
+window.addEventListener("portal:route", (e) => {
+  if (e.detail && e.detail.key === "cost-staff" && !state.busy && state.ver !== BN.version()) load(true);
+});
+$("staff-tab-overview").addEventListener("click", () => { stopAi(); state.tab = "overview"; state.sid = null; render(); });
+$("staff-tab-payroll").addEventListener("click", () => { stopAi(); state.tab = "payroll"; state.sid = null; render(); });
+$("staff-reload").addEventListener("click", () => { if (!state.busy) load(true); });
 $("staff-navtoggle").addEventListener("click", () => {
   const open = $("staff-side").classList.toggle("open"); $("staff-navtoggle").setAttribute("aria-expanded", String(open));
 });
-use("sample").then((s) => { state.sample = s; if (state.sid) render(); });
-use("db").then((db) => { state.db = db; });
-start();
+use("sample").catch(() => null).then((s) => { state.sample = s; if (state.sid && state.data && !state.busy) render(); });
+use("db").catch(() => null).then((db) => { state.db = db; });
+load();
 </script>
