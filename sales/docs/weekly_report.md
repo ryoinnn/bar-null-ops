@@ -15,20 +15,21 @@ Asana は伝票データの蓄積場所（台帳）として使い、レポー�
     - 固定費（2026-11-15 E の依頼で拡張）: 月額（1日あたり）・売上に対する割合・前月との差・損益分岐売上、区分別の小計と「返済・配当を除いた固定費」、項目別（区分の色・按分・適用期間・実績の印）、区分の積み上げの推移（月の下に売上に対する割合）、今後3か月の変わり目。編集は Asana「Bar null 固定費」
     - 変動費: 変動費・人件費率・原価率・決済手数料、内訳4つの箱（人件費・仕入・備品消耗品・決済手数料）と推移
     - 数え方: 人件費は給与の合計（今月は見込み）、仕入は「仕入金額（税込）」、固定費は Asana「Bar null 固定費」の月額（月の途中でも月額。返済・配当を含む）、決済手数料は伝票。売上合計は通常営業＋レンタルの月次確定値
-    - 読むプロジェクトの ID は `cost.html` の先頭にもある（`sales.html` と同じ値。本番化のときは両方に足す）
-    - 注意: 仕入の区分「消耗品」（NIGITA から買う消耗品）と、これから作る備品・消耗品の記録は、同じ物を二重に数えないよう分け方を決める
+    - 読むプロジェクトの ID は `common.js` の `BN.IDS`（全ページ共通。2026-11-15 全体レビューでまとめた）
+    - 仕入の区分「消耗品」（NIGITA から買う消耗品）は仕入で数え、備品・消耗品（カード BAR NULL）には入れない（contract.md §3・§3b）
   - コスト管理は、Editor 以上（持ち主を含む）にだけ出す。閲覧だけの人はホームを飛ばして売上管理を開く
-  - ファイルと担当: `index.html`（殻・切替。A）、`shared.css`（共通の見た目。A）、`pages/sales.html`（A）、
-    `pages/cost.html`（コスト管理の全体・固定費・変動費。A）、`pages/staff.html`（人件費。B）、`pages/purchase.html`（仕入。C）、`pages/supplies.html`（備品・消耗品。未定。今は仮のページ）
-  - 殻は `shared.css` とページを fetch して差し込む（ページは1回だけ読み込み、切り替えは表示の出し入れ）。
+  - ファイルと担当: `index.html`（殻・切替。A）、`shared.css`（共通の見た目。A）、`common.js`（共通の部品 `window.BN`。2026-11-15 全体レビューで追加）、`pages/sales.html`（A）、
+    `pages/cost.html`（コスト管理の全体・固定費・変動費。A）、`pages/staff.html`（人件費。B）、`pages/purchase.html`（仕入。C）、`pages/supplies.html`（備品・消耗品。D）
+  - 殻は `shared.css` と `common.js` を読み込んでから、ページを fetch して差し込む（ページは1回だけ読み込み、切り替えは表示の出し入れ）。
+    読むプロジェクトの ID・環境（本番／テスト）・Asana の読み書き・固定費の計算・営業日は `common.js` の `BN` だけが持つ（決まりは `docs/profit/contract.md` §1b。テストは `node --test tests/js/common.test.mjs`）。
     capabilities（mcp・db・user・sample）は Artifact 単位で、殻の1ページの中で全ページが使う
   - ページの約束: id はページ名の接頭辞（`staff-` など。売上は既存の id のまま）／ページだけのスタイルは `.pg-<名前>` の下／
     script は `type="module"`（ページごとにスコープが分かれる）／共通の部品は shared.css のクラス（`.card` `.kpi` `.lg` `.toolbar` など）を使う／
     固定表示の位置は `var(--shell-h)`（上部バーの高さ）を足す
-  - 各セッションは自分のページのファイルだけを直し、公開は `files` で自分のファイルだけを渡す（他のファイルは公開済みのものが残る）
-  - capabilities（2026-11-14 Version 12。変えるのは A だけ。全体で1つなので、足すときは全部を書いて公開する）:
-    mcp = Asana（get_tasks・update_tasks・create_tasks。書き込みはスタッフ台帳の入力用で、本人了承済み）、Slack（slack_read_channel）／
-    db の rules = fixedcosts（read admin・write owner）、profit_insights・staff_insights・purchase_insights（read admin・write admin。purchase_insights は 2026-11-15 Version 17 で追加）／sample／user
+  - 各セッションは自分のページのファイルだけを直し、公開は `files` で自分のファイルだけを渡す（他のファイルは公開済みのものが残る）。`common.js` を直したら `files` に `common.js` も渡す（無いと殻が止まる）
+  - capabilities（全体で1つなので、変えるときは全部を書いて公開する。2026-11-15 全体レビューで、使っていない `create_tasks` と db の `fixedcosts` を外した）:
+    mcp = Asana（get_tasks・update_tasks。書き込みはスタッフ台帳・商品マスタ・備品の明細の入力用で、本人了承済み）、Slack（slack_read_channel）／
+    db の rules = profit_insights・staff_insights・purchase_insights（read admin・write admin）／sample／user
 - 見た目: Apple 風のすりガラス（フロストガラス）の UI。アクセントは赤ピンク。ライト・ダークの両方に対応（2026-10-24 本人の希望）
 - サイドバー: 年 → 月の囲み → 週。月の囲みの見出しを押すとその月全体、年の見出しを押すとその年全体の集計になる
   - 週は月曜〜日曜。月をまたぐ週は月で区切る（月の最初と最後の週は日数が少ないことがある。日数を併記）
@@ -94,8 +95,8 @@ gcloud.cmd scheduler jobs run sales-weekly --location=us-central1 --project=barn
 ## 利益セクション（2026-11-14 追加。箱の実装）
 - 見える人: 固定費を読める人（Editor 以上）だけ。ほかの閲覧者には、利益のセクション・固定費・利益の示唆が出ない
 - 画面: 通常営業・レンタルの下に「利益」。仕入・人件費・固定費・レンタル収益の記録状態、利益（発生ベース／入金ベース）・変動費・固定費の数字、利益の内訳（売上の使いみちの帯と原価率・人件費率・損益分岐売上）、固定費（日割り）の表、担当者別の勤務時間と人件費
-- 固定費: 2026-11-15 から Asana「Bar null 固定費」（contract.md §3c）を読む。計算は `fixed.py` と同じで、`sales.html` と `cost.html` の両方にある（按分・実績・値上げ・終了を含む12か月のテストで一致を確認）。設定の中の入力欄は外し、案内だけを残した（旧 db `fixedcosts/barnull` は使わない）
-- プロモーター経由（2026-11-14）: 伝票の「プロモーター」（contract.md §2-2）に名前がある伝票を、内訳に「プロモーター経由」（件数・金額・売上に占める割合）と「プロモーター別」として出す。売上の合計は変えない。AI の示唆には渡さない
-- 仕入・人件費: Asana の専用プロジェクトを `COST_PROJECTS`（`portal/pages/sales.html`）に足すと読む。空のあいだは「未設定」。読み方は `docs/profit/contract.md`
+- 固定費: 2026-11-15 から Asana「Bar null 固定費」（contract.md §3c）を読む。計算は `common.js` の `BN.fixed` に1つだけあり（`fixed.py` と同じ規則。`tests/js/common.test.mjs`）、売上管理とコスト管理の両方が使う
+- プロモーター経由（2026-11-14）: 伝票の「プロモーター」（contract.md §2-6）に名前がある伝票を、内訳に「プロモーター経由」（件数・金額・売上に占める割合）と「プロモーター別」として出す。売上の合計は変えない。AI の示唆には渡さない
+- 仕入・人件費・備品消耗品: 読むプロジェクトは `common.js` の `BN.IDS`。読み方は `docs/profit/contract.md`（§1b・§5）
 - 「記録済み」でない費用（未記録・一部のみ・未設定）があると、利益は「—」にし、断定しない
 - AI の示唆: 「利益・コスト」の欄を追加。時給・個人別の人件費は渡さない。この欄は db `profit_insights/…`（Editor 以上だけ）に保存し、売上の示唆（`insights/…`）には入れない
