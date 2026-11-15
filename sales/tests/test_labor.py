@@ -164,6 +164,39 @@ def test_wage_change_applies_from_its_start_date():
     assert len(StaffIndex.load(deps.store).by_name("たろう").wages) == 2
 
 
+def _sync(deps):
+    jobs.run_steps(deps, [("staff_sync", labor_hooks.staff_sync)])
+    return StaffIndex.load(deps.store).by_name("たろう")
+
+
+def test_wage_change_without_new_start_date_does_not_rewrite_past():
+    """適用開始日を変えずに時給だけ変えても、過去の勤務の時給は変わらない（今日から当て、台帳の日付を今日に直す）。"""
+    deps = labor_deps()
+    today = attendance.cycle_date(datetime.now(deps.settings.tz), deps).isoformat()
+    gid = ledger(deps, real_name="山田花子", line_name="たろう", staff_kind="スタッフ", wage=1500, wage_from="2026-01-01")
+    deps.labor.tasks[gid].update(wage=1800)
+    p = _sync(deps)
+    assert p.wage_on("2026-01-02") == 1500 and p.wage_on(today) == 1800
+    assert deps.labor.tasks[gid]["wage_from"] == today
+    history = list(p.wages)
+    assert _sync(deps).wages == history      # 書き戻した日付を読んでも、履歴は変わらない
+
+
+def test_wage_correction_with_reentered_or_future_start_date():
+    deps = labor_deps()
+    gid = ledger(deps, real_name="山田花子", line_name="たろう", staff_kind="スタッフ", wage=1500, wage_from="2026-01-01")
+    # 適用開始日を入れ直した → その日から（過去でもよい）
+    deps.labor.tasks[gid].update(wage=1600, wage_from="2026-01-10")
+    p = _sync(deps)
+    assert p.wage_on("2026-01-09") == 1500 and p.wage_on("2026-01-10") == 1600
+    # まだ始まっていない額の訂正 → 同じ日のまま上書き（履歴は増えない）
+    deps.labor.tasks[gid].update(wage=1800, wage_from="2099-12-01")
+    _sync(deps)
+    deps.labor.tasks[gid].update(wage=1700)
+    p = _sync(deps)
+    assert [w["wage"] for w in p.wages] == [1500, 1600, 1700] and p.wage_on("2099-12-01") == 1700
+
+
 # ---------------------------------------------------------------- 給与
 @pytest.fixture
 def clock(monkeypatch):

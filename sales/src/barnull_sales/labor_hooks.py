@@ -78,36 +78,56 @@ def staff_sync(deps) -> int:
             s.kind = t.get("staff_kind") or ""
             s.joined = t.get("joined") or ""
             s.back_rate = float(t["back_rate"]) if t.get("back_rate") is not None else None
-            _apply_wage(s, t.get("wage"), t.get("wage_from"), today)
+            write_back = _apply_wage(s, t.get("wage"), t.get("wage_from"), today)
             if not t.get("staff_id"):
                 deps.labor.upsert_staff(t["gid"], s.name, {"staff_id": s.staff_id,
                                                            "line_ids": ", ".join(s.line_user_ids)})
             after = s.to_dict()
-            keys = ("real_name", "line_name", "kind", "joined", "back_rate", "wages", "asana")
+            keys = ("real_name", "line_name", "kind", "joined", "back_rate", "wages", "wage_from_seen", "asana")
             if any(before.get(k) != after.get(k) for k in keys):
                 staff_mod.save(deps.store, s)
                 index.members[s.staff_id] = s
                 n += 1
                 if any(before.get(k) != after.get(k) for k in ("real_name", "line_name", "kind", "back_rate", "wages")):
                     _ripple(deps, s, today, attendance, payroll)
+            if write_back:
+                # 台帳の「時給の適用開始日」を、実際に当てた日に合わせる（失敗しても次の回で書き直す）
+                deps.labor.upsert_staff(t["gid"], s.name, {"wage_from": write_back})
     errs.raise_if_any()
     return n
 
 
-def _apply_wage(s: Staff, wage, wage_from: str | None, today: date) -> None:
-    """時給の欄を履歴に足す。適用開始日が無ければ、最初の時給は過去すべてに、変更は今日から当てる。"""
+def _apply_wage(s: Staff, wage, wage_from: str | None, today: date) -> str | None:
+    """時給の欄を履歴に足す。返り値は、台帳の適用開始日に書き戻す日付（今日から当てたとき）。
+
+    - 最初の時給は、適用開始日が無ければ過去すべてに当てる
+    - 適用開始日を入れ直した（前回読んだ値と違う）ときは、その日から。同じ日の履歴があれば訂正として上書きする
+    - 適用開始日を変えずに時給だけ変えたときは、過去の勤務を書き換えないよう今日から当てる（契約 §2-2
+      「前の勤務は前の額」）。ただし適用開始日が今日以降なら、まだ始まっていない額の訂正としてその日のまま上書きする
+    """
     if wage is None:
-        return
+        return None
     w = int(wage)
-    frm = wage_from or ("" if not s.wages else today.isoformat())
+    wf = wage_from or ""
+    seen, s.wage_from_seen = s.wage_from_seen, wf
+    if not s.wages:
+        s.wages.append({"from": wf, "wage": w})
+        return None
+    last = s.wages[-1]
+    if last["wage"] == w and (not wf or last.get("from") == wf):
+        return None
+    t = today.isoformat()
+    if wf and (wf != seen or wf >= t):
+        frm, write_back = wf, None
+    else:
+        frm, write_back = t, t
     same_from = next((x for x in s.wages if x.get("from") == frm), None)
-    if s.wages and s.wages[-1]["wage"] == w and (not wage_from or s.wages[-1].get("from") == wage_from):
-        return
     if same_from:
         same_from["wage"] = w
     else:
         s.wages.append({"from": frm, "wage": w})
     s.wages.sort(key=lambda x: x.get("from") or "")
+    return write_back
 
 
 def _ripple(deps, s: Staff, today: date, attendance, payroll) -> None:

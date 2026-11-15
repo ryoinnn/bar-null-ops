@@ -30,6 +30,7 @@ class Staff:
     kind: str = ""                                    # スタッフ／プロモーター／管理者（空 ＝ 未設定）
     joined: str = ""                                  # 入社日 YYYY-MM-DD
     wages: list[dict] = field(default_factory=list)   # [{from: YYYY-MM-DD, wage: 円}]（from の早い順）
+    wage_from_seen: str = ""                          # 前回読んだ Asana の「時給の適用開始日」（入れ直したかの判定用）
     back_rate: float | None = None                    # %（例: 10 → 10%）
     line_user_ids: list[str] = field(default_factory=list)
     asana: dict = field(default_factory=dict)         # task_gid, url
