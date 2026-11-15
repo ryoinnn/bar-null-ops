@@ -37,6 +37,18 @@
 .pg-supplies td .sub{display:block;font-size:12px;color:var(--label-2);white-space:normal}
 .pg-supplies tr.off td{opacity:.5;text-decoration:line-through}
 .pg-supplies .msg{font-size:13px;color:var(--label-2)}
+.pg-supplies tr.off td .keep{display:inline-block;text-decoration:none}
+.pg-supplies .nar{display:none}
+/* 狭い幅: 営業日の列をやめて支払先の下に出し、支払先と操作を折り返して、金額と操作を画面内に収める */
+@media (max-width: 670px){
+  .pg-supplies .tablewrap table{min-width:0}
+  .pg-supplies .tablewrap th,.pg-supplies .tablewrap td{padding-inline:4px}
+  .pg-supplies .tablewrap .c-date{display:none}
+  .pg-supplies .tablewrap .nar{display:block}
+  .pg-supplies .tablewrap .c-payee,.pg-supplies .tablewrap .c-op{white-space:normal;overflow-wrap:anywhere}
+  .pg-supplies .tablewrap td select{max-width:7.5em;padding:6px;font-size:13px}
+  .pg-supplies .tablewrap .c-op .btn{white-space:normal;padding:6px 8px;font-size:12.5px;line-height:1.3}
+}
 </style>
 
 <div class="app pg-supplies" id="supplies-root">
@@ -66,8 +78,8 @@
 
 <script type="module">
 /* ======================= 設定（docs/profit/contract.md §3b。ID は sales/asana_ids.json の supplies） ======================= */
-const SERVER = "Asana";
-const PROJECT = { prod: "1220539775332256", test: "1220539120594121" };   // sales/asana_ids.json の supplies
+const IDS = BN.IDS.supplies;   // プロジェクト ID は common.js に1つだけ置く
+const REQUIRED = ["営業日", "備品ステータス", "金額（税込）", "店舗"];   // 無ければ読み込みの失敗にする（0 円と表示しない）
 // 書き込みに使う欄（カスタムフィールドの gid はワークスペース共通）
 const F = { cat: "1220539120627256", status: "1220538930933506", manual: "1220538975180138" };
 const CAT_OPT = { "備品・消耗品": "1220539120627257", "ツール・サブスク": "1220539120627258", "その他": "1220539120627259" };
@@ -75,7 +87,6 @@ const ST_OPT = { "取り込み済み": "1220538930933507", "対象外": "1220538
 const MANUAL_ON = "1220538975180140";
 const CATS = Object.keys(CAT_OPT);
 const HIGH = 100000;
-const OPT = "name,permalink_url,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
 
 const $ = (id) => document.getElementById(id);
 const use = (name) => (window.claude && window.claude.use) ? window.claude.use(name) : Promise.resolve(null);
@@ -83,9 +94,10 @@ const store = {
   get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} },
 };
+/* data: { env, items }（env は読み込んだときの環境。表示と保存はこれを使う）／note: 保存の結果 { gid, text }／ver: 読み込んだときの BN.version() */
 const state = {
-  env: PROJECT[store.get("supplies-env")] ? store.get("supplies-env") : (PROJECT.prod ? "prod" : "test"),
   tab: "dash", sel: null, openYears: {}, sort: { key: "date", dir: -1 }, showOff: false, data: null, mcp: null,
+  busy: false, note: null, ver: 0,
 };
 
 /* ======================= 小さな道具 ======================= */
@@ -118,7 +130,7 @@ const ym = (s) => s.slice(0, 7);
 const monthEnd = (s) => { const d = toD(s.slice(0, 8) + "01"); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); return toS(d); };
 const addMonths = (m, n) => { const d = toD(m + "-01"); d.setUTCMonth(d.getUTCMonth() + n); return toS(d).slice(0, 7); };
 const min = (a, b) => a < b ? a : b;
-const today = () => toS(new Date(Date.now() + 9 * 3600e3));   // 日本時間の日付
+const today = BN.todayBiz;   // 営業日（6:00 区切り）の今日。全ページ共通
 function weeksOf(month) {
   const ms = month + "-01", me = monthEnd(ms), out = [];
   for (let s = ms, n = 1; s <= me; n++) {
@@ -131,7 +143,7 @@ function weeksOf(month) {
 const monthP = (m) => ({ kind: "month", key: `m:${m}`, start: m + "-01", end: monthEnd(m + "-01"), month: m });
 const yearP = (y) => ({ kind: "year", key: `y:${y}`, start: `${y}-01-01`, end: `${y}-12-31`, year: y });
 function periodByKey(key) {
-  if (!/^(y:\d{4}|m:\d{4}-\d{2}|w:\d{4}-\d{2}-\d{2})$/.test(key || "")) return null;
+  if (!/^(y:\d{4}|m:\d{4}-(0[1-9]|1[0-2])|w:\d{4}-(0[1-9]|1[0-2])-\d{2})$/.test(key || "")) return null;
   const k = key.slice(0, 1), v = key.slice(2);
   if (k === "y") return yearP(v);
   if (k === "m") return monthP(v);
@@ -153,39 +165,46 @@ function prevOf(p) {
 }
 
 /* ======================= Asana の読み込み ======================= */
-function payloadOf(res) {
-  if (res && res.payload) return res.payload;
-  const t = (res?.content || []).find((c) => c.type === "text")?.text;
-  try { return t ? JSON.parse(t) : {}; } catch (_) { return {}; }
-}
-function fieldsOf(t) { const f = {}; (t.custom_fields || []).forEach((c) => { f[c.name] = c; }); return f; }
-const txt = (f, k) => (f[k]?.text_value || "").trim();
-const num = (f, k) => f[k]?.number_value ?? null;
-const dt = (f, k) => f[k]?.date_value?.date?.slice(0, 10) || "";
-const en = (f, k) => f[k]?.enum_value?.name || "";
+const txt = (f, k) => BN.txt(f[k]);   // テキストの欄も選択の欄も読める
+const num = (f, k) => BN.num(f[k]);
+const dt = (f, k) => BN.dateOf(f[k]) || "";
+/* 支払先が NIGITA か（全角・小文字・半角カナも同じに扱う）。NIGITA は仕入で数える（契約 §3・§3b） */
+const isNigita = (s) => { const t = String(s || "").normalize("NFKC").toUpperCase(); return t.includes("NIGITA") || t.includes("ニギタ"); };
 
-async function listTasks(project, refresh) {
-  const out = []; let offset = null;
-  for (let i = 0; i < 60; i++) {
-    const input = { project, limit: 100, opt_fields: OPT };
-    if (offset) input.offset = offset;
-    const p = payloadOf(await state.mcp.callTool(SERVER, "get_tasks", input, { cache: refresh ? { refresh: true } : { staleTime: 60000 } }));
-    out.push(...(p.data || []));
-    offset = p.next_page?.offset;
-    if (!offset) break;
-  }
-  return out;
-}
 /* 契約 §3b: 営業日がある・対象外でない・店舗が空 だけを数える。対象外は明細の「対象外も表示」で見られるよう残す */
 function parseItem(t) {
-  const f = fieldsOf(t), date = dt(f, "営業日");
+  const f = BN.fieldsOf(t), date = dt(f, "営業日"), amount = num(f, "金額（税込）");
   if (!date || txt(f, "店舗")) return null;
-  return { gid: t.gid, url: t.permalink_url, date, payee: txt(f, "支払先") || t.name || "", amount: num(f, "金額（税込）") || 0,
-           cat: en(f, "備品区分") || "備品・消耗品", off: en(f, "備品ステータス") === "対象外", manual: en(f, "手動修正") === "あり",
-           src: en(f, "取得元") || "マネフォカード", rid: txt(f, "備品記録ID") };
+  return { gid: t.gid, date, payee: txt(f, "支払先") || t.name || "", amount: amount || 0, noAmount: amount == null,
+           cat: txt(f, "備品区分") || "備品・消耗品", off: txt(f, "備品ステータス") === "対象外", manual: txt(f, "手動修正") === "あり",
+           src: txt(f, "取得元") || "マネフォカード" };
 }
-async function load(refresh) {
-  state.data = { items: (await listTasks(PROJECT[state.env], refresh)).map(parseItem).filter(Boolean) };
+/* 読み込み。後から始めたものだけを画面に出す（世代）。note は保存の結果（読み直しのあとも見せる） */
+async function load(refresh, note) {
+  const live = BN.gen("supplies"), env = BN.env.get();
+  state.note = note || null;
+  setMsg(null);
+  $("supplies-sub").textContent = "読み込んでいます…";
+  try {
+    state.mcp = state.mcp || await use("mcp");
+    if (!live()) return;
+    if (!state.mcp) {
+      state.data = null; render(); $("supplies-sub").textContent = "";
+      setMsg("Asana につながっていません", "このページで読むには、claude.ai で Asana（0x0.co.jp のアカウント）を接続し、ページの許可を出してください。", () => load(true)); return;
+    }
+    state.ver = BN.version();   // 読み始める前の値を覚える（読んでいる間の書き込みを、戻ったときに読み直せるように）
+    const tasks = await BN.readAll(state.mcp, IDS[env], { refresh, required: REQUIRED });
+    if (!live()) return;
+    state.data = { env, items: tasks.map(parseItem).filter(Boolean) };
+    state.sel = state.sel || periodByKey(store.get("supplies-sel") || "") || monthP(ym(today()));
+    render();
+  } catch (e) {
+    if (!live()) return;
+    console.warn("備品・消耗品: 読み込みに失敗", e?.code || e?.message || e);
+    state.data = null; render();   // 読めなかったときは、前の数字を残さない
+    $("supplies-sub").textContent = "";
+    setMsg("備品・消耗品を読み込めませんでした", (note ? note.text + " " : "") + BN.errText(e), () => load(true));
+  }
 }
 
 /* ======================= 集計 ======================= */
@@ -193,7 +212,8 @@ function figures(start, end) {
   const all = state.data.items.filter((x) => x.date >= start && x.date <= end);
   const xs = all.filter((x) => !x.off), total = sum(xs, (x) => x.amount);
   return { all, xs, total, count: xs.length, avg: xs.length ? total / xs.length : null,
-           high: xs.filter((x) => x.amount >= HIGH).length, refunds: xs.filter((x) => x.amount < 0).length };
+           high: xs.filter((x) => x.amount >= HIGH).length, refunds: xs.filter((x) => x.amount < 0).length,
+           blank: xs.filter((x) => x.noAmount).length };
 }
 function dataStart() {
   let first = today();
@@ -228,14 +248,14 @@ function renderNav() {
     box.append(yb, list); nav.append(box);
   });
 }
-function amountLabel(p) { const x = figures(p.start, p.end); return x.count ? short(x.total) : ""; }
+function amountLabel(p) { const x = figures(p.start, min(p.end, today())); return x.count ? short(x.total) : ""; }   // ダッシュボードと同じく今日まで
 function rowBtn(p, title, sub, value) {
   return h("button", { type: "button", class: "row", "aria-current": String(state.sel.key === p.key), onclick: () => select(p) },
     h("span", { class: "t" }, h("b", {}, title, inProgress(p) ? h("span", { class: "tag", text: "集計中" }) : null), h("span", { text: sub })),
     h("span", { class: "v num", text: value }));
 }
 function select(p) {
-  state.sel = p; store.set("supplies-sel", p.key);
+  state.sel = p; state.note = null; store.set("supplies-sel", p.key);
   $("supplies-side").classList.remove("open"); $("supplies-navtoggle").setAttribute("aria-expanded", "false");
   render();
 }
@@ -249,6 +269,8 @@ function setMsg(title, body, retry) {
 }
 const kpi = (lb, v, d) => h("div", { class: "kpi lg lg--text" }, h("span", { class: "lb", text: lb }), h("span", { class: "v num", text: v }), h("span", { class: "d", text: d || "　" }));
 const card = (title, cap, ...kids) => h("section", { class: "card lg lg--text" }, h("h2", { text: title }), cap ? h("p", { class: "cap", text: cap }) : null, ...kids);
+/* 金額が空の記録は ¥0 として合計に入る。黙って数えずに件数を出す */
+const blankNote = (x) => x.blank ? `金額の無い記録 ${x.blank}件（¥0 として数えています。Asana で金額を確認してください）` : "";
 
 function render() {
   for (const t of ["dash", "list"]) $(`supplies-tab-${t}`).setAttribute("aria-pressed", String(state.tab === t));
@@ -257,7 +279,7 @@ function render() {
   if (!state.data) return;
   const p = state.sel;
   $("supplies-title").textContent = `備品・消耗品 ${label(p)}`;
-  $("supplies-sub").textContent = `${md(p.start)}〜${md(p.end)}${inProgress(p) ? "（集計中）" : ""}・カード「BAR NULL」の明細` + (state.env === "test" ? "・テストのデータ" : "");
+  $("supplies-sub").textContent = `${md(p.start)}〜${md(p.end)}${inProgress(p) ? "（集計中）" : ""}・カード「BAR NULL」の明細` + (state.data.env === "test" ? "・テストのデータ" : "");
   if (state.tab === "dash") renderDash(view, p); else renderList(view, p);
 }
 
@@ -274,8 +296,9 @@ function renderDash(view, p) {
   const cats = Object.fromEntries(CATS.map((c) => [c, 0]));
   x.xs.forEach((i) => { cats[i.cat] = (cats[i.cat] || 0) + i.amount; });
   const top = Math.max(...Object.values(cats).map(Math.abs), 1);
+  // Asana で足された区分（ページの表に無いもの）は、落とさずに（ ）で囲んで出す
   const catBox = h("div", { class: "cats" }, ...Object.entries(cats).filter(([, v]) => v).map(([c, v]) =>
-    h("div", { class: "c" }, h("span", { text: c }), h("span", { class: "bar" }, h("i", { style: `width:${Math.max(2, Math.abs(v) / top * 100)}%` })), h("b", { class: "num", text: yen(v) }))));
+    h("div", { class: "c" }, h("span", { text: CAT_OPT[c] ? c : `（${c}）` }), h("span", { class: "bar" }, h("i", { style: `width:${Math.max(2, Math.abs(v) / top * 100)}%` })), h("b", { class: "num", text: yen(v) }))));
 
   const pay = new Map();
   x.xs.forEach((i) => { const v = pay.get(i.payee) || { name: i.payee, amount: 0, n: 0 }; v.amount += i.amount; v.n += 1; pay.set(i.payee, v); });
@@ -284,18 +307,28 @@ function renderDash(view, p) {
     h("span", { class: "no", text: String(i + 1) }), h("span", { class: "nm", text: r.name, title: r.name }),
     h("span", { class: "q num", text: `${yen(r.amount)}・${r.n}件` }), h("span", { class: "bar" }, h("i", { style: `width:${Math.max(2, r.amount / mx * 100)}%` })))));
 
-  const days = [];
-  for (let d = p.start; d <= min(p.end, today()) && days.length < 62; d = add(d, 1)) days.push(d);
-  const byDay = new Map();
-  x.xs.forEach((i) => byDay.set(i.date, (byDay.get(i.date) || 0) + i.amount));
-  const dmax = Math.max(...byDay.values(), 1);
-  const bars = h("div", { class: "daybars" }, ...days.map((d, i) => h("div", { class: "d" + (byDay.has(d) ? " has" : ""), title: `${md(d)} ${yen(byDay.get(d) || 0)}` },
-    h("i", { style: `height:${Math.max(2, Math.max(byDay.get(d) || 0, 0) / dmax * 100)}%` }),
-    days.length <= 31 && (i % 5 === 0 || i === days.length - 1) ? h("span", { text: md(d) }) : null)));
+  // 日ごと（週・月）／月ごと（年）
+  const cols = [], end = min(p.end, today());
+  if (p.kind === "year") {
+    for (let m = p.year + "-01"; m <= ym(end); m = addMonths(m, 1)) {
+      const xs = x.xs.filter((i) => ym(i.date) === m);
+      cols.push({ g: sum(xs, (i) => i.amount), has: xs.length > 0, lb: String(Number(m.slice(5))), title: `${Number(m.slice(5))}月` });
+    }
+  } else {
+    const byDay = new Map();
+    x.xs.forEach((i) => byDay.set(i.date, (byDay.get(i.date) || 0) + i.amount));
+    const n = diff(p.start, end);
+    for (let d = p.start, i = 0; d <= end; d = add(d, 1), i++) {
+      cols.push({ g: byDay.get(d) || 0, has: byDay.has(d), lb: i % 5 === 0 || i === n ? md(d) : "", title: md(d) });
+    }
+  }
+  const dmax = Math.max(...cols.map((c) => c.g), 1);
+  const bars = h("div", { class: "daybars" }, ...cols.map((c) => h("div", { class: "d" + (c.has ? " has" : ""), title: `${c.title} ${yen(c.g)}` },
+    h("i", { style: `height:${Math.max(2, Math.max(c.g, 0) / dmax * 100)}%` }), c.lb ? h("span", { text: c.lb }) : null)));
 
   view.append(h("div", { class: "split" }, card("区分ごと", "区分は明細の画面で直せます", catBox), card("支払先ランキング TOP5", "金額の合計の順", rank)),
-    card("日ごとの金額", "営業日（利用日）で数えています", bars),
-    card("注意", null, h("p", { class: "cap", text: "カードの明細は利用から1〜2日遅れて入るため、直近は少なめに見えることがあります。NIGITA（NOS）の雑貨・備品は仕入管理に入ります（ここには含みません）。" })));
+    card(p.kind === "year" ? "月ごとの金額" : "日ごとの金額", "営業日（利用日）で数えています", bars),
+    card("注意", null, x.blank ? h("p", { class: "cap", text: blankNote(x) }) : null, h("p", { class: "cap", text: "カードの明細は利用から1〜2日遅れて入るため、直近は少なめに見えることがあります。NIGITA（NOS）の雑貨・備品は仕入管理に入ります（ここには含みません）。" })));
 }
 
 function renderList(view, p) {
@@ -307,69 +340,79 @@ function renderList(view, p) {
   const head = h("tr", {}, ...cols.map(([k, t, n]) => h("th", { class: "sort" + (n ? " r" : ""), "aria-sort": key === k ? (dir > 0 ? "ascending" : "descending") : null, tabindex: "0",
     onclick: () => { state.sort = { key: k, dir: key === k ? -dir : (n || k === "date" ? -1 : 1) }; render(); },
     onkeydown: (e) => { if (e.key === "Enter") e.currentTarget.click(); } }, t)), h("th", { text: "操作" }));
+  head.firstChild.classList.add("c-date");
+  const note = state.note;
   const body = h("tbody", {}, ...rows.map((i) => {
-    const msg = h("span", { class: "msg" });
-    const sel = h("select", { "aria-label": "区分" }, ...CATS.map((c) => h("option", { value: c, selected: c === i.cat ? true : null, text: c })));
-    sel.addEventListener("change", () => save(i, { [F.cat]: CAT_OPT[sel.value], [F.manual]: MANUAL_ON }, { cat: sel.value, manual: true }, msg));
-    const off = h("button", { type: "button", class: "btn plain", text: i.off ? "取り込み済みに戻す" : "対象外にする" });
-    off.addEventListener("click", () => save(i, { [F.status]: ST_OPT[i.off ? "取り込み済み" : "対象外"], [F.manual]: MANUAL_ON }, { off: !i.off, manual: true }, msg));
+    const msg = h("span", { class: "msg", role: "status", text: note && note.gid === i.gid ? note.text : "" });
+    // ページの表に無い区分は、その値のまま選んだ状態にする（先頭の区分に見せて、保存で書き換えないため）
+    const sel = h("select", { "aria-label": "区分", disabled: state.busy },
+      CAT_OPT[i.cat] ? null : h("option", { value: i.cat, selected: true, text: `（${i.cat}）` }),
+      ...CATS.map((c) => h("option", { value: c, selected: c === i.cat ? true : null, text: c })));
+    // 区分を直すだけでは「手動修正」を書かない（同期は区分を上書きしない。契約 §3b）
+    sel.addEventListener("change", () => { if (CAT_OPT[sel.value]) save(i, { [F.cat]: CAT_OPT[sel.value] }, msg, () => { sel.value = i.cat; }); });
+    const target = !i.off;   // 送る状態は、行を描いたときに決める（押した時点の item からは決めない）
+    // NIGITA の対象外は戻さない（仕入で数えているので、戻すと二重になる）
+    const op = i.off && isNigita(i.payee) ? h("span", { class: "sub keep", text: "NIGITA は仕入で数えるため対象外" })
+      : h("button", { type: "button", class: "btn plain", disabled: state.busy, text: target ? "対象外にする" : "取り込み済みに戻す",
+          onclick: () => save(i, { [F.status]: ST_OPT[target ? "対象外" : "取り込み済み"], [F.manual]: MANUAL_ON }, msg) });
     return h("tr", { class: i.off ? "off" : null },
-      h("td", { text: i.date }), h("td", {}, i.payee, i.src === "手入力" ? h("span", { class: "sub", text: "手入力" }) : null),
-      h("td", {}, sel), h("td", { class: "r num", text: yen(i.amount) + (i.amount >= HIGH ? "（高額）" : "") }), h("td", {}, off, " ", msg));
+      h("td", { class: "c-date", text: i.date }),
+      h("td", { class: "c-payee" }, i.payee, h("span", { class: "sub nar", text: i.date }), i.src === "手入力" ? h("span", { class: "sub", text: "手入力" }) : null,
+        i.manual ? h("span", { class: "sub", title: "同期が上書きしない明細", text: "手動修正" }) : null),
+      h("td", {}, sel), h("td", { class: "r num", text: yen(i.amount) + (i.amount >= HIGH ? "（高額）" : "") }), h("td", { class: "c-op" }, op, " ", msg));
   }));
-  const total = h("tr", { class: "tot" }, h("td", { text: `合計 ${f.count}件` }), h("td"), h("td"), h("td", { class: "r num", text: yen(f.total) }), h("td"));
-  const toggle = h("label", { class: "msg", style: "display:inline-flex;gap:6px;align-items:center;margin-bottom:10px" },
+  const total = h("tr", { class: "tot" }, h("td", { class: "c-date", text: `合計 ${f.count}件` }), h("td", {}, h("span", { class: "nar", text: `合計 ${f.count}件` })),
+    h("td"), h("td", { class: "r num", text: yen(f.total) }), h("td"));
+  const toggle = h("label", { class: "msg", style: "display:inline-flex;gap:6px;align-items:center" },
     h("input", { type: "checkbox", checked: state.showOff ? true : null, onchange: (e) => { state.showOff = e.target.checked; render(); } }), "対象外も表示");
+  // 保存の結果。行が表示から消えたとき（対象外にした直後など）は、表の上に出す
+  const top = note && !rows.some((i) => i.gid === note.gid) ? h("span", { class: "msg", role: "status", text: note.text }) : null;
   view.append(card(`明細（${label(p)}）`, "区分の直しと「対象外」（取消）は、その場で Asana に保存します。直した明細は、次の同期でも上書きされません",
-    toggle, rows.length ? h("div", { class: "tablewrap num", style: "max-height:none" }, h("table", {}, h("thead", {}, head), body, h("tfoot", {}, total)))
+    h("div", { style: "display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-bottom:10px" }, toggle, top),
+    f.blank ? h("p", { class: "cap", text: blankNote(f) }) : null,
+    rows.length ? h("div", { class: "tablewrap num", style: "max-height:none" }, h("table", {}, h("thead", {}, head), body, h("tfoot", {}, total)))
       : h("p", { class: "empty", text: "この期間の記録はありません。" })));
 }
 
-async function save(item, custom_fields, patch, msg) {
+/* 保存中は、明細の入力と「更新」・環境の切替を止める（保存の途中で読み直しや切替が重ならないように） */
+function setBusy(v) {
+  state.busy = v;
+  $("supplies-reload").disabled = v; $("supplies-env").disabled = v;
+  if (v) $("supplies-view").querySelectorAll("select,button,input").forEach((c) => { c.disabled = true; });   // 戻すのは、保存のあとの再描画
+}
+/* 1件を保存する。どの結果でも最後に読み直して、実際の状態を表示する（契約 §1b） */
+async function save(item, custom_fields, msg, revert) {
+  if (state.busy || !state.data) return;
+  setBusy(true);
   msg.textContent = "保存しています…";
+  let text;
   try {
-    const res = payloadOf(await state.mcp.callTool(SERVER, "update_tasks", { tasks: [{ task: item.gid, custom_fields }] }, { cache: false }));
-    if (res.failed && res.failed.length) throw { code: "tool_error" };
-    Object.assign(item, patch);
-    msg.textContent = "保存しました";
-    setTimeout(() => render(), 500);
+    const r = await BN.writeTasks(state.mcp, [{ task: item.gid, custom_fields }], state.data.env);
+    text = r === "ok" ? "保存しました" : "保存の結果を確認できませんでした。読み直した内容を確認してください";
   } catch (e) {
-    msg.textContent = ["not_granted", "not_declared", "capability_disabled", "tool_not_declared"].includes(e?.code)
-      ? "書き込む許可がありません" : "保存できませんでした（" + (e?.code || "エラー") + "）";
+    text = BN.writeDenied(e) ? "書き込む許可がありません" : BN.errText(e, "Asana", "save");
+    if (revert) revert();   // 失敗したら、select の表示を元の値に戻す
   }
+  setBusy(false);
+  await load(true, { gid: item.gid, text });
 }
 
 /* ======================= 起動 ======================= */
-async function start(refresh) {
-  setMsg(null);
-  $("supplies-sub").textContent = "読み込んでいます…";
-  if (!PROJECT[state.env]) {
-    state.data = null; render(); $("supplies-sub").textContent = "";
-    setMsg("まだ設定されていません", `${state.env === "prod" ? "本番" : "テスト"}用の備品・消耗品プロジェクトがまだありません。`); return;
-  }
-  state.mcp = state.mcp || await use("mcp");
-  if (!state.mcp) { $("supplies-sub").textContent = ""; setMsg("Asana につながっていません", "このページで読むには、claude.ai で Asana（0x0.co.jp のアカウント）を接続し、ページの許可を出してください。"); return; }
-  try {
-    await load(refresh);
-    state.sel = state.sel || periodByKey(store.get("supplies-sel") || "") || monthP(ym(today()));
-    render();
-  } catch (e) {
-    const code = e?.code;
-    console.warn("備品・消耗品: 読み込みに失敗", code || e?.message || e);
-    $("supplies-sub").textContent = "";
-    setMsg("備品・消耗品を読み込めませんでした",
-      code === "server_not_connected" || code === "needs_reauth" ? "claude.ai の設定で Asana を接続（または再接続）してください。"
-        : code === "not_granted" ? "ページの許可（Asana）が出ていません。"
-        : `備品・消耗品の Asana プロジェクトは、管理者だけが見られる非公開プロジェクトです（${code || "エラー"}）。`,
-      () => start(true));
-  }
-}
-$("supplies-env").value = state.env;
-$("supplies-env").addEventListener("change", (e) => { state.env = e.target.value; store.set("supplies-env", state.env); start(); });
-for (const t of ["dash", "list"]) $(`supplies-tab-${t}`).addEventListener("click", () => { state.tab = t; render(); });
-$("supplies-reload").addEventListener("click", () => start(true));
+$("supplies-env").value = BN.env.get();
+$("supplies-env").addEventListener("change", (e) => BN.env.set(e.target.value));   // 読み直しは portal:env で行う
+/* 環境が変わったら（ほかのページでの切替も含む）、前の環境の表と保存ボタンを消してから読み直す */
+window.addEventListener("portal:env", () => {
+  $("supplies-env").value = BN.env.get(); state.data = null; render();
+  // 非表示の間は読まない（全ページが一斉に読むのを避ける）。戻ったとき（portal:route）に読む
+  const box = $("supplies-env").closest(".page");
+  if (box && box.hidden) { BN.gen("supplies"); state.ver = -1; } else load();
+});
+/* このページに戻ったとき、ほかのページの書き込みがあれば読み直す */
+window.addEventListener("portal:route", (e) => { if (e.detail && e.detail.key === "cost-supplies" && BN.version() !== state.ver && !state.busy) load(true); });
+for (const t of ["dash", "list"]) $(`supplies-tab-${t}`).addEventListener("click", () => { state.tab = t; state.note = null; render(); });
+$("supplies-reload").addEventListener("click", () => load(true));
 $("supplies-navtoggle").addEventListener("click", () => {
   const open = $("supplies-side").classList.toggle("open"); $("supplies-navtoggle").setAttribute("aria-expanded", String(open));
 });
-start();
+load();
 </script>
