@@ -195,7 +195,8 @@ main{min-width:0;display:flex;flex-direction:column;gap:18px;padding-bottom:44px
 .detail > *{order:2}
 .aicol{order:1;min-width:0;display:flex;flex-direction:column}
 @media (min-width: 1500px){
-  .content{display:grid;grid-template-columns:minmax(0,3fr) minmax(420px,2fr);align-items:start;max-width:1720px}
+  /* 2列にするのは売上管理だけ（#pg-sales は殻が付けるページの箱）。ほかのページの .content は1列のまま */
+  #pg-sales .content{display:grid;grid-template-columns:minmax(0,3fr) minmax(420px,2fr);align-items:start;max-width:1720px}
   .datacol{display:flex;flex-direction:column;gap:18px;min-width:0}
   .detail{display:flex;flex-direction:column;gap:18px}
   .aicol{position:sticky;top:calc(var(--shell-h,0px) + 14px + var(--tb-h, 66px) + 18px + env(safe-area-inset-top,0px));
@@ -428,7 +429,7 @@ td a:hover{text-decoration:underline}
   .navtoggle{display:inline-flex}
   .side:not(.open) .nav{display:none}
   .side.open .nav{max-height:62vh}
-  .toolbar{top:calc(var(--shell-h,0px) + env(safe-area-inset-top,0px))}
+  .toolbar{position:static}   /* 狭い画面では、上部バーだけを固定する（見出しまで固定すると本文が隠れる） */
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .grid2{grid-template-columns:minmax(0,1fr)}
 }

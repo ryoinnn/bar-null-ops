@@ -11,6 +11,8 @@ html,body{overflow-x:clip}   /* 1px の端数で横スクロールが出ない�
   padding:8px max(18px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px))}
 .shell .logo{margin:0;font-size:18px;font-weight:700;letter-spacing:-.015em;color:var(--label);text-decoration:none;white-space:nowrap}
 .shell .logo small{margin-left:8px;font-size:12px;font-weight:600;color:var(--label-2)}
+.envchip{padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;color:var(--warn-text,#8a5a00);background:color-mix(in srgb, var(--warn,#c97800) 16%, transparent);border:1px solid color-mix(in srgb, var(--warn,#c97800) 40%, transparent)}
+.envchip[hidden]{display:none}
 .subtabs{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
 .subtabs a{padding:6px 12px;border-radius:var(--r-control);font-size:13.5px;font-weight:600;color:var(--label-2);text-decoration:none}
 .subtabs a:hover{background:var(--fill)}
@@ -58,6 +60,7 @@ a.tile:hover{transform:translateY(-1px)}
 
 <header class="shell lg" id="shell" hidden>
   <a class="logo" href="#home">Bar null</a>
+  <span class="envchip" id="envchip" hidden>テスト用のデータ</span>
   <nav class="subtabs" id="subtabs" aria-label="コスト管理のページ" hidden></nav>
   <div class="tenant">
     <button type="button" class="tenant-btn" id="tbtn" aria-haspopup="true" aria-expanded="false" aria-controls="tmenu">
@@ -93,14 +96,22 @@ a.tile:hover{transform:translateY(-1px)}
   };
   const ALIAS = { "cost-other": "cost-fixed" };
 
-  /* コスト管理は、閲覧だけの人には出さない（人件費・給与を扱うため。データ側の権限は各ページと db の rules が守る） */
-  let costOK = false;
-  const gate = (async () => {
-    try {
-      const user = await Promise.race([use("user"), new Promise((r) => setTimeout(() => r(null), 4000))]);
-      costOK = !!(user && (user.isOwner() || user.canEdit()));
-    } catch (_) { costOK = false; }
-  })();
+  /* コスト管理は、閲覧だけの人には出さない（人件費・給与を扱うため。データ側の権限は各ページと db の rules が守る）。
+     判定は common.js の BN.canManage（読み込みのあとで start() が動かす）。分からないとき・時間切れは出さない */
+  let costOK = false, gate = Promise.resolve();
+  const startGate = () => {
+    const real = (async () => { try { return await window.BN.canManage(await use("user")); } catch (_) { return false; } })();
+    // 判定が届いたら（表示のあとに届いたときも）、メニューとホームにコスト管理を出す
+    real.then((ok) => {
+      if (!ok || costOK) return;
+      costOK = true;
+      const key = document.documentElement.dataset.route, hash = location.hash.replace(/^#/, ""), want = ALIAS[hash] || hash;
+      if (!key || !ROUTES[key]) return;   // まだ何も表示していない。待っている route() が costOK を見て描く
+      if (ROUTES[want] && want !== key) route();   // コスト管理のページを開こうとしてホームに戻されていたら、開き直す
+      else { renderBar(key); if (key === "home") homeView(); }
+    });
+    gate = Promise.race([real, new Promise((r) => setTimeout(r, 4000))]).then(() => {});   // 表示を待たせるのは 4 秒まで
+  };
 
   const loaded = {};   // key -> { box, promise }
   const el = (tag, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
@@ -180,6 +191,7 @@ a.tile:hover{transform:translateY(-1px)}
   /* ---------- 切り替え ---------- */
   let seq = 0;
   async function route() {
+    if (!window.BN) return;   // 共通部品を読み込む前（読み込み中に戻る・進むを押したとき）は何もしない。読み込みが済むと route() を呼ぶ
     const mine = ++seq;
     let key = location.hash.replace(/^#/, ""); key = ALIAS[key] || key;
     if (!ROUTES[key]) key = "home";
@@ -209,10 +221,18 @@ a.tile:hover{transform:translateY(-1px)}
   }
   window.addEventListener("hashchange", route);
 
-  /* 共通の見た目を読み込んでから始める（link ではなく本文を取って style に入れる） */
-  fetch("shared.css").then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); }).then((css) => {
+  /* テスト用のデータを見ているときは、どのページでも上部バーに印を出す（環境は common.js の BN.env が1つだけ持つ） */
+  const syncEnv = () => { $("envchip").hidden = !(window.BN && window.BN.env.get() === "test"); syncBar(); };
+  window.addEventListener("portal:env", syncEnv);
+
+  /* 共通の見た目（shared.css）と共通の部品（common.js → window.BN）を読み込んでから始める。
+     各ページは BN を使うので、ページより先に実行する（link・script src ではなく本文を取って入れる） */
+  const text = (path) => fetch(path).then((r) => { if (!r.ok) throw new Error(path + " HTTP " + r.status); return r.text(); });
+  Promise.all([text("shared.css"), text("common.js")]).then(([css, js]) => {
     const st = document.createElement("style"); st.id = "shared-css"; st.textContent = css; document.head.append(st);
-    route();
-  }).catch((err) => { $("boot").textContent = "共通の見た目を読み込めませんでした。（" + (err && err.message || "不明なエラー") + "）開き直してください。"; });
+    const sc = document.createElement("script"); sc.id = "common-js"; sc.textContent = js; document.head.append(sc);
+    if (!window.BN) throw new Error("common.js を実行できませんでした");
+    syncEnv(); startGate(); route();
+  }).catch((err) => { $("boot").textContent = "ページの共通部分を読み込めませんでした。（" + (err && err.message || "不明なエラー") + "）開き直してください。"; });
 })();
 </script>
