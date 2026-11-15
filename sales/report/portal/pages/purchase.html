@@ -75,8 +75,8 @@
 
 <script type="module">
 /* ======================= 設定（docs/profit/contract.md §3。ID は sales/asana_ids.json の purchase） ======================= */
-const SERVER = "Asana";
-const PROJECT = { prod: "1220540183336163", test: "1220538960472686" };   // 本番は 2026-11-15 に作成
+const IDS = BN.IDS.purchase;   // プロジェクト ID は common.js に1つだけ置く
+const REQUIRED = ["仕入記録ID", "営業日", "仕入ステータス", "仕入金額（税込）", "店舗"];   // 無ければ読み込みの失敗にする（0 円と表示しない）
 // 商品マスタの欄（書き込みに使う。カスタムフィールドの gid はワークスペース共通）
 const F = { display: "1220538695260865", cat: "1220538695260993", mstatus: "1220538846823546" };
 const CAT_OPT = { "酒類": "1220538695260994", "ソフトドリンク": "1220538695260995", "食材": "1220538695260996",
@@ -86,7 +86,7 @@ const CATS = Object.keys(CAT_OPT);
 const NOS_CAT = { "焼酎": "酒類", "ビール類": "酒類", "果実酒": "酒類", "ウイスキー": "酒類", "スピリッツ": "酒類", "リキュール": "酒類",
                   "清酒": "酒類", "日本酒": "酒類", "ワイン": "酒類", "ブランデー": "酒類", "飲料": "ソフトドリンク",
                   "調味料": "食材", "食品": "食材", "雑貨販促品類": "消耗品", "備品類": "消耗品" };
-const OPT = "name,notes,permalink_url,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
+const OPT = "name,notes,custom_fields.name,custom_fields.number_value,custom_fields.date_value,custom_fields.enum_value.name,custom_fields.text_value";
 
 const $ = (id) => document.getElementById(id);
 const use = (name) => (window.claude && window.claude.use) ? window.claude.use(name) : Promise.resolve(null);
@@ -94,10 +94,12 @@ const store = {
   get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} },
 };
+/* data: { env, vouchers, masters, byKey }（env は読み込んだときの環境。表示・保存・示唆のキーはこれを使う）
+   note: 商品マスタの保存の結果／aiNote: 示唆の結果 { key, text }／ver: 読み込んだときの BN.version() */
 const state = {
-  env: PROJECT[store.get("purchase-env")] ? store.get("purchase-env") : (PROJECT.prod ? "prod" : "test"),
   tab: "dash", sel: null, openYears: {}, sort: { key: "qty", dir: -1 }, masterFilter: "draft",
   data: null, mcp: null, db: null, sample: undefined, canWrite: null, insights: {}, aiRun: null,
+  busy: false, note: "", aiNote: null, ver: 0,
 };
 
 /* ======================= 小さな道具 ======================= */
@@ -130,7 +132,7 @@ const ym = (s) => s.slice(0, 7);
 const monthEnd = (s) => { const d = toD(s.slice(0, 8) + "01"); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); return toS(d); };
 const addMonths = (m, n) => { const d = toD(m + "-01"); d.setUTCMonth(d.getUTCMonth() + n); return toS(d).slice(0, 7); };
 const min = (a, b) => a < b ? a : b;
-const today = () => toS(new Date(Date.now() + 9 * 3600e3));   // 日本時間の日付
+const today = BN.todayBiz;   // 営業日（6:00 区切り）の今日。全ページ共通
 function weeksOf(month) {
   const ms = month + "-01", me = monthEnd(ms), out = [];
   for (let s = ms, n = 1; s <= me; n++) {
@@ -143,7 +145,7 @@ function weeksOf(month) {
 const monthP = (m) => ({ kind: "month", key: `m:${m}`, start: m + "-01", end: monthEnd(m + "-01"), month: m });
 const yearP = (y) => ({ kind: "year", key: `y:${y}`, start: `${y}-01-01`, end: `${y}-12-31`, year: y });
 function periodByKey(key) {
-  if (!/^(y:\d{4}|m:\d{4}-\d{2}|w:\d{4}-\d{2}-\d{2})$/.test(key || "")) return null;
+  if (!/^(y:\d{4}|m:\d{4}-(0[1-9]|1[0-2])|w:\d{4}-(0[1-9]|1[0-2])-\d{2})$/.test(key || "")) return null;
   const k = key.slice(0, 1), v = key.slice(2);
   if (k === "y") return yearP(v);
   if (k === "m") return monthP(v);
@@ -166,54 +168,62 @@ function prevOf(p) {
 }
 
 /* ======================= Asana の読み込み ======================= */
-function payloadOf(res) {
-  if (res && res.payload) return res.payload;
-  const t = (res?.content || []).find((c) => c.type === "text")?.text;
-  try { return t ? JSON.parse(t) : {}; } catch (_) { return {}; }
-}
-function fieldsOf(t) { const f = {}; (t.custom_fields || []).forEach((c) => { f[c.name] = c; }); return f; }
-const txt = (f, k) => (f[k]?.text_value || "").trim();
-const num = (f, k) => f[k]?.number_value ?? null;
-const dt = (f, k) => f[k]?.date_value?.date?.slice(0, 10) || "";
-const en = (f, k) => f[k]?.enum_value?.name || "";
+const txt = (f, k) => BN.txt(f[k]);   // テキストの欄も選択の欄も読める
+const num = (f, k) => BN.num(f[k]);
+const dt = (f, k) => BN.dateOf(f[k]) || "";
 
-async function listTasks(project, refresh) {
-  const out = []; let offset = null;
-  for (let i = 0; i < 60; i++) {
-    const input = { project, limit: 100, opt_fields: OPT };
-    if (offset) input.offset = offset;
-    const p = payloadOf(await state.mcp.callTool(SERVER, "get_tasks", input, { cache: refresh ? { refresh: true } : { staleTime: 60000 } }));
-    out.push(...(p.data || []));
-    offset = p.next_page?.offset;
-    if (!offset) break;
-  }
-  return out;
-}
+/* 本文の「DATA:」の後ろの明細。壊れている・配列でないときは空（行が配列でなければその行を捨てる）。ページ全体は止めない */
 function parseData(notes) {
   const i = (notes || "").lastIndexOf("DATA:");
   if (i < 0) return [];
-  try { return JSON.parse(notes.slice(i + 5).trim()); } catch (_) { return []; }
+  try { const a = JSON.parse(notes.slice(i + 5).trim()); return Array.isArray(a) ? a.filter(Array.isArray) : []; } catch (_) { return []; }
 }
 function parseVoucher(t) {
-  const f = fieldsOf(t), rid = txt(f, "仕入記録ID"), date = dt(f, "営業日");
-  if (!rid.startsWith("P-") || !date || en(f, "仕入ステータス") === "対象外" || txt(f, "店舗")) return null;
+  const f = BN.fieldsOf(t), rid = txt(f, "仕入記録ID"), date = dt(f, "営業日"), status = txt(f, "仕入ステータス");
+  if (!rid.startsWith("P-") || !date || status === "対象外" || txt(f, "店舗")) return null;
   const lines = parseData(t.notes).map((r) => ({ code: r[0], name: r[1], nosCat: r[2], qty: Number(r[3]) || 0, price: Number(r[4]) || 0,
                                                  amount: Number(r[5]) || 0, status: r[6] || "", ordered: Number(r[7] ?? r[3]) || 0 }));
-  return { gid: t.gid, rid, date, net: num(f, "仕入金額（税抜）") || 0, tax: num(f, "消費税（推定）") || 0,
-           gross: num(f, "仕入金額（税込）") || 0, lines };
+  const net = num(f, "仕入金額（税抜）") || 0, gross = num(f, "仕入金額（税込）");
+  // badLines: 明細の合計が税抜と合わない（明細が空・壊れている）。合計には入るが、商品別・区分別には出ない
+  return { gid: t.gid, rid, date, net, tax: num(f, "消費税（推定）") || 0, gross: gross || 0, noGross: gross == null,
+           review: status === "要確認", badLines: Math.round(sum(lines, (l) => l.amount)) !== Math.round(net), lines };
 }
 function parseMaster(t) {
-  const f = fieldsOf(t), rid = txt(f, "仕入記録ID");
+  const f = BN.fieldsOf(t), rid = txt(f, "仕入記録ID");
   if (!rid.startsWith("M-")) return null;
   const code = txt(f, "商品コード"), raw = txt(f, "元の商品名");
   return { gid: t.gid, key: code || raw, code, raw, display: txt(f, "表示名") || raw,
-           cat: en(f, "仕入区分") || NOS_CAT[txt(f, "NOSカテゴリ")] || "その他", nosCat: txt(f, "NOSカテゴリ"),
-           status: en(f, "確認状態") || "案（自動）" };
+           cat: txt(f, "仕入区分") || NOS_CAT[txt(f, "NOSカテゴリ")] || "その他", nosCat: txt(f, "NOSカテゴリ"),
+           status: txt(f, "確認状態") || "案（自動）" };
 }
-async function load(refresh) {
-  const tasks = await listTasks(PROJECT[state.env], refresh);
-  const masters = tasks.map(parseMaster).filter(Boolean);
-  state.data = { vouchers: tasks.map(parseVoucher).filter(Boolean), masters, byKey: new Map(masters.map((m) => [m.key, m])) };
+const readTasks = (env, refresh) => BN.readAll(state.mcp, IDS[env], { refresh, required: REQUIRED, opt: OPT });
+/* 読み込み。後から始めたものだけを画面に出す（世代）。note は保存の結果（読み直しのあとも見せる） */
+async function load(refresh, note) {
+  const live = BN.gen("purchase"), env = BN.env.get();
+  state.note = note || "";
+  setMsg(null);
+  $("purchase-sub").textContent = "読み込んでいます…";
+  try {
+    state.mcp = state.mcp || await use("mcp");
+    if (!live()) return;
+    if (!state.mcp) {
+      state.data = null; render(); $("purchase-sub").textContent = "";
+      setMsg("Asana につながっていません", "このページで仕入を読むには、claude.ai で Asana（0x0.co.jp のアカウント）を接続し、ページの許可を出してください。", () => load(true)); return;
+    }
+    state.ver = BN.version();   // 読み始める前の値を覚える（読んでいる間の書き込みを、戻ったときに読み直せるように）
+    const tasks = await readTasks(env, refresh);
+    if (!live()) return;
+    const masters = tasks.map(parseMaster).filter(Boolean);
+    state.data = { env, vouchers: tasks.map(parseVoucher).filter(Boolean), masters, byKey: new Map(masters.map((m) => [m.key, m])) };
+    state.sel = state.sel || periodByKey(store.get("purchase-sel") || "") || monthP(ym(today()));
+    render();
+  } catch (e) {
+    if (!live()) return;
+    console.warn("仕入管理: 読み込みに失敗", e?.code || e?.message || e);
+    state.data = null; render();   // 読めなかったときは、前の数字を残さない
+    $("purchase-sub").textContent = "";
+    setMsg("仕入を読み込めませんでした", (note ? note + " " : "") + BN.errText(e), () => load(true));
+  }
 }
 
 /* ======================= 集計 ======================= */
@@ -223,7 +233,16 @@ function figures(start, end) {
   const gross = sum(vs, (v) => v.gross), returns = vs.filter((v) => v.net < 0);
   const shortage = vs.reduce((n, v) => n + v.lines.filter((l) => l.ordered > 0 && l.qty < l.ordered).length, 0);
   return { vs, gross, net: sum(vs, (v) => v.net), tax: sum(vs, (v) => v.tax), days: days.size, per: days.size ? gross / days.size : null,
-           returns: returns.length, returnAmt: sum(returns, (v) => v.gross), shortage };
+           returns: returns.length, returnAmt: sum(returns, (v) => v.gross), shortage,
+           blank: vs.filter((v) => v.noGross).length, review: vs.filter((v) => v.review).length, bad: vs.filter((v) => v.badLines).length };
+}
+/* 集計の注記（空の金額や読めない明細を、黙って ¥0・空として数えないため） */
+function notesOf(x) {
+  const out = [];
+  if (x.blank) out.push(`金額の無い記録 ${x.blank}件（¥0 として数えています。Asana で金額を確認してください）`);
+  if (x.review) out.push(`区分を確かめる伝票 ${x.review}件（金額は集計に入っています）`);
+  if (x.bad) out.push(`明細を読めない伝票 ${x.bad}件（合計には入っていますが、商品別・区分別には出ていません）`);
+  return out.map((t) => h("p", { class: "cap", text: t }));
 }
 /* 商品ごと（表示名と区分が同じものは合算。返品は差し引く） */
 function items(vs) {
@@ -276,14 +295,17 @@ function renderNav() {
     box.append(yb, list); nav.append(box);
   });
 }
-function amountLabel(p) { const x = figures(p.start, p.end); return x.vs.length ? short(x.gross) : ""; }
+function amountLabel(p) { const x = figures(p.start, min(p.end, today())); return x.vs.length ? short(x.gross) : ""; }   // ダッシュボードと同じく今日まで
 function rowBtn(p, title, sub, value) {
   return h("button", { type: "button", class: "row", "aria-current": String(state.sel.key === p.key), onclick: () => select(p) },
     h("span", { class: "t" }, h("b", {}, title, inProgress(p) ? h("span", { class: "tag", text: "集計中" }) : null), h("span", { text: sub })),
     h("span", { class: "v num", text: value }));
 }
+/* 実行中の示唆を止める（期間・環境を変えたら、前の期間の結果は要らない） */
+function stopAi() { if (state.aiRun) { state.aiRun.abort(); state.aiRun = null; } }
 function select(p) {
-  state.sel = p; store.set("purchase-sel", p.key);
+  stopAi();
+  state.sel = p; state.note = ""; state.aiNote = null; store.set("purchase-sel", p.key);
   if (state.tab === "master") state.tab = "dash";
   $("purchase-side").classList.remove("open"); $("purchase-navtoggle").setAttribute("aria-expanded", "false");
   render();
@@ -310,7 +332,7 @@ function render() {
   $("purchase-title").textContent = state.tab === "master" ? "商品マスタ" : `仕入 ${label(p)}`;
   $("purchase-sub").textContent = (state.tab === "master"
     ? `${state.data.masters.length}商品（表示名が案のもの ${drafts}件）`
-    : `${md(p.start)}〜${md(p.end)}${inProgress(p) ? "（集計中）" : ""}・NIGITA（NOS の仕入実績）`) + (state.env === "test" ? "・テストのデータ" : "");
+    : `${md(p.start)}〜${md(p.end)}${inProgress(p) ? "（集計中）" : ""}・NIGITA（NOS の仕入実績）`) + (state.data.env === "test" ? "・テストのデータ" : "");
   if (state.tab === "dash") renderDash(view, p);
   else if (state.tab === "items") renderItems(view, p);
   else renderMaster(view);
@@ -339,15 +361,16 @@ function renderDash(view, p) {
 
   // 区分ごと
   const cats = byCat(x.vs), maxC = Math.max(1, ...Object.values(cats));
-  const catBox = h("div", { class: "cats" }, ...CATS.filter((c) => cats[c]).map((c) => h("div", { class: "c" },
-    h("span", { text: c }), h("span", { class: "bar" }, h("i", { style: `width:${Math.max(0, cats[c]) / maxC * 100}%` })),
+  // Asana で足された区分（ページの表に無いもの）は、落とさずに（ ）で囲んで出す
+  const catBox = h("div", { class: "cats" }, ...Object.keys(cats).filter((c) => cats[c]).map((c) => h("div", { class: "c" },
+    h("span", { text: CAT_OPT[c] ? c : `（${c}）` }), h("span", { class: "bar" }, h("i", { style: `width:${Math.max(0, cats[c]) / maxC * 100}%` })),
     h("b", { class: "num", text: yen(cats[c]) }))));
 
   // 日ごと（週・月）／月ごと（年）
   const cols = [];
   if (p.kind === "year") {
     for (let m = p.year + "-01"; m <= p.year + "-12"; m = addMonths(m, 1)) {
-      cols.push({ g: figures(m + "-01", monthEnd(m + "-01")).gross, lb: String(Number(m.slice(5))), title: `${Number(m.slice(5))}月` });
+      cols.push({ g: figures(m + "-01", min(monthEnd(m + "-01"), today())).gross, lb: String(Number(m.slice(5))), title: `${Number(m.slice(5))}月` });
     }
   } else {
     for (let d = p.start; d <= p.end; d = add(d, 1)) {
@@ -367,11 +390,13 @@ function renderDash(view, p) {
         fact("返品", x.returns ? `${x.returns}件` : "なし", x.returns ? yen(x.returnAmt) : null),
         fact("欠品のあった品目", x.shortage ? `${x.shortage}件` : "なし")))));
   view.append(card(p.kind === "year" ? "月ごとの仕入（税込）" : "日ごとの仕入（税込）", null, bars));
+  const notes = notesOf(x);
+  if (notes.length) view.append(card("注意", null, ...notes));
   view.append(aiCard(p, x, y, its));
 }
 
 function renderItems(view, p) {
-  const its = items(figures(p.start, min(p.end, today())).vs);
+  const x = figures(p.start, min(p.end, today())), its = items(x.vs);
   const { key, dir } = state.sort;
   its.sort((a, b) => (key === "name" || key === "cat" ? a[key].localeCompare(b[key], "ja") : (a[key] ?? 0) - (b[key] ?? 0)) * dir || b.amount - a.amount);
   const cols = [["name", "商品（表示名）", false], ["cat", "区分", false], ["qty", "数量", true], ["amount", "金額（税抜）", true], ["times", "発注回数", true], ["unit", "平均単価", true]];
@@ -386,6 +411,7 @@ function renderItems(view, p) {
   const total = h("tr", { class: "tot" }, h("td", { text: `合計 ${its.length}商品` }), h("td"), h("td", { class: "r", text: sum(its, (i) => i.qty).toLocaleString("ja-JP") }),
     h("td", { class: "r", text: yen(sum(its, (i) => i.amount)) }), h("td"), h("td"));
   view.append(card(`発注のあった商品（${label(p)}）`, "見出しを押すと並べ替えます。金額は税抜の明細額。同じ表示名の商品は合算しています",
+    ...notesOf(x),
     its.length ? h("div", { class: "tablewrap num", style: "max-height:none" }, h("table", {}, h("thead", {}, head), body, h("tfoot", {}, total)))
       : h("p", { class: "empty", text: "この期間の仕入の記録はありません。" })));
 }
@@ -398,13 +424,16 @@ function renderMaster(view) {
     ...[["draft", `案のもの（${nDraft}）`], ["all", `すべて（${all.length}）`]].map(([k, t]) =>
       h("button", { type: "button", "aria-pressed": String(state.masterFilter === k), text: t, onclick: () => { state.masterFilter = k; render(); } })));
   const inputs = [];
-  const msgs = [h("span", { class: "msg" }), h("span", { class: "msg" })];
-  const btns = msgs.map(() => h("button", { type: "button", class: "btn filled", disabled: state.canWrite === false || !list.length,
+  const msgs = [0, 1].map(() => h("span", { class: "msg", role: "status", text: state.note }));
+  const btns = msgs.map(() => h("button", { type: "button", class: "btn filled", disabled: state.busy || state.canWrite === false || !list.length,
     text: state.masterFilter === "draft" ? `${list.length}件をまとめて保存（確認済みにする）` : "変更をまとめて保存",
-    onclick: () => saveMasters(inputs, btns, msgs) }));
+    onclick: () => saveMasters(inputs, msgs) }));
   const rows = list.map((m) => {
-    const name = h("input", { type: "text", value: m.display, "aria-label": `${m.raw} の表示名`, maxlength: "60" });
-    const cat = h("select", { "aria-label": `${m.raw} の区分` }, ...CATS.map((c) => h("option", { value: c, text: c, selected: c === m.cat })));
+    const name = h("input", { type: "text", value: m.display, "aria-label": `${m.raw} の表示名`, maxlength: "60", disabled: state.busy });
+    // ページの表に無い区分は、その値のまま選んだ状態にする（先頭の区分に見せて、保存で書き換えないため）
+    const cat = h("select", { "aria-label": `${m.raw} の区分`, disabled: state.busy },
+      CAT_OPT[m.cat] ? null : h("option", { value: m.cat, selected: true, text: `（${m.cat}）` }),
+      ...CATS.map((c) => h("option", { value: c, text: c, selected: c === m.cat })));
     inputs.push({ m, name, cat });
     return h("tr", { class: m.status !== "確認済み" ? "draft" : null },
       h("td", {}, m.raw, h("span", { class: "sub", text: `${m.code || "コードなし"}・NOS: ${m.nosCat || "—"}` })),
@@ -420,46 +449,62 @@ function renderMaster(view) {
     list.length ? h("div", { class: "tablewrap", style: "max-height:none" }, h("table", {},
       h("thead", {}, h("tr", {}, h("th", { text: "NOS の商品名" }), h("th", { text: "表示名" }), h("th", { text: "区分" }), h("th", { text: "状態" }))),
       h("tbody", {}, ...rows))) : h("p", { class: "empty", text: state.masterFilter === "draft" ? "案のままの商品はありません。" : "商品マスタはまだありません。" }),
-    list.length ? bar(1) : null));
+    list.length ? bar(1) : (state.note ? h("p", { class: "msg", role: "status", text: state.note }) : null)));
 }
-/* 表示している商品をまとめて保存する。変えた行と案（自動）の行だけを書き、どれも確認済みにする */
-async function saveMasters(inputs, btns, msgs) {
+/* 保存中は、入力と「更新」・環境の切替を止める（保存の途中で読み直しや切替が重ならないように） */
+function setBusy(v) {
+  state.busy = v;
+  $("purchase-reload").disabled = v; $("purchase-env").disabled = v;
+  if (v) $("purchase-view").querySelectorAll("select,button,input").forEach((c) => { c.disabled = true; });   // 戻すのは、保存のあとの再描画
+}
+/* 表示している商品をまとめて保存する。変えた行と案（自動）の行だけを書き、どれも確認済みにする。
+   送る前に読み直し、画面を描いたあとに Asana 側で変わった商品（別の人が確認済みにした・直した）は送らない。
+   どの結果でも最後に読み直して、実際の状態を表示する（契約 §1b） */
+async function saveMasters(inputs, msgs) {
   const say = (t) => msgs.forEach((m) => { m.textContent = t; });
+  if (state.busy || !state.data) return;
   const empty = inputs.find((x) => !x.name.value.trim());
   if (empty) { say(`表示名が空の行があります（${empty.m.raw}）。`); empty.name.focus(); return; }
   const todo = inputs.map((x) => ({ ...x, display: x.name.value.trim(), catV: x.cat.value }))
     .filter((x) => x.m.status !== "確認済み" || x.display !== x.m.display || x.catV !== x.m.cat);
   if (!todo.length) { say("変更はありません。"); return; }
-  btns.forEach((b) => { b.disabled = true; });
-  let done = 0;
+  const env = state.data.env;
+  setBusy(true);
+  say("最新の状態を確かめています…");
+  let note, done = 0, writing = false;
   try {
-    for (let i = 0; i < todo.length; i += 20) {   // 20件ずつ送る
-      const chunk = todo.slice(i, i + 20);
-      say(`保存しています…（${done}/${todo.length}）`);
+    const now = new Map((await readTasks(env, true)).map(parseMaster).filter(Boolean).map((m) => [m.gid, m]));
+    const same = (x) => { const m = now.get(x.m.gid); return !!m && m.status === x.m.status && m.display === x.m.display && m.cat === x.m.cat; };
+    const send = todo.filter(same), skipped = todo.length - send.length;
+    let uncertain = false;
+    writing = true;
+    for (let i = 0; i < send.length && !uncertain; i += 20) {   // 20件ずつ送り、結果を確認できなければそこで止める
+      const chunk = send.slice(i, i + 20);
+      say(`保存しています…（${done}/${send.length}）`);
+      // 区分は、ページの表にある値のときだけ送る（Asana で足された区分はそのままにする）
       const tasks = chunk.map((x) => ({ task: x.m.gid, name: x.display,
-        custom_fields: { [F.display]: x.display, [F.cat]: CAT_OPT[x.catV], [F.mstatus]: CONFIRMED } }));
-      const res = payloadOf(await state.mcp.callTool(SERVER, "update_tasks", { tasks }, { cache: false }));
-      const failed = new Set((res.failed || []).map((f) => String(f.task || f.gid || f.task_gid || "")));
-      chunk.forEach((x) => { if (!failed.has(x.m.gid)) { Object.assign(x.m, { display: x.display, cat: x.catV, status: "確認済み" }); done++; } });
-      if (failed.size) throw { code: "tool_error" };
+        custom_fields: { [F.display]: x.display, ...(CAT_OPT[x.catV] ? { [F.cat]: CAT_OPT[x.catV] } : {}), [F.mstatus]: CONFIRMED } }));
+      if (await BN.writeTasks(state.mcp, tasks, env) === "ok") done += chunk.length; else uncertain = true;
     }
-    say(`${done}件を保存しました。`);
-    setTimeout(() => render(), 800);
+    note = uncertain ? "保存の結果を確認できませんでした。読み直した内容を確認してください"
+      : send.length ? `${done}件を保存しました` : "保存していません";
+    if (skipped) note += `（${skipped}件は、Asana 側で先に直されていたため送っていません。読み直した内容を確認してください）`;
   } catch (e) {
-    if (["not_granted", "not_declared", "capability_disabled", "tool_not_declared"].includes(e?.code)) {
-      state.canWrite = false; say("このページから書き込む許可がありません。");
-    } else say(`${done}件を保存しました。残りは保存できませんでした（${e?.code || "エラー"}）。もう一度押してください。`);
-    btns.forEach((b) => { b.disabled = state.canWrite === false; });
+    if (writing && BN.writeDenied(e)) { state.canWrite = false; note = "このページから書き込む許可がありません。"; }
+    else if (!writing) note = "保存していません。" + BN.errText(e);   // 保存の前の読み直しで失敗した（Asana には何も書いていない）
+    else note = (done ? `${done}件は保存しました。` : "") + "残りは保存できたか確認できません。読み直した内容を確認してください。" + BN.errText(e, "Asana", "save");
   }
+  setBusy(false);
+  await load(true, note);
 }
 
 /* ---------- AI の示唆（集計値と商品の表示名ごとの数字だけを渡す） ---------- */
-const insightKey = (p) => `${state.env}_${p.key.replace(":", "_")}`;
+const insightKey = (env, p) => `${env}_${p.key.replace(":", "_")}`;   // env は読み込んだデータの環境
 function insightInput(p, x, y, its) {
   const hist = [];
   let m = p.kind === "year" ? ym(min(p.end, today())) : ym(p.start);
   for (let i = 0; i < 6; i++) {
-    const f = figures(m + "-01", monthEnd(m + "-01"));
+    const f = figures(m + "-01", min(monthEnd(m + "-01"), today()));
     if (f.vs.length) hist.push({ 月: m, 税込: f.gross, 発注回数: f.days, 一回あたり: Math.round(f.per || 0), 区分: byCat(f.vs) });
     m = addMonths(m, -1);
   }
@@ -480,9 +525,10 @@ JSON だけを返す: {"headline": "ひとことの結論", "good": ["良い点"
 ${JSON.stringify(input)}`;
 }
 function aiCard(p, x, y, its) {
-  const key = insightKey(p), cached = state.insights[key];
-  const out = h("div", { class: "ai-out" }), msg = h("span", { class: "msg" });
-  const btn = h("button", { type: "button", class: "btn tinted", text: cached ? "最新の数字で作り直す" : "示唆を作成", disabled: !state.sample || !!state.aiRun });
+  const env = state.data.env, key = insightKey(env, p), cached = state.insights[key];
+  const out = h("div", { class: "ai-out" });
+  const msg = h("span", { class: "msg", role: "status", text: state.aiRun ? "作成しています…" : (state.aiNote && state.aiNote.key === key ? state.aiNote.text : "") });
+  const btn = h("button", { type: "button", class: "btn tinted", text: cached ? "最新の数字で作り直す" : "示唆を作成", disabled: !state.sample || !!state.aiRun || state.busy });
   const show = (doc) => {
     out.textContent = "";
     const r = doc.result || {};
@@ -496,59 +542,52 @@ function aiCard(p, x, y, its) {
   else if (state.db) state.db.doc(`purchase_insights/${key}`).get().then((snap) => {
     const d = snap && (typeof snap.data === "function" ? snap.data() : snap);
     if (d && d.result && !state.insights[key]) { state.insights[key] = d; show(d); btn.textContent = "最新の数字で作り直す"; }
-  }).catch(() => {});
+  }).catch(() => { if (!msg.textContent) msg.textContent = "保存済みの示唆を読めませんでした。"; });
   if (state.sample === null) msg.textContent = "このページから Claude を使う許可がありません。";
   btn.addEventListener("click", async () => {
     if (!state.sample || state.aiRun) return;
-    const ctl = new AbortController(); state.aiRun = ctl; btn.disabled = true; msg.textContent = "作成しています…";
+    const ctl = new AbortController(); state.aiRun = ctl; state.aiNote = null; btn.disabled = true; msg.textContent = "作成しています…";
+    let text = "";
     try {
       const result = await state.sample.json(aiPrompt(insightInput(p, x, y, [...its])), { signal: ctl.signal, modelTier: "default", cache: false });
+      if (state.aiRun !== ctl) return;   // 期間・環境を変えて止めたあとの結果は使わない
       if (!result || typeof result !== "object" || !result.headline) throw { code: "invalid_json" };
-      const doc = { env: state.env, period: p.key, result, generated_at: new Date().toISOString() };
-      state.insights[key] = doc; show(doc); msg.textContent = ""; btn.textContent = "最新の数字で作り直す";
-      if (state.db) state.db.doc(`purchase_insights/${key}`).set(doc).catch(() => {});
+      const doc = { env, period: p.key, result, generated_at: new Date().toISOString() };
+      state.insights[key] = doc;
+      if (state.db) {
+        try { await state.db.doc(`purchase_insights/${key}`).set(doc); }
+        catch (_) { text = "示唆は作成しましたが、保存できませんでした（開き直すと消えます）。"; }
+      }
     } catch (e) {
-      if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled"].includes(e?.code)) { state.sample = null; msg.textContent = "このページから Claude を使う許可がありません。"; }
-      else msg.textContent = e?.code === "rate_limited" ? "混み合っています。時間をおいてお試しください。" : "示唆を作れませんでした（" + (e?.code || "エラー") + "）。";
-    } finally { state.aiRun = null; btn.disabled = !state.sample; }
+      if (state.aiRun !== ctl) return;
+      if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled"].includes(e?.code)) { state.sample = null; text = "このページから Claude を使う許可がありません。"; }
+      else text = e?.code === "rate_limited" ? "混み合っています。時間をおいてお試しください。" : "示唆を作れませんでした（" + (e?.code || "エラー") + "）。";
+    } finally {
+      // 終わったら描き直して、ボタンを戻す（止めたときは、期間・環境を変えた側が描き直している）
+      if (state.aiRun === ctl) { state.aiRun = null; state.aiNote = { key, text }; if (state.tab === "dash") render(); }
+    }
   });
   return card("AI の示唆", "この期間と前の期間・直近6か月の仕入の集計値と、商品（表示名）ごとの数量・金額だけを Claude に渡します",
     h("div", { class: "actions", style: "margin-top:0" }, btn, msg), out);
 }
 
 /* ======================= 起動 ======================= */
-async function start(refresh) {
-  setMsg(null);
-  $("purchase-sub").textContent = "読み込んでいます…";
-  if (!PROJECT[state.env]) {
-    state.data = null; render(); $("purchase-sub").textContent = "";
-    setMsg("まだ設定されていません", `${state.env === "prod" ? "本番" : "テスト"}用の仕入プロジェクトがまだありません。`); return;
-  }
-  state.mcp = state.mcp || await use("mcp");
-  if (!state.mcp) { $("purchase-sub").textContent = ""; setMsg("Asana につながっていません", "このページで仕入を読むには、claude.ai で Asana（0x0.co.jp のアカウント）を接続し、ページの許可を出してください。", () => start(true)); return; }
-  try {
-    await load(refresh);
-    state.sel = state.sel || periodByKey(store.get("purchase-sel") || "") || monthP(ym(today()));
-    render();
-  } catch (e) {
-    const code = e?.code;
-    console.warn("仕入管理: 読み込みに失敗", code || e?.message || e);
-    $("purchase-sub").textContent = "";
-    setMsg("仕入を読み込めませんでした",
-      code === "server_not_connected" || code === "needs_reauth" ? "claude.ai の設定で Asana を接続（または再接続）してください。"
-        : code === "not_granted" ? "ページの許可（Asana）が出ていません。"
-        : `仕入の Asana プロジェクトは、管理者だけが見られる非公開プロジェクトです。メンバーでない場合は読めません（${code || "エラー"}）。`,
-      () => start(true));
-  }
-}
-$("purchase-env").value = state.env;
-$("purchase-env").addEventListener("change", (e) => { state.env = e.target.value; store.set("purchase-env", state.env); start(); });
-for (const t of ["dash", "items", "master"]) $(`purchase-tab-${t}`).addEventListener("click", () => { state.tab = t; render(); });
-$("purchase-reload").addEventListener("click", () => start(true));
+$("purchase-env").value = BN.env.get();
+$("purchase-env").addEventListener("change", (e) => BN.env.set(e.target.value));   // 読み直しは portal:env で行う
+/* 環境が変わったら（ほかのページでの切替も含む）、前の環境の表と保存ボタンを消してから読み直す */
+window.addEventListener("portal:env", () => { $("purchase-env").value = BN.env.get(); stopAi(); state.aiNote = null; state.data = null; render();
+  // 非表示の間は読まない（全ページが一斉に読むのを避ける）。戻ったとき（portal:route）に読む
+  const box = $("purchase-env").closest(".page");
+  if (box && box.hidden) { BN.gen("purchase"); state.ver = -1; } else load();
+});
+/* このページに戻ったとき、ほかのページの書き込みがあれば読み直す */
+window.addEventListener("portal:route", (e) => { if (e.detail && e.detail.key === "cost-purchase" && BN.version() !== state.ver && !state.busy) load(true); });
+for (const t of ["dash", "items", "master"]) $(`purchase-tab-${t}`).addEventListener("click", () => { state.tab = t; state.note = ""; render(); });
+$("purchase-reload").addEventListener("click", () => load(true));
 $("purchase-navtoggle").addEventListener("click", () => {
   const open = $("purchase-side").classList.toggle("open"); $("purchase-navtoggle").setAttribute("aria-expanded", String(open));
 });
-use("sample").then((s) => { state.sample = s; if (state.data && state.tab === "dash") render(); });
+use("sample").catch(() => null).then((s) => { state.sample = s; if (state.data && state.tab === "dash") render(); });
 use("db").then((db) => { state.db = db; });
-start();
+load();
 </script>
