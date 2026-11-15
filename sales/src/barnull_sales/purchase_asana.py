@@ -232,12 +232,15 @@ def sync(tracker: PurchaseTracker, vouchers: list[Voucher], since: str, until: s
         else:
             st.created += 1
 
-    # 今回の NOS に無い伝票（期間内）は対象外にする
+    # 今回の NOS に無い伝票（期間内）は対象外にする。
+    # 同じ伝票番号が今回別の取引日で来たもの（NOS で取引日が変わった）は、古い方が期間の前でも対象外にする（二重計上を防ぐ）
+    seen_vouchers = {v.voucher for v in vouchers}
     for rid, t in by_id.items():
-        if not rid.startswith("P-") or rid in seen:
+        if not rid.startswith("P-") or rid in seen or t.get("p_status") == "対象外":
             continue
         d = t.get("business_date") or ""
-        if not (since <= d <= until) or t.get("p_status") == "対象外":
+        moved = rid.split("-", 2)[-1] in seen_vouchers
+        if not (since <= d <= until) and not moved:
             continue
         log(("[dry-run] " if dry_run else "") + f"伝票を対象外に: {rid}")
         if not dry_run:

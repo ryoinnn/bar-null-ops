@@ -141,6 +141,21 @@ def test_sync_idempotent_and_exclusion():
     assert st.excluded == 1   # R1 だけ（V1 は期間外）
 
 
+def test_moved_voucher_is_excluded_even_before_range():
+    """NOS で取引日が変わった伝票: 新しい日付で作り、古い方は取り込み期間の前でも対象外にする（二重計上しない）。"""
+    tr = FakeTracker()
+    suggest = lambda items: ({k: k for k in items}, True)  # noqa: E731
+    sync(tr, group(parse_rows(list(COLUMNS), [row(d="2026/10/31", voucher="V9"), row(d="2026/10/30", voucher="V8")])),
+         "2026-10-01", "2026-10-31", suggest)
+
+    moved = group(parse_rows(list(COLUMNS), [row(d="2026/11/02", voucher="V9")]))
+    st = sync(tr, moved, "2026-11-01", "2026-11-15", suggest)
+    by = {t["record_id"]: t for t in tr.tasks.values()}
+    assert st.created == 1 and st.excluded == 1
+    assert by["P-20261031-V9"]["p_status"] == "対象外" and by["P-20261102-V9"]["p_status"] != "対象外"
+    assert by["P-20261030-V8"].get("p_status") != "対象外"   # 期間の前で、伝票番号も違うものは触らない
+
+
 def test_unknown_category_is_review():
     rows = [row(cat="新しいカテゴリ")]
     v = group(parse_rows(list(COLUMNS), rows))
