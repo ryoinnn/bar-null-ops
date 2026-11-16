@@ -97,6 +97,8 @@ const mShort = (m) => `${+m.slice(5, 7)}月`;
 const md = (d) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`;
 const daysIn = BN.ledger.daysIn;
 const S = BN.ledger.STATE;
+/* 費目の状態の言葉。固定費の項目が無い月は §3c どおり「未設定」と呼ぶ */
+const stName = (key, s) => key === "fixed" && s === "none" ? "未設定" : (S[s] || s || "—");
 
 /* 費目（色は shared.css。コスト管理と同じ） */
 const CATS = [
@@ -185,10 +187,12 @@ function renderKpis(M, P, isCur, today) {
     k.append(kpi("1日あたりの売上", days ? yen(M.sales / days) : "—", "通常営業・伝票のあった日の平均", days ? "" : "na"));
     return;
   }
-  const missing = [...CATS.filter((c) => !["ok", "est"].includes(M.c[c.key].s)).map((c) => `${c.name}：${S[M.c[c.key].s] || M.c[c.key].s}`)];
-  k.append(kpi("コスト合計", yen(M.known), M.known == null ? "" : `変動費 ${yen(M.varKnown)}・固定費 ${M.fixed == null ? S[M.c.fixed.s] : yen(M.fixed)}${M.complete ? "" : "（記録済みの分）"}`, M.known == null ? "na" : ""));
-  if (M.profit != null) k.append(kpi("利益", yen(M.profit), `利益率 ${pc(M.profit / M.revenue)}${M.est ? "・人件費は見込み" : ""}${isCur ? "・月の途中（固定費は月額）" : ""}`, M.profit >= 0 ? "pos" : "neg"));
-  else k.append(kpi("利益", "—", missing.length ? `記録がそろっていません（${missing.slice(0, 2).join("・")}${missing.length > 2 ? "ほか" : ""}）${M.revenue != null && M.known != null ? `。参考 ${yen(M.revenue - M.known)}` : ""}` : "読み込み中", "na"));
+  const missing = [...CATS.filter((c) => !["ok", "est"].includes(M.c[c.key].s)).map((c) => `${c.name}：${stName(c.key, M.c[c.key].s)}`)];
+  k.append(kpi("コスト合計", yen(M.known), M.known == null ? "" : `変動費 ${yen(M.varKnown)}・固定費 ${M.fixed == null ? stName("fixed", M.c.fixed.s) : yen(M.fixed)}${M.complete ? "" : "（記録済みの分）"}`, M.known == null ? "na" : ""));
+  // 今月は確定値と同じ言葉で言い切らない（固定費は月額をまるごと引いているため。2026-11-16 E の指摘）
+  const pLabel = isCur ? "ここまでの損益" : "利益";
+  if (M.profit != null) k.append(kpi(pLabel, yen(M.profit), `利益率 ${pc(M.profit / M.revenue)}${M.est ? "・人件費は見込み" : ""}${isCur ? "・月の途中（固定費は月額で引いています）" : ""}`, M.profit >= 0 ? "pos" : "neg"));
+  else k.append(kpi(pLabel, "—", missing.length ? `記録がそろっていません（${missing.slice(0, 2).join("・")}${missing.length > 2 ? "ほか" : ""}）${M.revenue != null && M.known != null ? `。参考 ${yen(M.revenue - M.known)}` : ""}` : "読み込み中", "na"));
   const pur = M.c.purchase, lab = M.c.labor;
   k.append(kpi("原価率", pur.v != null && M.sales ? pc(pur.v / M.sales) : "—", pur.v != null ? `仕入 ${yen(pur.v)} ÷ 通常営業の売上${pur.s === "partial" ? "（仕入は一部のみ）" : ""}` : `仕入：${S[pur.s]}`, pur.v != null && M.sales ? "" : "na"));
   k.append(kpi("人件費率", lab.v != null && M.revenue ? pc(lab.v / M.revenue) : "—", lab.v != null ? `人件費 ${yen(lab.v)}${lab.s === "est" ? "（見込み）" : lab.s === "partial" ? "（一部のみ）" : ""}` : `人件費：${S[lab.s]}`, lab.v != null && M.revenue ? "" : "na"));
@@ -197,12 +201,13 @@ function renderKpis(M, P, isCur, today) {
 /* 今月の損益（滝グラフ）: 売上合計から費目を順に引いて、残りが利益 */
 function waterfallCard(M, isCur) {
   const card = el("section", "card lg chart");
-  card.append(el("h2", "", `${mShort(M.m)}の損益`), el("p", "cap", "売上合計から費用を順に引き、残りが利益（損失）。高さはすべて同じ円の目盛り"));
+  card.append(el("h2", "", isCur ? `${mShort(M.m)}のここまでの損益` : `${mShort(M.m)}の損益`),
+    el("p", "cap", isCur ? "今日までの売上合計から、費用を順に引いた残り（固定費は月額をまるごと引いています）。高さはすべて同じ円の目盛り" : "売上合計から費用を順に引き、残りが利益（損失）。高さはすべて同じ円の目盛り"));
   if (M.revenue == null || M.known == null) { card.append(el("p", "empty", S[M.c.fixed.s === "error" ? "error" : "wait"] + "です。")); return card; }
   const steps = [{ name: "売上合計", v: M.revenue, color: REV, kind: "total" }];
-  CATS.forEach((c) => { const x = M.c[c.key]; steps.push({ name: c.name, v: x.v, color: c.color, kind: "cost", s: x.s }); });
+  CATS.forEach((c) => { const x = M.c[c.key]; steps.push({ key: c.key, name: c.name, v: x.v, color: c.color, kind: "cost", s: x.s }); });
   const profit = M.revenue - M.known;
-  steps.push({ name: M.complete ? (profit >= 0 ? "利益" : "損失") : "残り（参考）", v: profit, color: profit >= 0 ? "var(--green)" : "var(--red)", kind: "result" });
+  steps.push({ name: !M.complete ? "残り（参考）" : isCur ? "ここまで" : profit >= 0 ? "利益" : "損失", v: profit, color: profit >= 0 ? "var(--green)" : "var(--red)", kind: "result" });
   let run = M.revenue; const lo = [], hi = [];
   steps.forEach((s) => {
     if (s.kind === "total") { s.a = 0; s.b = s.v; }
@@ -221,7 +226,7 @@ function waterfallCard(M, isCur) {
     if (i < steps.length - 1 && s.kind !== "result") { const ny = s.kind === "total" ? y(s.b) : y(s.a); g += `<line class="conn" x1="${x + bw}" x2="${x + slot}" y1="${ny}" y2="${ny}"/>`; }
     const na = s.v == null;
     g += `<rect x="${x}" y="${na ? y(s.b) - 1 : top}" width="${bw}" height="${na ? 2 : h}" rx="3" fill="${s.color}"${na ? ' opacity=".35"' : ""}><title>${esc(s.name)} ${yen(s.v)}</title></rect>`;
-    const lab = na ? (S[s.s] || "—") : (s.kind === "cost" ? `−${man(s.v)}` : man(s.v));
+    const lab = na ? stName(s.key, s.s) : (s.kind === "cost" ? `−${man(s.v)}` : man(s.v));
     g += `<text class="lab" x="${x + bw / 2}" y="${(s.kind === "result" && s.v < 0 ? y(s.a) + 14 : top - 6)}" text-anchor="middle">${esc(lab)}</text>`;
     g += `<text x="${x + bw / 2}" y="${H - 22}" text-anchor="middle">${esc(s.name)}</text>`;
     if (s.kind === "cost" && !na && M.revenue) g += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${pc(s.v / M.revenue)}</text>`;
@@ -246,7 +251,7 @@ function breakEvenCard(M, isCur, today) {
   const be = M.fixed != null && rate != null && rate < 1 ? M.fixed / (1 - rate) : null;
   if (be == null) {
     card.append(el("p", "cap", "損益分岐売上 ＝ 固定費 ÷（1 − 変動費率）"));
-    card.append(el("p", "empty", M.fixed == null ? `固定費が${S[M.c.fixed.s]}のため出せません。` : rate != null && rate >= 1 ? "変動費が売上合計を上回っているため、売上を増やしても黒字になりません。" : "変動費の記録がそろうと出します。"));
+    card.append(el("p", "empty", M.fixed == null ? `固定費が${stName("fixed", M.c.fixed.s)}のため出せません。` : rate != null && rate >= 1 ? "変動費が売上合計を上回っているため、売上を増やしても黒字になりません。" : "変動費の記録がそろうと出します。"));
     return card;
   }
   const day = isCur ? +today.slice(8, 10) : daysIn(M.m), dim = daysIn(M.m);
@@ -267,8 +272,11 @@ function breakEvenCard(M, isCur, today) {
   tr.setAttribute("role", "img"); tr.setAttribute("aria-label", `売上合計 ${yen(M.revenue)}、損益分岐売上 ${yen(be)}${pace != null ? `、月末の見込み ${yen(pace)}` : ""}`);
   const ax = el("div", "be-axis"); ax.append(el("span", "", "¥0"), el("span", "", man(top)));
   card.append(tr, ax);
+  // 固定費には返済・配当（出資者配当金・銀行借入の返済）を含む（§3c）。会計上の費用だけの損益分岐も並べる（コスト管理の固定費と同じ扱い）
+  const pay = M.c.fixed.f.items.filter((i) => i.category === "返済・配当").reduce((x, i) => x + i.monthly, 0);
   const kv = el("div", "kv");
-  [["売上合計", yen(M.revenue)], ["損益分岐売上", yen(be)], ["変動費率", pc(rate)], ["固定費（月額）", yen(M.fixed)]].forEach(([a, b]) => { const d = el("div"); d.append(el("span", "", a), el("b", "num", b)); kv.append(d); });
+  [["売上合計", yen(M.revenue)], ["損益分岐売上", yen(be)], ["変動費率", pc(rate)], ["固定費（月額・返済・配当を含む）", yen(M.fixed)],
+   ...(pay ? [["返済・配当を除いた損益分岐", yen((M.fixed - pay) / (1 - rate))]] : [])].forEach(([a, b]) => { const d = el("div"); d.append(el("span", "", a), el("b", "num", b)); kv.append(d); });
   card.append(kv);
   if (isCur && M.rent == null) card.append(el("p", "note", "レンタルの店舗収益は月次確定後に入るため、今月の売上合計にはまだ含まれていません。"));
   return card;
