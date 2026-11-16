@@ -280,11 +280,11 @@ function renderAll(M, months) {
   const fb = el("section", "card lg lg--text box"), fh = el("div", "box-head"), fh2 = el("h2"), fd = el("i", "dot"); fd.style.background = FIXED.color; fh2.append(fd, "固定費"); fh.append(fh2);
   fb.append(fh, el("div", "big num", M.fixed == null ? "—" : yen(M.fixed)), el("div", "sub", M.fixed == null ? STATE_TEXT[M.c.fixed.s] : `月額・${M.c.fixed.f.items.length}項目・コストの ${pc(M.fixed / (M.known || 1))}・返済・配当を除くと ${yen(M.fixed - fxCatSum(M.c.fixed.f, "返済・配当"))}`));
   if (M.c.fixed.f.items.length) { fb.append(band(FX_CATS.map((c) => ({ name: c.name, v: fxCatSum(M.c.fixed.f, c.name), color: c.color })), M.fixed)); fb.append(legend(FX_CATS.filter((c) => fxCatSum(M.c.fixed.f, c.name)))); }
-  const fa = el("a", "btn filled go", "固定費を見る"); fa.href = "#cost-fixed"; fb.append(fa);
+  const fa = el("a", "btn go", "固定費を見る"); fa.href = "#cost-fixed"; fb.append(fa);
   const vb = el("section", "card lg lg--text box"), vh = el("div", "box-head"), vh2 = el("h2"); vh2.append("変動費"); vh.append(vh2);
   const parts = CATS.map((c) => ({ ...c, v: M.c[c.key].v || 0 }));
   vb.append(vh, el("div", "big num", yen(M.varKnown)), el("div", "sub", `人件費・仕入・備品消耗品・決済手数料（記録済みの分）`), band(parts, M.varKnown), legend(CATS));
-  const va = el("a", "btn filled go", "変動費を見る"); va.href = "#cost-var"; vb.append(va);
+  const va = el("a", "btn go", "変動費を見る"); va.href = "#cost-var"; vb.append(va);
   bx.append(fb, vb);
 }
 

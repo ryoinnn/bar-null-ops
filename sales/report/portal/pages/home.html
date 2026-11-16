@@ -211,11 +211,11 @@ function overview(M, P, months, isCur, today) {
   const done = doneDays(M.m, today);
   let cmp = null;
   if (M.sales != null) {
-    if (isCur) { if (done >= 1) cmp = delta(salesUpTo(M.m, done), salesUpTo(P.m, done), `前月の同じ日（${done}日）まで・通常営業`); }
+    if (isCur) { if (done >= 1 && done <= daysIn(P.m)) cmp = delta(salesUpTo(M.m, done), salesUpTo(P.m, done), `前月の同じ日（${done}日）まで・通常営業`); }
     else cmp = delta(M.sales, P.sales, "前月より・通常営業");
   }
   const rentTxt = M.c.rent.s === "ok" ? `レンタル ${yen(M.rent || 0)}` : "レンタルは月次確定前";
-  kvs.append(kv(isCur ? "今月の売上合計" : "売上合計", yen(M.revenue), M.revenue == null ? emptyMsg(st.L) : [...(cmp || []), el("br"), `通常営業 ${yen(M.sales)}・${rentTxt}`], "#sales"));
+  kvs.append(kv(isCur ? "今月の売上合計" : "売上合計", yen(M.revenue), M.revenue == null ? emptyMsg(st.L) : [...(cmp ? [...cmp, el("br")] : []), `通常営業 ${yen(M.sales)}・${rentTxt}`], "#sales"));
   if (!st.cost) {
     const days = st.L.daily ? Object.keys(st.L.daily).filter((d) => d.startsWith(M.m)).length : null;
     const mini = el("div", "kv-mini");
@@ -223,7 +223,7 @@ function overview(M, P, months, isCur, today) {
       kv("1日あたり", days ? yen(M.sales / days) : "—", "通常営業・伝票のあった日", "#sales"));
     kvs.append(mini);
   } else {
-    const pcmp = !isCur && M.known != null && P.known ? delta(M.known, P.known, "前月より") : null;
+    const pcmp = !isCur && M.complete && P.complete ? delta(M.known, P.known, "前月より") : null;   // 記録の欠けた月どうしは比べない
     kvs.append(kv("コスト合計", yen(M.known), M.known == null ? emptyMsg(st.L) : [...(pcmp ? [...pcmp, el("br")] : []), `変動費 ${yen(M.varKnown)}・固定費 ${M.fixed == null ? stName("fixed", M.c.fixed.s) : yen(M.fixed)}${M.complete ? "" : "（記録済みの分）"}`], "#cost"));
     // 利益: 費用とレンタルがそろった月だけ断定する（§5）。そろわない月は灰色の参考値
     const pLabel = isCur ? "ここまでの損益" : "利益";
@@ -243,7 +243,7 @@ function overview(M, P, months, isCur, today) {
   right.append(el("div", "chart-y", st.cost ? "売上とコスト（円）" : "売上（円）"));
   trend(right, months);
   ov.append(kvs, right);
-  return widget({ full: true, title: "売上とコスト", cap: `${mLabel(M.m)}${isCur ? "（集計中）" : ""}・グラフは直近12か月。月を押すとその月を表示`,
+  return widget({ full: true, title: st.cost ? "売上とコスト" : "売上", cap: `${mLabel(M.m)}${isCur ? "（集計中）" : ""}・グラフは直近12か月。月を押すとその月を表示`,
     action: ["売上管理を開く", "#sales"], body: [ov],
     foot: st.cost ? [["売上管理を開く", "#sales"], ["コスト管理を開く", "#cost"], ["変動費の内訳を見る", "#cost-var"]] : [["売上管理を開く", "#sales"]] });
 }
@@ -252,7 +252,7 @@ function overview(M, P, months, isCur, today) {
 function trend(box, months) {
   const W = 760, H = st.cost ? 270 : 240, L = 50, R = 8, T = 12, B = st.cost ? 44 : 26, iw = W - L - R, ih = H - T - B;
   const costOf = (M) => CATS.reduce((x, c) => x + (M.c[c.key].v || 0), 0);
-  const mx = Math.max(1, ...months.map((M) => Math.max(M.revenue || 0, st.cost ? costOf(M) : 0)));
+  const mx = Math.max(10000, ...months.map((M) => Math.max(M.revenue || 0, st.cost ? costOf(M) : 0)));   // 読み込み中でも目盛りが 0・1 にならないように
   const nice = (() => { const p = Math.pow(10, Math.floor(Math.log10(mx))); return [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((k) => k * p >= mx) * p; })();
   const y = (v) => T + ih - v / nice * ih, slot = iw / months.length, bw = st.cost ? Math.min(22, slot * .3) : Math.min(36, slot * .55);
   let g = "";
@@ -276,9 +276,10 @@ function trend(box, months) {
     s += `<text x="${cx}" y="${H - (st.cost ? 24 : 8)}" text-anchor="middle"${on ? ' class="lab"' : ""}>${mShort(M.m)}</text></g>`;
     g += s;
   });
-  const wrap = el("div"); wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="月ごとの売上${st.cost ? "とコスト" : ""}">${g}</svg>`;
+  // 中に押せる月があるので role は group（img にすると読み上げから中の操作が見えない）
+  const wrap = el("div"); wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="月ごとの売上${st.cost ? "とコスト" : ""}">${g}</svg>`;
   wrap.querySelectorAll("g.mcol").forEach((n) => {
-    const pick = () => { st.month = n.dataset.m; render(); };
+    const pick = () => { const m = n.dataset.m; st.month = m; render(); const again = document.querySelector(`#hm-board g.mcol[data-m="${m}"]`); if (again) again.focus(); };   // 描き直しのあともフォーカスを残す
     n.addEventListener("click", pick); n.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
   });
   box.append(wrap);
@@ -304,13 +305,14 @@ function waterfall(M, isCur) {
   }
   const steps = [{ name: "売上合計", v: M.revenue, color: REV, kind: "total", route: "#sales" }];
   CATS.forEach((c) => { const x = M.c[c.key]; steps.push({ key: c.key, name: c.name, v: x.v, color: c.color, kind: "cost", s: x.s, route: c.route }); });
-  const profit = M.revenue - M.known, sure = M.profit != null;   // 費用が欠けた月も、欠けた費目を見せたうえで残りを出す（参考）
-  steps.push({ name: !sure ? (isCur ? "ここまで（参考）" : "残り（参考）") : isCur ? "ここまで" : profit >= 0 ? "利益" : "損失", v: profit, color: profit >= 0 ? "var(--green)" : "var(--red)", kind: "result" });
+  // 残りは費用がそろった月だけ出す（レンタルだけ未確定なら参考値）。費用が欠けた月は — （大きく出て誤解を招くため。契約 §1b）
+  const profit = M.complete ? M.revenue - M.known : null, sure = M.profit != null;
+  steps.push({ name: !M.complete ? (isCur ? "ここまで" : "残り") : !sure ? (isCur ? "ここまで（参考）" : "残り（参考）") : isCur ? "ここまで" : profit >= 0 ? "利益" : "損失", v: profit, color: profit >= 0 ? "var(--green)" : "var(--red)", kind: "result" });
   let run = M.revenue; const lo = [], hi = [];
   steps.forEach((s) => {
     if (s.kind === "total") { s.a = 0; s.b = s.v; }
     else if (s.kind === "cost") { s.a = run - (s.v || 0); s.b = run; run -= (s.v || 0); }
-    else { s.a = Math.min(0, s.v); s.b = Math.max(0, s.v); }
+    else { s.a = Math.min(0, s.v || 0); s.b = Math.max(0, s.v || 0); }
     lo.push(s.a); hi.push(s.b);
   });
   const W = 600, H = 260, L = 50, R = 8, T = 22, B = 40, iw = W - L - R, ih = H - T - B;
@@ -329,11 +331,12 @@ function waterfall(M, isCur) {
     g += s.route ? `<a href="${s.route}">${nm}</a>` : nm;
     if (s.kind === "cost" && !na && M.revenue) g += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${pc(s.v / M.revenue)}</text>`;
   });
-  const box = el("div"); box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(mLabel(M.m))}の損益の内訳">${g}</svg>`;
+  const box = el("div"); box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(mLabel(M.m))}の損益の内訳">${g}</svg>`;
   const notes = [];
-  if (!sure) notes.push(`記録がそろっていないため、残りは参考値です（${M.c.rent.s !== "ok" ? "レンタルは月次確定前" : "未記録の費目あり"}）。`);
+  if (!M.complete) notes.push(`記録がそろっていない費目があるため、残りは出していません${M.c.rent.s !== "ok" ? "（レンタルも月次確定前）" : ""}。灰色の細い線が未記録の費目です。`);
+  else if (!sure) notes.push("レンタルが月次確定前のため、残りは参考値です。");
   if (M.est) notes.push("人件費は給与の見込み（その日時点の額）です。");
-  if (isCur && M.fixed != null) {   // 売上管理は固定費を日割りで引く。差が分かるように、日割りの参考値を添える
+  if (isCur && M.fixed != null && profit != null) {   // 売上管理は固定費を日割りで引く。差が分かるように、日割りの参考値を添える
     const day = +todayBiz().slice(8, 10), dim = daysIn(M.m), fxDay = M.fixed * day / dim;
     notes.push(`固定費を今日までの日割り（${day}/${dim}日）にすると ${yen(fxDay)}、残りは ${yen(profit + M.fixed - fxDay)}（売上管理の利益と同じ考え方）。`);
   }
@@ -355,7 +358,8 @@ function breakEven(M, isCur, today) {
   }
   const dim = daysIn(M.m), done = doneDays(M.m, today);
   // 月末の見込み: 通常営業は済んだ日のペースで伸ばし、レンタルの確定値は伸ばさない
-  const pace = isCur && done >= 2 && M.sales != null ? M.sales / done * dim + (M.rent || 0) : null;
+  // 今日の伝票は途中なので、昨日までの通常営業の売上だけでペースを出す
+  const pace = isCur && done >= 2 && M.sales != null ? salesUpTo(M.m, done) / done * dim + (M.rent || 0) : null;
   const gap = be - M.revenue, left = dim - done;
   const body = [el("div", "be-big num " + (gap <= 0 ? "pos" : ""), gap <= 0 ? `損益分岐を ${yen(-gap)} 上回っています` : `損益分岐まで あと ${yen(gap)}`)];
   const sub = [];
