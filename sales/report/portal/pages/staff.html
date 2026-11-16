@@ -339,6 +339,8 @@ function setMsg(title, body, retry) {
 }
 const kpi = (lb, v, d) => h("div", { class: "kpi lg lg--text" }, h("span", { class: "lb", text: lb }), h("span", { class: "v num", text: v }), h("span", { class: "d", text: d || "　" }));
 const card = (title, cap, ...kids) => h("section", { class: "card lg lg--text" }, h("h2", { text: title }), cap ? h("p", { class: "cap", text: cap }) : null, ...kids);
+// 定義の脚注は閉じた <details> に入れる（契約 §1b。見た目は shared.css の .defs）
+const defs = (...lines) => h("details", { class: "defs" }, h("summary", { text: "数字の定義" }), ...lines.map((t) => h("p", { text: t })));
 const fact = (k, v, sub) => h("div", { class: "fact" }, h("span", { class: "k", text: k }), h("span", { class: "v num", text: v }), sub ? h("span", { class: "k", text: sub }) : null);
 function meter(ratio) {
   const w = ratio == null || !isFinite(ratio) ? 0 : Math.min(ratio, 1) * 100;
@@ -356,7 +358,7 @@ function render() {
   renderNav();
   if (!state.data) return;
   const p = state.sel;
-  $("staff-sub").textContent = `${state.data.env === "test" ?"テスト用のデータ・" : ""}${label(p)}${inProgress(p) ? "（集計中・今日まで）" : ""}・` +
+  $("staff-sub").textContent = `${state.data.env === "test" ?"テスト用のデータ・" : ""}${label(p)}・` +
     `${new Date(state.data.at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} 時点`;
   if (state.sid) return renderPerson(view);
   if (state.tab === "payroll") return renderPayroll(view);
@@ -386,22 +388,27 @@ function renderOverview(view) {
   if (notes.length) view.append(h("div", { class: "notice" }, ...notes.map((t) => h("div", { text: t }))));
   view.append(
     h("section", { class: "kpis" },
-      kpi("スタッフが作った売上", yen(sales), `${label(per)}・管理者を除く`),
-      kpi("コスト（給与）", yen(cost), (inProgress(per) ? "その日時点の給与" : statusText(act)) + (noWage ? `・時給未設定 ${noWage}人` : "") + (act.some((r) => r.x.noPay) ? "・給与が空の記録あり（時給の分だけ）" : "")),
-      kpi("コスト率", pct(ratio), ratio == null ? "売上がまだありません" : `売上 ¥1 あたり ${ratio.toFixed(2)} 円`),
+      kpi("スタッフが作った売上", yen(sales)),
+      kpi("コスト（給与）", yen(cost), [inProgress(per) ? "見込み" : statusText(act).trim(), noWage ? `時給未設定 ${noWage}人` : "",
+        act.some((r) => r.x.noPay) ? "給与が空の記録あり（時給の分だけ）" : ""].filter(Boolean).join("・")),
+      kpi("コスト率", pct(ratio)),
       kpi("人数", `${act.length}人`, `スタッフ ${staffRows.length}・プロモーター ${promRows.length}`)),
-    card("売上とコスト", "売上のうち、給与（時給の分 ＋ バック ＋ 調整額）に使った割合",
+    card("売上とコスト", null,
       h("div", { class: "ratio" },
         h("div", { class: "track", role: "img", "aria-label": `コスト率 ${pct(ratio)}` }, h("i", { style: `width:${Math.min(ratio || 0, 1) * 100}%` })),
         h("div", { class: "legend num" }, h("span", {}, "コスト ", h("b", { text: yen(cost) })), h("span", {}, "残り ", h("b", { text: yen(sales - cost) })))),
       h("div", { class: "facts", style: "margin-top:16px" },
-        fact("勤務時間の平均", hrs(avg(staffRows.map((r) => r.x.hours))), "1人あたり（スタッフ）"),
-        fact("勤務日数の平均", staffRows.length ? `${avg(staffRows.map((r) => r.x.days)).toFixed(1)}日` : "—", "1人あたり（スタッフ）"),
-        fact("時給の平均", yen(avg(wages)), `台帳 ${wages.length}人`),
-        fact("バック率の平均", rates.length ? `${avg(rates).toFixed(1)}%` : "—", `台帳 ${rates.length}人`),
-        fact("1時間あたりの売上", hsum ? yen(sum(staffRows, (r) => r.x.sales) / hsum) : "—", "スタッフの売上 ÷ 勤務時間"))),
+        fact("勤務時間の平均", hrs(avg(staffRows.map((r) => r.x.hours)))),
+        fact("勤務日数の平均", staffRows.length ? `${avg(staffRows.map((r) => r.x.days)).toFixed(1)}日` : "—"),
+        fact("時給の平均", yen(avg(wages))),
+        fact("バック率の平均", rates.length ? `${avg(rates).toFixed(1)}%` : "—"),
+        fact("1時間あたりの売上", hsum ? yen(sum(staffRows, (r) => r.x.sales) / hsum) : "—"))),
     h("div", { class: "split" }, groupCard("スタッフ", staffRows), groupCard("プロモーター", promRows)),
-    card("スタッフ・プロモーター別", "名前を押すと、その人の勤務条件と詳細を開きます", peopleTable(rows)));
+    card("スタッフ・プロモーター別", null, peopleTable(rows)),
+    defs("売上：本人の伝票の金額（プロモーターフラグがあればその人、無ければ伝票を送った人）。管理者は除く。",
+      "コスト（給与）：時給の分 ＋ 売上 × バック率 ＋ 調整額。給与の記録がある月はその値、無い月と週は勤怠と伝票から計算する。期間が進行中なら、その日時点の見込み。",
+      "コスト率：給与 ÷ 売上。",
+      "勤務時間・勤務日数の平均：スタッフ1人あたり。時給・バック率の平均：台帳に入っている人の平均。1時間あたりの売上：スタッフの売上 ÷ 勤務時間。"));
 }
 function statusText(act) {
   const st = new Set(act.map((r) => r.x.status).flatMap((s) => s.split("・")));
@@ -422,7 +429,7 @@ function peopleTable(rows) {
   for (const kind of KINDS.concat([""])) {
     const list = rows.filter((r) => (r.p.kind || "") === kind).sort((a, b) => (b.x.sales - a.x.sales) || (b.x.hours - a.x.hours));
     if (!list.length) continue;
-    tb.append(h("tr", { class: "sec" }, h("td", { colspan: 6, text: kind || "区分が未設定（台帳に入れてください）" })));
+    tb.append(h("tr", { class: "sec" }, h("td", { colspan: 6, text: kind || "区分が未設定" })));
     list.forEach((r) => tb.append(clickRow(() => openPerson(r.p.sid),
       h("td", {}, h("b", { text: r.p.name }), r.x.noWage ? [" ", h("span", { class: "pill rv", text: "時給未設定" })] : null,
         r.p.line && r.p.line !== r.p.name ? h("div", { class: "sub", text: `LINE：${r.p.line}` }) : null),
@@ -430,7 +437,7 @@ function peopleTable(rows) {
       h("td", { class: "n", text: yen(r.x.sales) }), h("td", { class: "n", text: yen(r.x.cost) }), h("td", {}, meter(r.x.sales ? r.x.cost / r.x.sales : null)))));
   }
   return tb.children.length ? tableWrap(["名前", "勤務日", "勤務時間", "売上", "給与", "コスト率"], [1, 2, 3, 4], tb)
-                            : h("p", { class: "empty", text: "スタッフはまだいません（勤怠が送られるか、台帳に入れると出ます）。" });
+                            : h("p", { class: "empty", text: "スタッフはまだいません。" });
 }
 
 /* ---------- 給与（月ごと。週を選んでいるときはその週の月） ---------- */
@@ -439,7 +446,7 @@ function renderPayroll(view) {
   $("staff-title").textContent = "給与";
   if (!m) {
     const months = [...new Set(state.data.pay.filter((r) => r.month.startsWith(state.sel.year)).map((r) => r.month))].sort().reverse();
-    view.append(card(`${state.sel.year}年の給与`, "月を押すと、その月の一覧を開きます",
+    view.append(card(`${state.sel.year}年の給与`, null,
       months.length ? tableWrap(["月", "人数", "給与の合計", "状態"], [1, 2], h("tbody", {}, ...months.map((mm) => {
         const rows = state.data.pay.filter((r) => r.month === mm);
         return clickRow(() => select(monthP(mm)), h("td", {}, h("b", { text: label(monthP(mm)) })), h("td", { class: "n", text: `${rows.length}人` }),
@@ -448,8 +455,9 @@ function renderPayroll(view) {
     return;
   }
   const rows = state.data.pay.filter((r) => r.month === m);
-  const cap = "月末締め・翌月25日払い。翌月の第1水曜 17:00 に計算し、10日 9:00 に確定。名前を押すと詳細を開きます。調整額は Asana の給与タスクで入れます";
-  if (!rows.length) { view.append(card(`${label(monthP(m))}の給与`, cap, h("p", { class: "empty", text: "この月の給与の記録はまだありません。" }))); return; }
+  const payDefs = () => defs("月末締め・翌月25日払い。翌月の第1水曜 17:00 に計算し、10日 9:00 に確定する。",
+    "給与 ＝ 時給の分 ＋ バック ＋ 調整額。調整額は Asana の給与タスクで入れる。");
+  if (!rows.length) { view.append(card(`${label(monthP(m))}の給与`, null, h("p", { class: "empty", text: "この月の給与の記録はまだありません。" })), payDefs()); return; }
   const tb = h("tbody");
   for (const kind of KINDS.concat([""])) {
     const list = rows.filter((r) => (r.kind || "") === kind).sort((a, b) => (b.pay ?? b.wagePart) - (a.pay ?? a.wagePart));
@@ -468,11 +476,12 @@ function renderPayroll(view) {
     h("td", { class: "n", text: yen(sum(rows, (r) => r.adj)) }), h("td", { class: "n", text: yen(sum(rows, (r) => r.pay ?? r.wagePart)) }), h("td")));
   view.append(
     h("section", { class: "kpis" },
-      kpi("給与の合計", yen(sum(rows, (r) => r.pay ?? r.wagePart)), label(monthP(m)) + (rows.some((r) => r.pay == null) ? "・給与が空の記録あり（時給の分だけ）" : "")),
+      kpi("給与の合計", yen(sum(rows, (r) => r.pay ?? r.wagePart)), rows.some((r) => r.pay == null) ? "給与が空の記録あり（時給の分だけ）" : ""),
       kpi("時給の分", yen(sum(rows, (r) => r.wagePart)), `勤務 ${hrs(sum(rows, (r) => r.hours))}`),
       kpi("バック", yen(sum(rows, (r) => r.back)), `売上 ${yen(sum(rows, (r) => r.sales))}`),
       kpi("状態", [...new Set(rows.map((r) => r.status))].join("・"), `${rows.length}人`)),
-    card(`${label(monthP(m))}の給与`, cap, tableWrap(["名前", "勤務日", "勤務時間", "売上", "時給の分", "バック", "調整額", "給与", "状態"], [1, 2, 3, 4, 5, 6, 7], tb)));
+    card(`${label(monthP(m))}の給与`, null, tableWrap(["名前", "勤務日", "勤務時間", "売上", "時給の分", "バック", "調整額", "給与", "状態"], [1, 2, 3, 4, 5, 6, 7], tb)),
+    payDefs());
 }
 
 /* ---------- 個人 ---------- */
@@ -484,12 +493,12 @@ function renderPerson(view) {
   const per = state.sel, x = figures(p, per), ratio = x.cost ? x.sales / x.cost : null;
   view.append(h("div", {}, h("button", { type: "button", class: "btn plain", onclick: () => { stopAi(); state.sid = null; render(); }, text: "← 一覧へ戻る" })));
   view.append(h("section", { class: "kpis" },
-    kpi("売上", yen(x.sales), `${label(per)}・本人の売上`),
+    kpi("売上", yen(x.sales)),
     kpi("コスト（給与）", yen(x.cost), x.status + (x.noWage ? "・時給未設定の勤務あり" : "") + (x.noPay ? "・給与が空の記録あり（時給の分だけ）" : "")),
-    kpi("売上 ÷ コスト", times(ratio), x.sales ? `コスト率 ${pct(x.cost / x.sales)}` : ""),
+    kpi("売上 ÷ コスト", times(ratio)),
     kpi("勤務時間", hrs(x.hours), `${x.days}日`),
     kpi("顧客組数", `${x.count}組`, x.count ? `1組あたり ${yen(x.sales / x.count)}` : "")));
-  view.append(card("給与の内訳", (x.doc ? `給与の記録：${x.status}` : `${x.status}（月の給与の記録がある月は、その値を使います）`) + (x.reason ? `／調整の理由：${x.reason}` : ""),
+  view.append(card("給与の内訳", x.status + (x.reason ? `／調整の理由：${x.reason}` : ""),
     h("div", { class: "paycalc num" },
       h("span", {}, "時給の分", h("b", { text: yen(x.wagePart) })), h("span", { class: "op", text: "＋" }),
       h("span", {}, `バック（${x.rate != null ? x.rate + "%" : "—"}）`, h("b", { text: yen(x.back) })),
@@ -505,7 +514,7 @@ function dailyCard(p, x) {
   x.att.forEach((r) => { (byDay[r.date] ||= { att: null, sales: 0, n: 0 }).att = r; });
   x.slips.forEach((s) => { const d = (byDay[s.date] ||= { att: null, sales: 0, n: 0 }); d.sales += s.amount; d.n += 1; });
   const days = Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b));
-  const cap = p.kind === "プロモーター" ? "プロモーター経由の伝票の日ごとの売上" : "勤怠の記録（対象外を除く）と、その日の本人の売上";
+  const cap = null;
   if (!days.length) return card("日ごと", cap, h("p", { class: "empty", text: "この期間の記録はまだありません。" }));
   const tb = h("tbody", {}, ...days.map(([d, v]) => h("tr", {},
     h("td", {}, v.att?.url ? h("a", { href: v.att.url, target: "_blank", rel: "noopener", text: dayLabel(d) }) : dayLabel(d)),
@@ -533,15 +542,15 @@ function conditionsCard(p) {
   state.flash = null;
   const ask = { sig: "" };   // 確かめの文を出した変更の内容。同じ内容でもう一度押されたら送る
   const save = h("button", { type: "button", class: "btn filled", text: "保存（Asana の台帳）", disabled: !canEdit, onclick: () => saveConditions(p, f, save, msg, ask) });
-  return card("勤務条件", "LINE名は、勤怠・伝票を送った人と伝票のプロモーターフラグを、この人に結び付ける名前です。画面では本名で表示します",
+  return card("勤務条件", null,
     h("div", { class: "form" },
       h("label", {}, "本名", f.real), h("label", {}, "LINE名", f.line), h("label", {}, "区分", f.kind), h("label", {}, "入社日", f.joined),
-      h("label", {}, h("span", {}, "時給（円）", h("span", { class: "hint", text: "　プロモーターは空" })), f.wage),
-      h("label", {}, h("span", {}, "時給の適用開始日", h("span", { class: "hint", text: "　この日以降の勤務から" })), f.wageFrom),
+      h("label", {}, "時給（円）", f.wage),
+      h("label", {}, "時給の適用開始日", f.wageFrom),
       h("label", {}, "バック率（%）", f.rate)),
     h("div", { class: "actions" }, save,
       p.url ? h("a", { class: "btn plain", href: p.url, target: "_blank", rel: "noopener", text: "Asana で編集" }) : null, msg,
-      !p.gid ? h("span", { class: "msg", text: "台帳にまだありません（初めて勤怠を送ると自動で作られます）。" }) : null,
+      !p.gid ? h("span", { class: "msg", text: "台帳にまだありません。" }) : null,
       state.canWrite === false ? h("span", { class: "msg", text: "このページから書き込む許可がありません。Asana で編集してください。" }) : null));
 }
 const COND_LABEL = { real: "本名", line: "LINE名", kind: "区分", joined: "入社日", wage: "時給", wageFrom: "時給の適用開始日", rate: "バック率" };
@@ -678,8 +687,10 @@ function aiCard(p, x) {
       else if (!ctl.signal.aborted && !state.aiRun && !state.busy && state.data && state.sid === p.sid) render();
     }
   });
-  return card("AI の示唆", "この人の売上・給与・勤務の数字（前月まで）と店全体の合計だけを Claude に渡します。名前は渡しません",
-    h("div", { class: "actions", style: "margin-top:0" }, btn, msg), out);
+  return card("AI の示唆", null,
+    h("div", { class: "actions", style: "margin-top:0" }, btn, msg), out,
+    h("details", { class: "defs" }, h("summary", { text: "Claude に渡す数字" }),
+      h("p", { text: "この人の売上・給与・勤務日数・顧客組数（前月まで）と、店全体の合計だけ。名前・時給・バック率は渡さない。" })));
 }
 
 /* ======================= 起動 ======================= */
