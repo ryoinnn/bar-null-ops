@@ -1,82 +1,87 @@
 /* Bar null の共通の見た目（全ページで使う。編集はポータルの担当だけ）。
-   AWS Console（Cloudscape のビジュアルリフレッシュ）に寄せた、平らで情報の密度が高い見た目（2026-11-16 本人指定。それまでは Liquid Glass）。
-   ・白い面（コンテナ）に細い縁と薄い影。角丸はコンテナ 16px、入力 8px、ボタンは丸い端（20px）
-   ・操作の色は青（Cloudscape の #006ce0）。ブランドの赤ピンクはロゴの印だけに使う
-   ・ライト・ダークの両方。数字は等幅
+   AWS Console に寄せた見た目（2026-11-16 本人指定。それまでは Liquid Glass）。本人が示した AWS Console の画面（従来の見た目）に合わせる:
+   ・角を立てたコンテナ（角丸なし）に、ごく薄い影。ボタン・入力は 2px の角
+   ・フォントは AWS と同じ並び（Amazon Ember → Helvetica Neue → Arial）。日本語は Noto Sans JP（index.html が読み込む）
+   ・リンクと大きな数字は青、主のボタンはオレンジ、サイドナビの選択中はオレンジの太字。増減・状態は緑と赤
+   ・ライトは明るい灰色の地に白いコンテナ、ダークは紺の地。ブランドの赤ピンクはロゴの印だけ
    クラス名（.lg・.card・.kpi など）は前の見た目と同じ。各ページの HTML は変えずに、ここだけで見た目が切り替わる。 */
 :root{
-  /* 操作の色（青） */
-  --accent:#006ce0; --accent-2:#004a9e; --accent-fill:#006ce0; --accent-text:#006ce0; --on-accent:#fff;
-  --accent-hover:#002b66;
-  --accent-soft:#f0fbff;
-  --accent-ring:#006ce0;
+  /* 操作の色（リンク・選択は青、主のボタンはオレンジ） */
+  --accent:#0972d3; --accent-2:#033160; --accent-fill:#0972d3; --accent-text:#0972d3; --on-accent:#fff;
+  --accent-hover:#033160;
+  --accent-soft:#f2f8fd;
+  --accent-ring:#0972d3;
   --accent-grad:linear-gradient(var(--accent-fill), var(--accent-fill));
+  --primary:#ff9900; --primary-hover:#ec7211; --on-primary:#0f1b2a;
+  --nav-active:#ec7211;
   --brand:#FF2D6F;
   /* 文字・面・線 */
-  --label:#0f141a; --label-2:#424650; --label-3:#656871;
-  --separator:#e9ebed; --border:#c6c6cd; --border-input:#8c8c94;
-  --fill:#f3f3f7; --fill-2:#e9ebed;
-  --bg-base:#f8f8f9; --card-solid:#ffffff; --decor:transparent;
-  --topnav:#0f141a; --topnav-text:#f9f9fa; --topnav-2:#b4b4bb;
+  --label:#16191f; --label-2:#545b64; --label-3:#687078;
+  --separator:#eaeded; --border:#d5dbdb; --border-input:#aab7b8;
+  --fill:#f2f3f3; --fill-2:#eaeded;
+  --bg-base:#f2f3f3; --card-solid:#ffffff; --decor:transparent;
+  --topnav:#232f3e; --topnav-text:#ffffff; --topnav-2:#d5dbdb;
   /* 状態 */
-  --green:#00802f; --red:#db0000; --warn:#855900; --info:#006ce0;
-  --green-bg:#effff1; --red-bg:#fff5f5; --warn-bg:#fffef0; --info-bg:#f0fbff;
-  --warn-text:#855900;
+  --green:#037f0c; --red:#d13212; --warn:#8d6605; --info:#0972d3;
+  --green-bg:#f2f8f0; --red-bg:#fdf3f1; --warn-bg:#fffce9; --info-bg:#f2f8fd;
+  --warn-text:#8d6605;
   /* グラフ（Cloudscape のデータ可視化の色） */
   --series-rent:#c33d69; --c-rev2:#2ea597;
-  --bar:#dedee3; --bar-cur:#688ae8; --bar-top:#688ae8; --bar-bottom:#3759ce;
-  --c-labor:#3759ce; --c-purchase:#c33d69; --c-supplies:#8456ce; --c-fee:#e07941; --c-fixed:#8c8c94; --c-rev:var(--label);
+  --bar:#d5dbdb; --bar-cur:#688ae8; --bar-top:#688ae8; --bar-bottom:#3759ce;
+  --c-labor:#3759ce; --c-purchase:#c33d69; --c-supplies:#8456ce; --c-fee:#e07941; --c-fixed:#879596; --c-rev:var(--label);
   --fx-rent:#3759ce; --fx-util:#2ea597; --fx-svc:#e07941; --fx-pay:#c33d69;
-  --chart-grid:#dedee3;
+  --chart-grid:#eaeded;
   /* 前の見た目のトークン（各ページの CSS が使っている）を、平らな面の値に置き換える */
   --glass-user:1; --lg-tint:255,255,255; --lg-a:1; --lg-a-text:1; --lg-blur:none;
   --lg-rim:var(--border); --lg-hi:transparent; --lg-lo:transparent; --lg-glow:transparent; --lg-sheen:none; --lg-shadow:none; --lg-chroma:none;
   --blob-a:transparent; --blob-b:transparent; --blob-c:transparent;
-  --shadow-card:0 0 1px 1px #e9ebed, 0 1px 8px 2px rgba(0,7,22,.10);
-  --shadow-pop:0 4px 20px 1px rgba(0,7,22,.12);
+  --shadow-card:0 1px 1px 0 rgba(0,28,36,.3), 1px 1px 1px 0 rgba(0,28,36,.15), -1px 1px 1px 0 rgba(0,28,36,.15);
+  --shadow-pop:0 1px 1px 0 rgba(0,28,36,.3), 1px 1px 1px 0 rgba(0,28,36,.15), -1px 1px 1px 0 rgba(0,28,36,.15), 0 4px 16px rgba(0,28,36,.12);
 
-  --r-control:8px; --r-card:16px; --r-sheet:16px; --r-month:8px; --r-row:8px; --r-btn:20px; --r-badge:4px;
-  --font:"Open Sans","Helvetica Neue",Roboto,Arial,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+  --r-control:2px; --r-card:0px; --r-sheet:0px; --r-month:0px; --r-row:2px; --r-btn:2px; --r-badge:2px;
+  --font:"Amazon Ember","Helvetica Neue",Roboto,Arial,"Noto Sans JP","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
   --ease:cubic-bezier(.4,0,.6,1); --ease-spring:cubic-bezier(.2,.8,.2,1);
-  --topnav-h:48px; --sidenav-w:264px;
+  --topnav-h:40px; --sidenav-w:248px;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --accent:#42b4ff; --accent-2:#75cfff; --accent-fill:#42b4ff; --accent-text:#42b4ff; --on-accent:#0f141a; --accent-hover:#75cfff;
-  --accent-soft:#001129; --accent-ring:#42b4ff;
-  --label:#ebebf0; --label-2:#c6c6cd; --label-3:#a4a4ad;
-  --separator:#2a2f38; --border:#424650; --border-input:#656871;
-  --fill:#1b232d; --fill-2:#232b37;
-  --bg-base:#0f141a; --card-solid:#161d26;
-  --topnav:#0f141a; --topnav-text:#f9f9fa; --topnav-2:#a4a4ad;
-  --green:#2bb534; --red:#ff7a7a; --warn:#fbd332; --info:#42b4ff; --warn-text:#fbd332;
-  --green-bg:#001401; --red-bg:#1f0000; --warn-bg:#191100; --info-bg:#001129;
+  --accent:#539fe5; --accent-2:#89bdee; --accent-fill:#539fe5; --accent-text:#539fe5; --on-accent:#0f1b2a; --accent-hover:#89bdee;
+  --accent-soft:#12293b; --accent-ring:#539fe5;
+  --primary:#ff9900; --primary-hover:#ffb84d; --on-primary:#0f1b2a; --nav-active:#ff9900;
+  --label:#d1d5db; --label-2:#9ba7b6; --label-3:#8d99a8;
+  --separator:#414d5c; --border:#414d5c; --border-input:#7f8b9a;
+  --fill:#232f3e; --fill-2:#2b3a4c;
+  --bg-base:#0f1b2a; --card-solid:#192534;
+  --topnav:#0f1b2a; --topnav-text:#e9ebed; --topnav-2:#b6bec9;
+  --green:#29ad32; --red:#eb6f6f; --warn:#e0ca57; --info:#539fe5; --warn-text:#e0ca57;
+  --green-bg:#0f2a14; --red-bg:#2c1414; --warn-bg:#2a250f; --info-bg:#12293b;
   --series-rent:#e07f9d; --c-rev2:#40bfa9;
-  --bar:#424650; --bar-cur:#8ea9ff; --bar-top:#8ea9ff; --bar-bottom:#486de8;
-  --c-labor:#8ea9ff; --c-purchase:#e07f9d; --c-supplies:#b088f5; --c-fee:#f89256; --c-fixed:#8c8c94;
+  --bar:#414d5c; --bar-cur:#8ea9ff; --bar-top:#8ea9ff; --bar-bottom:#486de8;
+  --c-labor:#8ea9ff; --c-purchase:#e07f9d; --c-supplies:#b088f5; --c-fee:#f89256; --c-fixed:#8d99a8;
   --fx-rent:#8ea9ff; --fx-util:#40bfa9; --fx-svc:#f89256; --fx-pay:#e07f9d;
-  --chart-grid:#424650;
-  --lg-tint:22,29,38;
-  --shadow-card:0 0 0 1px #2a2f38, 0 1px 8px 2px rgba(0,7,22,.6);
-  --shadow-pop:0 4px 20px 1px rgba(0,4,12,1);
+  --chart-grid:#414d5c;
+  --lg-tint:25,37,52;
+  --shadow-card:0 1px 1px 0 rgba(0,0,0,.35), 0 0 0 1px rgba(65,77,92,.45);
+  --shadow-pop:0 4px 20px 1px rgba(0,4,12,.8), 0 0 0 1px #414d5c;
   color-scheme:dark}}
 :root[data-theme="dark"]{
-  --accent:#42b4ff; --accent-2:#75cfff; --accent-fill:#42b4ff; --accent-text:#42b4ff; --on-accent:#0f141a; --accent-hover:#75cfff;
-  --accent-soft:#001129; --accent-ring:#42b4ff;
-  --label:#ebebf0; --label-2:#c6c6cd; --label-3:#a4a4ad;
-  --separator:#2a2f38; --border:#424650; --border-input:#656871;
-  --fill:#1b232d; --fill-2:#232b37;
-  --bg-base:#0f141a; --card-solid:#161d26;
-  --topnav:#0f141a; --topnav-text:#f9f9fa; --topnav-2:#a4a4ad;
-  --green:#2bb534; --red:#ff7a7a; --warn:#fbd332; --info:#42b4ff; --warn-text:#fbd332;
-  --green-bg:#001401; --red-bg:#1f0000; --warn-bg:#191100; --info-bg:#001129;
+  --accent:#539fe5; --accent-2:#89bdee; --accent-fill:#539fe5; --accent-text:#539fe5; --on-accent:#0f1b2a; --accent-hover:#89bdee;
+  --accent-soft:#12293b; --accent-ring:#539fe5;
+  --primary:#ff9900; --primary-hover:#ffb84d; --on-primary:#0f1b2a; --nav-active:#ff9900;
+  --label:#d1d5db; --label-2:#9ba7b6; --label-3:#8d99a8;
+  --separator:#414d5c; --border:#414d5c; --border-input:#7f8b9a;
+  --fill:#232f3e; --fill-2:#2b3a4c;
+  --bg-base:#0f1b2a; --card-solid:#192534;
+  --topnav:#0f1b2a; --topnav-text:#e9ebed; --topnav-2:#b6bec9;
+  --green:#29ad32; --red:#eb6f6f; --warn:#e0ca57; --info:#539fe5; --warn-text:#e0ca57;
+  --green-bg:#0f2a14; --red-bg:#2c1414; --warn-bg:#2a250f; --info-bg:#12293b;
   --series-rent:#e07f9d; --c-rev2:#40bfa9;
-  --bar:#424650; --bar-cur:#8ea9ff; --bar-top:#8ea9ff; --bar-bottom:#486de8;
-  --c-labor:#8ea9ff; --c-purchase:#e07f9d; --c-supplies:#b088f5; --c-fee:#f89256; --c-fixed:#8c8c94;
+  --bar:#414d5c; --bar-cur:#8ea9ff; --bar-top:#8ea9ff; --bar-bottom:#486de8;
+  --c-labor:#8ea9ff; --c-purchase:#e07f9d; --c-supplies:#b088f5; --c-fee:#f89256; --c-fixed:#8d99a8;
   --fx-rent:#8ea9ff; --fx-util:#40bfa9; --fx-svc:#f89256; --fx-pay:#e07f9d;
-  --chart-grid:#424650;
-  --lg-tint:22,29,38;
-  --shadow-card:0 0 0 1px #2a2f38, 0 1px 8px 2px rgba(0,7,22,.6);
-  --shadow-pop:0 4px 20px 1px rgba(0,4,12,1);
+  --chart-grid:#414d5c;
+  --lg-tint:25,37,52;
+  --shadow-card:0 1px 1px 0 rgba(0,0,0,.35), 0 0 0 1px rgba(65,77,92,.45);
+  --shadow-pop:0 4px 20px 1px rgba(0,4,12,.8), 0 0 0 1px #414d5c;
   color-scheme:dark}
 
 *{box-sizing:border-box}
@@ -85,7 +90,7 @@ body{background:var(--bg-base);color:var(--label);font-family:var(--font);font-s
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 button,select,input{font:inherit;color:inherit}
 a{color:var(--accent-text)}
-:focus-visible{outline:2px solid var(--accent-ring);outline-offset:2px;border-radius:4px}
+:focus-visible{outline:2px solid var(--accent-ring);outline-offset:2px}
 .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 .decor{display:none}
 
@@ -131,7 +136,7 @@ a{color:var(--accent-text)}
 .row.month-row .v{color:var(--label-2)}
 /* 選択中: Cloudscape のサイドナビと同じく、青い太字と左の線 */
 .row[aria-current="true"]{color:var(--accent-text);background:var(--accent-soft)}
-.row[aria-current="true"]::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--accent-fill)}
+.row[aria-current="true"]::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent-fill)}
 .row[aria-current="true"] .t b{font-weight:700;color:var(--accent-text)}
 .row[aria-current="true"] .t span:not(.tag),.row[aria-current="true"] .v{color:var(--accent-text)}   /* 「集計中」の印（.tag）は下の白抜きのまま */
 .weeks{display:flex;flex-direction:column;gap:0;margin:2px 0 4px 12px;padding-left:4px;border-left:1px solid var(--separator)}
@@ -155,9 +160,10 @@ input[type=range].lgrange{width:140px;accent-color:var(--accent)}
 /* ---------- 本文 ---------- */
 main{min-width:0;display:flex;flex-direction:column;gap:20px;padding-bottom:40px}
 /* ページの見出し（Cloudscape の Header）。面は持たず、下に区切り線。上部に固定 */
-.toolbar,.toolbar.lg{position:sticky;top:calc(var(--shell-h,0px) + env(safe-area-inset-top,0px));z-index:5;border-radius:0;
-  background:var(--bg-base);box-shadow:none;border-bottom:1px solid var(--separator);margin:0 -4px;
-  padding:12px 4px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px}
+/* #pages を付けて、各ページの .toolbar の余白（前の見た目のもの）より強くする。見出しはカードの左端にそろえる */
+#pages .toolbar,#pages .toolbar.lg{position:sticky;top:calc(var(--shell-h,0px) + env(safe-area-inset-top,0px));z-index:5;border-radius:0;
+  background:var(--bg-base);box-shadow:none;border-bottom:1px solid var(--separator);margin:0;
+  padding:12px 0;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px}
 .toolbar h1{margin:0;font-size:24px;line-height:30px;font-weight:700;letter-spacing:0;text-wrap:balance}
 .toolbar .sub{font-size:14px;color:var(--label-2)}
 /* 状態の印（Cloudscape の Badge・StatusIndicator） */
@@ -183,10 +189,14 @@ main{min-width:0;display:flex;flex-direction:column;gap:20px;padding-bottom:40px
 .card h2{margin:0;font-size:18px;line-height:22px;font-weight:700}
 .card .cap{margin:4px 0 16px;font-size:14px;color:var(--label-2)}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+/* サイドナビの分だけ本文が狭くなったので、コスト管理の各ページの数字の箱は 150px まで縮めて4枚を1段に並べる（3枚＋1枚に割れないように） */
+#pg-staff .kpis,#pg-purchase .kpis,#pg-supplies .kpis{grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}
 /* 数字の箱（Cloudscape の Key-value。ラベルは太字、数字は大きく） */
 .kpi{border-radius:var(--r-card);padding:16px 20px;display:flex;flex-direction:column;gap:2px;min-width:0;container-type:inline-size}
 .kpi .lb{font-size:14px;color:var(--label-2);font-weight:700}
-.kpi .v{font-size:clamp(20px,13cqi,32px);line-height:1.25;font-weight:700;white-space:nowrap;color:var(--label)}
+.kpi .v{font-size:clamp(20px,13cqi,30px);line-height:1.25;font-weight:400;white-space:nowrap;color:var(--label)}
+a.kv-link,.kpi a.v{color:var(--accent-text);text-decoration:none}   /* AWS の大きな数字のリンク（押すとその殻へ） */
+a.kv-link:hover,.kpi a.v:hover{text-decoration:underline}
 .kpi .d{font-size:12px;line-height:16px;color:var(--label-2)}
 .up{color:var(--green);font-weight:700} .down{color:var(--red);font-weight:700}
 .grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px}
@@ -210,10 +220,13 @@ td a:hover{text-decoration:underline}
 .pill{font-size:12px;line-height:16px;font-weight:700;padding:2px 8px;border-radius:var(--r-badge);background:var(--fill-2);color:var(--label-2)}
 .pill.rv{background:var(--red-bg);color:var(--red)}
 .pill.ok{background:var(--green-bg);color:var(--green)}
-/* お知らせ（Cloudscape の Alert。情報の青） */
-.notice{border-radius:12px;padding:12px 16px 12px 44px;font-size:14px;position:relative;background:var(--info-bg);border:2px solid var(--info);color:var(--label)}
-.notice::before{content:"i";position:absolute;left:14px;top:12px;width:18px;height:18px;border-radius:50%;border:2px solid var(--info);color:var(--info);
+/* お知らせ（AWS の Alert。既定は情報の青、.err は赤、.warn は黄） */
+.notice{border-radius:var(--r-control);padding:12px 16px 12px 44px;font-size:14px;position:relative;background:var(--info-bg);border:1px solid var(--info);color:var(--label);--nc:var(--info)}
+.notice.err{background:var(--red-bg);border-color:var(--red);--nc:var(--red)}
+.notice.warn{background:var(--warn-bg);border-color:var(--warn);--nc:var(--warn)}
+.notice::before{content:"i";position:absolute;left:14px;top:12px;width:18px;height:18px;border-radius:50%;border:2px solid var(--nc);color:var(--nc);
   font:700 11px/14px var(--font);text-align:center}
+.notice.err::before,.notice.warn::before{content:"!"}
 .notice strong{display:block;font-size:14px;margin-bottom:2px}
 .empty{color:var(--label-2);font-size:14px;padding:6px 0}
 .foot{font-size:12px;line-height:16px;color:var(--label-2);padding:0}
@@ -231,15 +244,15 @@ td a:hover{text-decoration:underline}
 .popover .hint{margin:0 0 10px;font-size:12px;line-height:16px;color:var(--label-2)}
 .popover .field.col{flex-direction:column;align-items:stretch;gap:4px;padding:8px 0}
 
-/* ---------- ボタン（Cloudscape: 通常は青い縁、主は青の塗り。端は丸い） ---------- */
-.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:2px solid var(--accent);border-radius:var(--r-btn);
-  padding:4px 18px;min-height:32px;font-weight:700;font-size:14px;line-height:20px;cursor:pointer;background:var(--card-solid);color:var(--accent-text);
+/* ---------- ボタン（AWS Console: 通常は灰色の縁、主はオレンジの塗り。角は 2px） ---------- */
+.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--label-2);border-radius:var(--r-btn);
+  padding:4px 16px;min-height:32px;font-weight:700;font-size:14px;line-height:20px;cursor:pointer;background:var(--card-solid);color:var(--label-2);
   box-shadow:none;text-decoration:none;transition:background-color 120ms var(--ease),color 120ms var(--ease),border-color 120ms var(--ease)}
-.btn:hover{background:var(--accent-soft);border-color:var(--accent-hover);color:var(--accent-hover)}
+.btn:hover{background:var(--fill);border-color:var(--label);color:var(--label)}
 .btn:active{background:var(--fill-2)}
-.btn.filled{color:var(--on-accent);background:var(--accent-fill);border-color:var(--accent-fill)}
-.btn.filled:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:var(--on-accent)}
-.btn.tinted{color:var(--accent-text)}
+.btn.filled{color:var(--on-primary);background:var(--primary);border-color:var(--primary)}
+.btn.filled:hover{background:var(--primary-hover);border-color:var(--primary-hover);color:var(--on-primary)}
+.btn.tinted{color:var(--label-2)}
 .btn.plain{background:none;border-color:transparent;color:var(--label-2)}
 .btn.plain:hover{color:var(--accent-hover);background:none}
 .btn[disabled]{opacity:1;cursor:default;border-color:var(--border);color:var(--label-3);background:var(--card-solid)}
@@ -318,7 +331,7 @@ td a:hover{text-decoration:underline}
 .ai-sec > h4 svg{width:18px;height:18px;color:var(--accent-text);flex:none}
 .ai-sec > h4 small{font-size:12px;font-weight:400;color:var(--label-2)}
 .ai-find,.ai-acts,.ai-decide{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
-.ai-find li,.ai-acts li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;align-items:start;padding:12px 14px;border-radius:12px;
+.ai-find li,.ai-acts li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;align-items:start;padding:12px 14px;border-radius:var(--r-control);
   background:var(--card-solid);border:1px solid var(--separator)}
 .ai-find b,.ai-acts b{font-size:14px;font-weight:700;line-height:1.5}
 .ai-find p,.ai-acts p{margin:2px 0 0;font-size:14px;line-height:1.7}
@@ -337,7 +350,7 @@ td a:hover{text-decoration:underline}
 .ai-decide li{counter-increment:d;display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;align-items:start;font-size:14px;line-height:1.65;font-weight:700}
 .ai-decide li::before{content:counter(d);display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent-fill);color:var(--on-accent);font-size:12px;font-weight:700}
 .ai-caveats{margin:0;padding-left:18px;font-size:12px;color:var(--label-2);line-height:1.7}
-.ai-fig{margin:0;padding:14px 16px 12px;border-radius:12px;display:flex;flex-direction:column;gap:12px;background:var(--card-solid);border:1px solid var(--separator)}
+.ai-fig{margin:0;padding:14px 16px 12px;border-radius:var(--r-control);display:flex;flex-direction:column;gap:12px;background:var(--card-solid);border:1px solid var(--separator)}
 .ai-fig figcaption{font-size:14px;font-weight:700;color:var(--label-2)}
 .ai-figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
 .legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--label-2)}

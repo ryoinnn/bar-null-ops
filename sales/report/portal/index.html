@@ -2,10 +2,11 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap">
 <style>
 /* ポータルの殻（AWS Console の配置: 上部バー・左のサイドナビ・パンくず・本文）。
    色・部品は shared.css（トークンと共通の部品）を読み込んで使う。ここには殻だけのスタイルを置く。 */
+[hidden]:not([hidden=until-found i]){display:none!important}   /* 共通部分を読み込む前に、空の上部バーとサイドナビを見せない */
 html,body{overflow-x:clip}
 body{margin:0}
 .boot{padding:48px 24px;color:#424650;font:14px/1.6 system-ui,sans-serif}
@@ -33,14 +34,14 @@ body{margin:0}
 .sn-list,.sn-list ul{list-style:none;margin:0;padding:0}
 .sn-list ul{padding-left:16px}
 .sn-sec{padding:12px 24px 4px;font-size:12px;line-height:16px;font-weight:700;color:var(--label-2)}
-.sn-item{display:flex;align-items:center;gap:6px;position:relative;margin:0 12px;padding:5px 12px;border-radius:8px;color:var(--label-2);text-decoration:none;font-size:14px;line-height:20px}
-.sn-item:hover{color:var(--accent-hover);background:var(--fill)}
-.sn-item[aria-current="page"]{color:var(--accent-text);font-weight:700;background:var(--accent-soft)}
-.sn-item[aria-current="page"]::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--accent-fill)}
+/* AWS Console のサイドナビ: 文字だけのリンク。選択中はオレンジの太字 */
+.sn-item{display:flex;align-items:center;gap:6px;position:relative;margin:0 0 0 24px;padding:4px 16px 4px 0;color:var(--label-2);text-decoration:none;font-size:14px;line-height:20px}
+.sn-item:hover{color:var(--nav-active,#ec7211)}
+.sn-item[aria-current="page"]{color:var(--nav-active,#ec7211);font-weight:700}
 .sn-item .chev{width:12px;height:12px;flex:none;margin-left:-16px;color:var(--label-3);transition:transform 160ms ease}
-.sn-item[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.sn-item[data-open="false"] .chev{transform:rotate(-90deg)}
 .sn-item.parent{font-weight:700;color:var(--label)}
-.sn-item.parent[aria-current="page"]{color:var(--accent-text)}
+.sn-item.parent:hover,.sn-item.parent[aria-current="page"]{color:var(--nav-active,#ec7211)}
 .sn-divider{height:1px;background:var(--separator);margin:16px 24px}
 .sn-period h2{margin:0;padding:0 24px 8px;font-size:12px;line-height:16px;font-weight:700;color:var(--label-2)}
 #sideslot .side{box-shadow:none;background:none;border-radius:0;margin:0;overflow:visible}
@@ -63,8 +64,10 @@ body{margin:0}
   .tn-logo span{display:none}
   .tn-env span{display:none}
   .layout{grid-template-columns:minmax(0,1fr)}
-  .sidenav{position:fixed;left:0;top:var(--topnav-h,48px);z-index:35;width:min(300px,86vw);transform:translateX(-102%);transition:transform 200ms ease;box-shadow:var(--shadow-pop)}
-  .sidenav.open{transform:none}
+  /* 閉じているときは visibility も隠し、Tab で画面外のリンクに入らないようにする */
+  .sidenav{position:fixed;left:0;top:var(--topnav-h,48px);z-index:35;width:min(300px,86vw);transform:translateX(-102%);visibility:hidden;
+    transition:transform 200ms ease,visibility 0s linear 200ms;box-shadow:var(--shadow-pop)}
+  .sidenav.open{transform:none;visibility:visible;transition:transform 200ms ease,visibility 0s}
   .scrim{position:fixed;inset:var(--topnav-h,48px) 0 0 0;z-index:34;background:rgba(15,20,26,.4)}
   .scrim.open{display:block}
   .main{padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
@@ -168,11 +171,11 @@ body{margin:0}
     const slot = $("sideslot"); let any = false;
     Object.entries(sides).forEach(([id, s]) => {
       if (wide.matches) {
-        if (s.parentNode !== slot) slot.append(s);
+        if (s.parentNode !== slot) { slot.append(s); s.removeAttribute("aria-label"); }   // サイドナビの「期間」の見出しが名前になる（同じ名前を2重にしない）
         s.hidden = id !== shownId; if (id === shownId) any = true;
       } else {
         const h = homes.get(s);
-        if (s.parentNode !== h.parent) h.parent.insertBefore(s, h.next && h.next.parentNode === h.parent ? h.next : h.parent.firstChild);
+        if (s.parentNode !== h.parent) { h.parent.insertBefore(s, h.next && h.next.parentNode === h.parent ? h.next : h.parent.firstChild); s.setAttribute("aria-label", "期間"); }
         s.hidden = false;
       }
     });
@@ -194,8 +197,8 @@ body{margin:0}
     li(navLink("sales", "売上管理", key, "parent"));
     if (costOK) {
       const inCost = chain(key)[0] === "cost-root";
-      const top = navLink("cost", "コスト管理", null, "parent");   // 押すと全体を開き、中身（全体・固定費・変動費）を出す
-      top.insertAdjacentHTML("afterbegin", CHEV); top.setAttribute("aria-expanded", String(inCost));
+      const top = navLink("cost", "コスト管理", null, "parent");   // 押すと全体を開き、中身（全体・固定費・変動費）を出す（リンクなので開閉のボタンにはしない）
+      top.insertAdjacentHTML("afterbegin", CHEV); top.dataset.open = String(inCost);
       let sub = null;
       if (inCost) {
         sub = el("ul");
@@ -204,7 +207,7 @@ body{margin:0}
           x.append(a);
           if (k === "cost-var") {
             const inVar = key === "cost-var" || ROUTES[key].parent === "cost-var";
-            a.insertAdjacentHTML("afterbegin", CHEV); a.setAttribute("aria-expanded", String(inVar));
+            a.insertAdjacentHTML("afterbegin", CHEV); a.dataset.open = String(inVar);
             if (inVar) {
               const sub2 = el("ul");
               ["cost-staff", "cost-purchase", "cost-supplies"].forEach((c) => { const y = el("li"); y.append(navLink(c, ROUTES[c].title, key)); sub2.append(y); });
@@ -232,7 +235,8 @@ body{margin:0}
   /* ---------- 狭い画面の引き出し ---------- */
   const setDrawer = (open) => {
     $("sidenav").classList.toggle("open", open); $("scrim").classList.toggle("open", open);
-    $("menubtn").setAttribute("aria-expanded", String(open));
+    $("menubtn").setAttribute("aria-expanded", String(open)); $("menubtn").setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+    if (open) { const a = $("sidenav").querySelector("a"); if (a) a.focus(); }
   };
   $("menubtn").addEventListener("click", () => setDrawer(!$("sidenav").classList.contains("open")));
   $("scrim").addEventListener("click", () => setDrawer(false));
@@ -253,7 +257,10 @@ body{margin:0}
     let key = location.hash.replace(/^#/, ""); key = ALIAS[key] || key;
     if (!ROUTES[key]) key = "home";
     // コスト管理と、ホーム（ダッシュボードは費用を出すかどうかで中身が変わる）は、権限の判定を待つ
-    if (ROUTES[key].gated || key === "home") { await gate; if (mine !== seq) return; if (ROUTES[key].gated && !costOK) key = "home"; }
+    if (ROUTES[key].gated || key === "home") {
+      await gate; if (mine !== seq) return;
+      if (ROUTES[key].gated && !costOK) { key = "home"; try { history.replaceState(null, "", "#home"); } catch (_) {} }   // 表示と URL をそろえる
+    }
     else await Promise.race([gate, new Promise((r) => setTimeout(r, 600))]);
     if (mine !== seq) return;
     $("boot").hidden = true; $("shell").hidden = false; $("layout").hidden = false;
