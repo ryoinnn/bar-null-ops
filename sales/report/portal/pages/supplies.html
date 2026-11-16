@@ -273,7 +273,10 @@ function setMsg(title, body, retry) {
 const kpi = (lb, v, d) => h("div", { class: "kpi lg lg--text" }, h("span", { class: "lb", text: lb }), h("span", { class: "v num", text: v }), h("span", { class: "d", text: d || "　" }));
 const card = (title, cap, ...kids) => h("section", { class: "card lg lg--text" }, h("h2", { text: title }), cap ? h("p", { class: "cap", text: cap }) : null, ...kids);
 /* 金額が空の記録は ¥0 として合計に入る。黙って数えずに件数を出す */
-const blankNote = (x) => x.blank ? `金額の無い記録 ${x.blank}件（¥0 として数えています。Asana で金額を確認してください）` : "";
+const blankNote = (x) => x.blank ? `金額の無い記録 ${x.blank}件（¥0 で計算）` : "";
+// 定義の脚注は閉じておく（shared.css の details.defs）
+const defs = () => h("details", { class: "defs" }, h("summary", { text: "数字の定義" }),
+  h("p", { text: "カード「BAR NULL」の明細を、営業日（利用日）・税込で数える。返金はマイナス。明細は利用から1〜2日遅れて入る。NIGITA（NOS）の雑貨・備品は仕入管理で数える（ここには含まない）。" }));
 
 function render() {
   for (const t of ["dash", "list"]) $(`supplies-tab-${t}`).setAttribute("aria-pressed", String(state.tab === t));
@@ -282,19 +285,19 @@ function render() {
   if (!state.data) return;
   const p = state.sel;
   $("supplies-title").textContent = `備品・消耗品 ${label(p)}`;
-  $("supplies-sub").textContent = `${md(p.start)}〜${md(p.end)}${inProgress(p) ? "（集計中）" : ""}・カード「BAR NULL」の明細` + (state.data.env === "test" ? "・テストのデータ" : "");
+  $("supplies-sub").textContent = [inProgress(p) ? "集計中" : "", state.data.env === "test" ? "テストのデータ" : ""].filter(Boolean).join("・");   // 状態だけ出す
   if (state.tab === "dash") renderDash(view, p); else renderList(view, p);
 }
 
 function renderDash(view, p) {
   const x = figures(p.start, min(p.end, today())), pv = prevOf(p), y = figures(pv.start, pv.end);
-  const change = (a, b) => b ? `前の期間（${md(pv.start)}〜${md(pv.end)}）比 ${pct(a / b - 1)}` : "前の期間の記録なし";
+  const change = (a, b) => b ? `前期比 ${pct(a / b - 1)}` : "前期の記録なし";
   view.append(h("section", { class: "kpis" },
     kpi("備品・消耗品費（税込）", yen(x.total), change(x.total, y.total)),
     kpi("件数", `${x.count}件`, x.refunds ? `うち返金 ${x.refunds}件` : "　"),
     kpi("1件あたり", yen(x.avg), y.avg ? change(x.avg, y.avg) : "　"),
-    kpi("高額（10万円以上）", `${x.high}件`, x.high ? "固定資産にするか確認" : "　")));
-  if (!x.count) { view.append(card("この期間の備品・消耗品", null, h("p", { class: "empty", text: "この期間の記録はありません。カードの明細は、利用から1〜2日遅れて入ります。" }))); return; }
+    kpi("高額（10万円以上）", `${x.high}件`, "　")));
+  if (!x.count) { view.append(card("この期間の備品・消耗品", null, h("p", { class: "empty", text: "この期間の記録はありません。" })), defs()); return; }
 
   const cats = Object.fromEntries(CATS.map((c) => [c, 0]));
   x.xs.forEach((i) => { cats[i.cat] = (cats[i.cat] || 0) + i.amount; });
@@ -329,9 +332,10 @@ function renderDash(view, p) {
   const bars = h("div", { class: "daybars" }, ...cols.map((c) => h("div", { class: "d" + (c.has ? " has" : ""), title: `${c.title} ${yen(c.g)}` },
     h("i", { style: `height:${Math.max(2, Math.max(c.g, 0) / dmax * 100)}%` }), c.lb ? h("span", { text: c.lb }) : null)));
 
-  view.append(h("div", { class: "split" }, card("区分ごと", "区分は明細の画面で直せます", catBox), card("支払先ランキング TOP5", "金額の合計の順", rank)),
-    card(p.kind === "year" ? "月ごとの金額" : "日ごとの金額", "営業日（利用日）で数えています", bars),
-    card("注意", null, x.blank ? h("p", { class: "cap", text: blankNote(x) }) : null, h("p", { class: "cap", text: "カードの明細は利用から1〜2日遅れて入るため、直近は少なめに見えることがあります。NIGITA（NOS）の雑貨・備品は仕入管理に入ります（ここには含みません）。" })));
+  if (x.blank) view.append(h("div", { class: "notice warn", role: "status", text: blankNote(x) }));   // 状態の知らせ（金額の無い記録）は残す
+  view.append(h("div", { class: "split" }, card("区分ごと", null, catBox), card("支払先ランキング TOP5", null, rank)),
+    card(p.kind === "year" ? "月ごとの金額" : "日ごとの金額", null, bars),
+    defs());
 }
 
 function renderList(view, p) {
@@ -373,9 +377,9 @@ function renderList(view, p) {
     h("input", { type: "checkbox", checked: state.showOff ? true : null, onchange: (e) => { state.showOff = e.target.checked; render(); } }), "対象外も表示");
   // 保存の結果。行が表示から消えたとき（対象外にした直後など）は、表の上に出す
   const top = note && !rows.some((i) => i.gid === note.gid) ? h("span", { class: "msg", role: "status", text: note.text }) : null;
-  view.append(card(`明細（${label(p)}）`, "区分の直しと「対象外」（取消）は、その場で Asana に保存します。直した明細は、次の同期でも上書きされません",
+  view.append(card(`明細（${label(p)}）`, null,
     h("div", { style: "display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-bottom:10px" }, toggle, top),
-    f.blank ? h("p", { class: "cap", text: blankNote(f) }) : null,
+    f.blank ? h("div", { class: "notice warn", role: "status", text: blankNote(f) }) : null,
     rows.length ? h("div", { class: "tablewrap num", style: "max-height:none" }, h("table", {}, h("thead", {}, head), body, h("tfoot", {}, total)))
       : h("p", { class: "empty", text: "この期間の記録はありません。" })));
 }
