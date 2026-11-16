@@ -133,7 +133,7 @@ a{color:var(--accent-text)}
 .row[aria-current="true"]{color:var(--accent-text);background:var(--accent-soft)}
 .row[aria-current="true"]::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--accent-fill)}
 .row[aria-current="true"] .t b{font-weight:700;color:var(--accent-text)}
-.row[aria-current="true"] .t span,.row[aria-current="true"] .v{color:var(--accent-text)}
+.row[aria-current="true"] .t span:not(.tag),.row[aria-current="true"] .v{color:var(--accent-text)}   /* 「集計中」の印（.tag）は下の白抜きのまま */
 .weeks{display:flex;flex-direction:column;gap:0;margin:2px 0 4px 12px;padding-left:4px;border-left:1px solid var(--separator)}
 .tag{display:inline-block;font-size:12px;line-height:16px;font-weight:700;padding:0 6px;border-radius:var(--r-badge);background:var(--fill-2);color:var(--label-2);margin-left:6px}
 .row[aria-current="true"] .tag{background:var(--accent-fill);color:var(--on-accent)}
