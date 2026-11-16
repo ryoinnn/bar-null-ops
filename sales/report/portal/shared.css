@@ -1,7 +1,7 @@
 /* Bar null の共通の見た目（全ページで使う。編集はポータルの担当だけ）。
    AWS Console に寄せた見た目（2026-11-16 本人指定。それまでは Liquid Glass）:
    ・角を立てたコンテナ（角丸なし）に、ごく薄い影。ボタン・入力は 2px の角
-   ・フォント: 英数字は Roboto（GCP。AWS の Amazon Ember が入っていればそれ）。日本語は AWS の日本語画面と同じく端末の標準（メイリオ・ヒラギノ）
+   ・フォント: 英数字は Roboto（GCP）、日本語は BIZ UDPゴシック（2026-11-16 本人指定。どちらも index.html が Google Fonts から読み込む）
    ・色は「黒＋緑＋オレンジ」の3色（本人指定）: 文字・上部バー・押した状態は黒、リンク・選択・大きな数字は緑、主のボタンとサイドナビの選択中はオレンジ。青は使わない
    ・グラフは、売上を緑の系統、費用をオレンジ・茶・灰の系統にする。利益の増減は緑と赤
    ・ライトは明るい灰色の地に白いコンテナ、ダークは青みの無い黒灰。ブランドの赤ピンクはロゴの印だけ
@@ -41,7 +41,7 @@
   --shadow-pop:0 1px 1px 0 rgba(0,0,0,.25), 1px 1px 1px 0 rgba(0,0,0,.12), -1px 1px 1px 0 rgba(0,0,0,.12), 0 4px 16px rgba(0,0,0,.12);
 
   --r-control:2px; --r-card:0px; --r-sheet:0px; --r-month:4px; --r-row:2px; --r-btn:2px; --r-badge:2px;
-  --font:"Amazon Ember",Roboto,"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif;
+  --font:Roboto,"BIZ UDPGothic","Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;   /* 英数字は Roboto、日本語は BIZ UDPゴシック（本人指定） */
   --ease:cubic-bezier(.4,0,.6,1); --ease-spring:cubic-bezier(.2,.8,.2,1);
   --topnav-h:40px; --sidenav-w:248px;
 }

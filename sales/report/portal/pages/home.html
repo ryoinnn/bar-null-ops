@@ -1,8 +1,9 @@
 <!-- ホーム（ダッシュボード）。index.html の殻が fetch して差し込む。ids は hm- の接頭辞。
-     AWS Console Home のように、ウィジェット（見出し・本文・下端のリンク）を並べる。数字と項目は青字のリンクで、それぞれの画面へ飛べる。
+     AWS Console Home のように、ウィジェット（見出し・本文・下端のリンク）を並べる。数字と項目は緑字のリンクで、それぞれの画面へ飛べる。
+     グラフに触れると詳細のポップアップが出て、その中の数値も各画面へのリンクになる。
      数字は BN.ledger（コスト管理と同じ集計。contract.md §1b・§4・§5）。費用は持ち主・Editor だけに出す（<html data-cost="1">）。 -->
 <style>
-.pg-home{display:flex;flex-direction:column;gap:20px;max-width:1400px;padding-bottom:40px}
+.pg-home{position:relative;display:flex;flex-direction:column;gap:20px;max-width:1400px;padding-bottom:40px}
 .pg-home .hm-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 16px;padding:4px 0 0}
 .pg-home h1{margin:0;font-size:28px;line-height:36px;font-weight:400}
 .pg-home .hm-desc{margin:2px 0 0;color:var(--label-2);font-size:14px}
@@ -20,7 +21,7 @@
 .pg-home .wd-h h2{margin:0;font-size:18px;line-height:22px;font-weight:700}
 .pg-home .wd-cap{margin:4px 0 0;font-size:12px;line-height:16px;color:var(--label-2)}
 .pg-home .wd-act{flex:none;font-size:14px;color:var(--accent-text);text-decoration:none;white-space:nowrap;padding-top:2px}
-.pg-home .wd-act:hover,.pg-home .wd-f a:hover,.pg-home a.kv-link:hover,.pg-home .health a:hover{text-decoration:underline}
+.pg-home .wd-act:hover,.pg-home .wd-f a:hover,.pg-home a.kv-link:hover,.pg-home .health a:hover,.pg-home .dn-list a:hover{text-decoration:underline}
 .pg-home .wd-b{flex:1;padding:12px 20px 20px;min-width:0}
 .pg-home .wd-f{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 32px;padding:10px 20px;border-top:1px solid var(--separator)}
 .pg-home .wd-f a{font-size:14px;color:var(--accent-text);text-decoration:none}
@@ -40,19 +41,53 @@
 .pg-home .chart .lab{fill:var(--label);font-weight:700}
 .pg-home .chart .zero{stroke:var(--label-3);stroke-width:1}
 .pg-home .chart .conn{stroke:var(--label-3);stroke-width:1;stroke-dasharray:3 3}
-.pg-home .chart a text.nm{fill:var(--accent-text)}
-.pg-home .chart a:hover text.nm{text-decoration:underline}
-.pg-home .chart g.mcol{cursor:pointer}
-.pg-home .chart g.mcol:not(.on) rect{opacity:.5}
-.pg-home .chart g.mcol:hover rect{opacity:1}
+.pg-home .chart .hit{cursor:pointer;outline:none}
+.pg-home .chart .hit:hover .bg,.pg-home .chart .hit:focus-visible .bg{fill:var(--fill)}
+.pg-home .chart .hit:focus-visible .bg{stroke:var(--accent-ring);stroke-width:2}
+.pg-home .chart g.mcol:not(.on) .bar{opacity:.55}
+.pg-home .chart g.mcol:hover .bar,.pg-home .chart g.mcol:focus-visible .bar{opacity:1}
 .pg-home .chart .pl{font-weight:700}
 .pg-home .chart .pl.pos{fill:var(--green)} .pg-home .chart .pl.neg{fill:var(--red)} .pg-home .chart .pl.ref{fill:var(--label-3);font-weight:400}
 .pg-home .chart-y{font-size:12px;font-weight:700;color:var(--label);margin-bottom:4px}
+/* 横スクロール（12か月）。縦の目盛りは左に固定する */
+.pg-home .hs{display:flex;min-width:0}
+.pg-home .hs .yax{flex:none;display:block}
+.pg-home .hscroll{flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;padding-bottom:4px}
+.pg-home .chart .hs svg{display:block;width:auto;max-width:none;height:auto}   /* 共通の .chart svg{width:100%} を打ち消し、描いた幅のまま出す */
 .pg-home .legend{margin-top:10px}
 .pg-home .legend .dot{display:inline-block;width:10px;height:10px;border-radius:0}
 .pg-home details.tbl{margin-top:10px;font-size:14px}
 .pg-home details.tbl summary{cursor:pointer;color:var(--accent-text)}
 .pg-home .note{margin:8px 0 0;font-size:12px;line-height:16px;color:var(--label-2)}
+/* ポップアップ（グラフに触れると出る。中の数値は各画面へのリンク） */
+.pg-home .hm-pop{position:absolute;z-index:20;width:max-content;min-width:220px;max-width:min(320px,calc(100% - 8px));padding:10px 14px 12px;
+  background:var(--card-solid);border:1px solid var(--border);box-shadow:var(--shadow-pop);font-size:13px;line-height:18px}
+.pg-home .hm-pop h3{margin:0 18px 6px 0;font-size:14px;line-height:18px;font-weight:700}
+.pg-home .hm-pop dl{display:grid;grid-template-columns:minmax(0,auto) auto;gap:3px 18px;margin:0}
+.pg-home .hm-pop dt{color:var(--label-2);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.pg-home .hm-pop dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pg-home .hm-pop dd a{color:var(--accent-text);text-decoration:none}
+.pg-home .hm-pop dd a:hover{text-decoration:underline}
+.pg-home .hm-pop .sep{grid-column:1 / -1;height:1px;background:var(--separator);margin:3px 0}
+.pg-home .hm-pop .tot{font-weight:700;color:var(--label)}
+.pg-home .hm-pop .pos{color:var(--green)} .pg-home .hm-pop .neg{color:var(--red)} .pg-home .hm-pop .na{color:var(--label-3)}
+.pg-home .hm-pop .sw{display:inline-block;width:9px;height:9px;flex:none}
+.pg-home .hm-pop .hint{margin:8px 0 0;font-size:12px;line-height:16px;color:var(--label-3)}
+.pg-home .hm-pop-x{position:absolute;top:4px;right:6px;width:24px;height:24px;border:0;background:none;color:var(--label-2);cursor:pointer;font-size:16px;line-height:1}
+.pg-home .hm-pop-x:hover{color:var(--label)}
+/* 構成比（円グラフ） */
+.pg-home .dn{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px 24px;align-items:center}
+.pg-home .dn svg{display:block;width:200px;height:200px}
+.pg-home .dn .seg{cursor:pointer;outline:none}
+.pg-home .dn .seg:hover,.pg-home .dn .seg:focus-visible{stroke-width:34}
+.pg-home .dn .c1{font-size:12px;fill:var(--label-2)} .pg-home .dn .c2{font-size:18px;font-weight:700;fill:var(--label)}
+.pg-home .dn-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.pg-home .dn-list li{display:grid;grid-template-columns:12px minmax(0,1fr) auto 3.6em;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--separator);font-size:14px}
+.pg-home .dn-list li:last-child{border-bottom:0}
+.pg-home .dn-list i{width:10px;height:10px}
+.pg-home .dn-list a{color:var(--accent-text);text-decoration:none}
+.pg-home .dn-list .v{text-align:right;font-variant-numeric:tabular-nums}
+.pg-home .dn-list .p{text-align:right;color:var(--label-2);font-variant-numeric:tabular-nums}
 /* 損益分岐 */
 .pg-home .be-big{font-size:26px;line-height:32px;font-weight:400;margin:0 0 4px}
 .pg-home .be-big.pos{color:var(--green)}
@@ -69,9 +104,8 @@
 .pg-home .kv span{font-size:12px;font-weight:700;color:var(--label-2)}
 .pg-home .kv b{font-size:16px;font-weight:400}
 /* データの状態（AWS の StatusIndicator） */
-.pg-home .health{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.pg-home .health{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));column-gap:32px}
 .pg-home .health li{display:grid;grid-template-columns:minmax(8em,auto) minmax(0,1fr);gap:4px 16px;padding:8px 0;border-bottom:1px solid var(--separator);font-size:14px}
-.pg-home .health li:last-child{border-bottom:0}
 .pg-home .health a,.pg-home .health .nm{color:var(--accent-text);text-decoration:none}
 .pg-home .health .nm.plain{color:var(--label);font-weight:700}
 .pg-home .st{display:inline-flex;align-items:flex-start;gap:6px}
@@ -85,6 +119,7 @@
 @media (max-width: 1100px){ .pg-home .ov{grid-template-columns:minmax(0,1fr)} .pg-home .kvs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))} }
 @media (max-width: 1279px){ .pg-home .board{grid-template-columns:minmax(0,1fr)} }   /* 2列にすると、グラフの文字が小さくなりすぎる */
 @media (max-width: 900px){ .pg-home h1{font-size:24px;line-height:30px} }
+@media (max-width: 520px){ .pg-home .dn{grid-template-columns:minmax(0,1fr);justify-items:center} .pg-home .dn-list{width:100%} }
 </style>
 
 <div class="pg-home" id="hm-root">
@@ -125,9 +160,10 @@ const CATS = [
   { key: "fee", name: "決済手数料", color: "var(--c-fee)", route: "#cost-var" },
   { key: "fixed", name: "固定費", color: "var(--c-fixed)", route: "#cost-fixed" },
 ];
-const REV = "var(--c-rev2)";
+const REV = "var(--c-rev2)", RENT = "var(--series-rent)";
 
-const st = { env: BN.env.get(), version: -1, month: todayBiz().slice(0, 7), mcp: undefined, L: BN.ledger.create(BN.env.get()), cost: false, loadedCost: null };
+/* pin ＝ 押して留めたポップアップ（{chart, key}）。描き直したあとも同じものを出し直す */
+const st = { env: BN.env.get(), version: -1, month: todayBiz().slice(0, 7), mcp: undefined, L: BN.ledger.create(BN.env.get()), cost: false, loadedCost: null, pin: null };
 const canCost = () => document.documentElement.dataset.cost === "1";
 
 /* ---------- 読み込み ---------- */
@@ -152,7 +188,7 @@ function widget(o) {
   if (o.foot && o.foot.length) { const f = el("footer", "wd-f"); o.foot.forEach(([x, href]) => f.append(link(href, x))); w.append(f); }
   return w;
 }
-/* 大きな数字（AWS の key-value）。href があれば青字のリンク */
+/* 大きな数字（AWS の key-value）。href があれば緑字のリンク */
 function kv(label, value, sub, href, cls) {
   const d = el("div"); d.append(el("div", "kv-k", label));
   const v = href && value !== "—" ? link(href, value, "kv-v num kv-link" + (cls ? " " + cls : "")) : el("span", "kv-v num" + (cls ? " " + cls : ""), value);
@@ -176,9 +212,84 @@ function salesUpTo(m, day) {
   return s;
 }
 
+/* ---------- ポップアップ ----------
+   マウス: 載せると出て、離すと消える（ポップアップの上に移れば残る）。押す・指で触れると、その場に留まる（× か外側で閉じる）。
+   キーボード: フォーカスで出る。Enter で留める。中の数値は各画面へのリンク。 */
+const pop = { el: null, timer: 0, pinned: false, anchor: null };
+function popEl() {
+  if (pop.el && pop.el.isConnected) return pop.el;
+  const p = el("div", "hm-pop"); p.hidden = true; p.setAttribute("role", "dialog");
+  p.addEventListener("pointerenter", () => clearTimeout(pop.timer));
+  p.addEventListener("pointerleave", () => { if (!pop.pinned) hideLater(); });
+  p.addEventListener("focusin", () => clearTimeout(pop.timer));
+  p.addEventListener("focusout", (e) => { if (!pop.pinned && !p.contains(e.relatedTarget)) hideLater(); });
+  $("hm-root").append(p); pop.el = p; return p;
+}
+function showPop(anchor, content, pinned) {
+  clearTimeout(pop.timer);
+  const p = popEl(), keep = st.focusPop || p.contains(document.activeElement);   // キーボードで留めた・中にフォーカスがあった
+  p.textContent = "";
+  if (pinned) { const x = el("button", "hm-pop-x", "×"); x.type = "button"; x.setAttribute("aria-label", "閉じる"); x.addEventListener("click", () => hidePop(true)); p.append(x); }
+  p.append(...content); p.hidden = false; pop.pinned = !!pinned; pop.anchor = anchor;
+  if (pinned && keep) { st.focusPop = false; const x = p.querySelector(".hm-pop-x"); if (x) x.focus({ preventScroll: true }); }   // 中のリンクへ Tab で進めるよう × にフォーカス
+  p.setAttribute("aria-label", (content[0] && content[0].textContent) || "詳細");
+  const root = $("hm-root").getBoundingClientRect(), r = anchor.getBoundingClientRect(), pw = p.offsetWidth, ph = p.offsetHeight;
+  const left = Math.max(0, Math.min(r.left - root.left + r.width / 2 - pw / 2, root.width - pw));
+  const shell = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--shell-h")) || 48;
+  const above = r.top - ph - 8 > shell + 4;
+  p.style.left = `${left}px`; p.style.top = `${above ? r.top - root.top - ph - 8 : r.bottom - root.top + 8}px`;
+}
+function hideLater() { clearTimeout(pop.timer); pop.timer = setTimeout(() => hidePop(false), 250); }
+function hidePop(force) { if (pop.pinned && !force) return; clearTimeout(pop.timer); if (pop.el) pop.el.hidden = true; pop.pinned = false; pop.anchor = null; if (force) st.pin = null; }
+document.addEventListener("pointerdown", (e) => {
+  if (!pop.el || pop.el.hidden || !pop.pinned) return;
+  if (pop.el.contains(e.target) || (pop.anchor && pop.anchor.contains(e.target))) return;
+  hidePop(true);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && pop.el && !pop.el.hidden) { const a = pop.anchor; hidePop(true); if (a && a.focus) a.focus(); } });
+/* 中身: 見出しと、行 [名前, 値, リンク先, {color, cls, sep}] */
+function popBody(title, rows, hint) {
+  const out = [el("h3", "", title)], dl = el("dl");
+  rows.forEach((r) => {
+    if (r === "sep") { dl.append(el("div", "sep")); return; }
+    const [label, value, href, o] = r, opt = o || {}, dt = el("dt"), dd = el("dd", opt.cls || "");
+    if (opt.color) { const s = el("i", "sw"); s.style.background = opt.color; dt.append(s); }
+    dt.append(label); if (opt.tot) { dt.classList.add("tot"); dd.classList.add("tot"); }
+    dd.append(href && value !== "—" ? link(href, value) : value);
+    dl.append(dt, dd);
+  });
+  out.push(dl); if (hint) out.push(el("p", "hint", hint));
+  return out;
+}
+/* 前月の行。今月は途中までの値なので、前月の1か月分だけを出して差は出さない（同じ日までの比較は概要の数字で出している）。
+   cost: 費用なら増えたら赤、売上なら増えたら緑 */
+function prevRows(v, pv, pm, isCur, cost) {
+  if (isCur) return [[`前月（${mShort(pm)}・1か月分）`, yen(pv)]];
+  const dv = v - pv;
+  return [[`前月（${mShort(pm)}）`, yen(pv)], ["前月との差", (dv > 0 ? "+" : dv < 0 ? "−" : "±") + yen(Math.abs(dv)), null, { cls: dv === 0 ? "" : (dv > 0) === !cost ? "pos" : "neg" }]];
+}
+/* グラフの要素に、ポップアップを付ける。onPick があれば、押したときにそれを呼ぶ（そのあと留める） */
+function attachPop(node, chart, key, build, onPick) {
+  node.setAttribute("tabindex", "0"); node.setAttribute("role", "button");
+  // 指で触れたときは、スクロールのつもりで触れただけで開かないよう、pointerenter では何もしない（押した＝click で開いて留める）
+  node.addEventListener("pointerenter", (e) => { if (pop.pinned || e.pointerType === "touch") return; showPop(node, build(), false); });
+  node.addEventListener("pointerleave", (e) => { if (e.pointerType !== "touch") hideLater(); });
+  node.addEventListener("focus", () => { if (!pop.pinned) showPop(node, build(), false); });
+  node.addEventListener("blur", () => { if (!pop.pinned) hideLater(); });
+  const pick = () => { st.pin = { chart, key }; if (onPick) onPick(); else showPop(node, build(), true); };
+  node.addEventListener("click", pick);
+  node.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); st.focusPop = true; pick(); } });
+  if (st.pin && st.pin.chart === chart && st.pin.key === key) setTimeout(() => {
+    if (!node.isConnected) return;
+    const a = document.activeElement; if (!st.focusPop && (!a || a === document.body || !a.isConnected)) node.focus({ preventScroll: true });   // 描き直しで消えたフォーカスを戻す
+    showPop(node, build(), true);
+  });
+}
+
 /* ---------- 表示 ---------- */
 function render() {
   const today = todayBiz(), cur = today.slice(0, 7), L = st.L, isCur = st.month === cur;
+  hidePop(false); if (pop.pinned) { pop.el.hidden = true; pop.pinned = false; }   // 描き直す前に閉じる（留めたものは st.pin から出し直す）
   $("hm-month").textContent = mLabel(st.month);
   $("hm-next").disabled = st.month >= cur;
   $("hm-sub").textContent = `${st.env === "test" ? "テスト用のデータ・" : ""}Bar null の売上とコストの概要${st.cost ? "" : "（コストは管理者だけが見られます）"}`;
@@ -197,11 +308,25 @@ function render() {
   const M = months[11], P = months[10];
   const board = $("hm-board"); board.textContent = "";
   board.append(overview(M, P, months, isCur, today));
-  if (st.cost) board.append(waterfall(M, isCur), breakEven(M, isCur, today));
-  board.append(weekday(today), health(M, today));
+  if (st.cost) board.append(waterfall(M, P, isCur), breakEven(M, isCur, today));
+  board.append(donut(M, P), weekday(today), health(M, today));
   $("hm-foot").textContent = st.cost
     ? "定義（コスト管理と同じ）：売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値。売上管理の速報値とは違うことがあります）／変動費＝仕入（NIGITA）＋人件費（給与の合計。今月は見込み）＋備品・消耗品（カード BAR NULL）＋決済手数料（Square）／固定費＝Asana「Bar null 固定費」の月額（月の途中でも月額のまま。返済・配当を含む）／利益＝売上合計 − 変動費 − 固定費。費用かレンタルの記録がそろわない月は利益を出さず、記録済みの分だけの参考値を出します／金額は税込"
     : "売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値のある月だけ）。金額は税込";
+}
+
+/* 月のポップアップ（12か月のグラフ）。数値は各画面へのリンク */
+function monthPop(M) {
+  const rows = [["売上合計", yen(M.revenue), "#sales", { tot: true }], ["通常営業", yen(M.sales), "#sales", { color: REV }],
+    ["レンタル", M.c.rent.s === "ok" ? yen(M.rent || 0) : stName("rent", M.c.rent.s), "#sales", { color: RENT, cls: M.c.rent.s === "ok" ? "" : "na" }]];
+  if (st.cost) {
+    rows.push("sep");
+    CATS.forEach((c) => { const x = M.c[c.key]; rows.push([c.name, x.v == null ? stName(c.key, x.s) : yen(x.v), c.route, { color: c.color, cls: x.v == null ? "na" : "" }]); });
+    rows.push(["コスト合計", yen(M.known), "#cost", { tot: true }], "sep");
+    if (M.profit != null) rows.push(["利益", yen(M.profit), "#cost", { tot: true, cls: M.profit >= 0 ? "pos" : "neg" }]);
+    else rows.push([M.ref != null ? "利益（参考）" : "利益", M.ref != null ? yen(M.ref) : "—", null, { tot: true, cls: "na" }]);
+  } else rows.push(["伝票の数", M.slipCount == null ? "—" : `${M.slipCount}件`, "#sales"]);
+  return popBody(mLabel(M.m), rows, M.m === st.month ? "ダッシュボードで表示中の月" : "押すと、この月をダッシュボードで表示します");
 }
 
 /* 1. 概要（左に大きな数字、右に12か月の推移） */
@@ -243,48 +368,64 @@ function overview(M, P, months, isCur, today) {
   right.append(el("div", "chart-y", st.cost ? "売上とコスト（円）" : "売上（円）"));
   trend(right, months);
   ov.append(kvs, right);
-  return widget({ full: true, title: st.cost ? "売上とコスト" : "売上", cap: `${mLabel(M.m)}${isCur ? "（集計中）" : ""}・グラフは直近12か月。月を押すとその月を表示`,
+  return widget({ full: true, title: st.cost ? "売上とコスト" : "売上", cap: `${mLabel(M.m)}${isCur ? "（集計中）" : ""}・グラフは直近12か月。棒に触れると内訳、押すとその月を表示`,
     action: ["売上管理を開く", "#sales"], body: [ov],
     foot: st.cost ? [["売上管理を開く", "#sales"], ["コスト管理を開く", "#cost"], ["変動費の内訳を見る", "#cost-var"]] : [["売上管理を開く", "#sales"]] });
 }
 
-/* 12か月の推移。左の棒が売上合計（通常営業＋レンタル）、右の棒がコスト（費目の積み上げ）。下の数字が利益（灰色は参考値） */
+/* 12か月の推移。左の棒が売上合計（通常営業＋レンタル）、右の棒がコスト（費目の積み上げ）。下の数字が利益（灰色は参考値）。
+   月ごとの幅を決めて描き、足りないときは横にスクロールする（縦の目盛りは左に固定）。最初は新しい月が見える位置 */
+const SLOT = 84;   // 1か月の幅（px）。棒は売上・コストとも 28px
 function trend(box, months) {
-  const W = 760, H = st.cost ? 270 : 240, L = 50, R = 8, T = 12, B = st.cost ? 44 : 26, iw = W - L - R, ih = H - T - B;
+  const H = st.cost ? 290 : 250, AX = 50, T = 12, B = st.cost ? 44 : 26, ih = H - T - B;
   const costOf = (M) => CATS.reduce((x, c) => x + (M.c[c.key].v || 0), 0);
   const mx = Math.max(10000, ...months.map((M) => Math.max(M.revenue || 0, st.cost ? costOf(M) : 0)));   // 読み込み中でも目盛りが 0・1 にならないように
   const nice = (() => { const p = Math.pow(10, Math.floor(Math.log10(mx))); return [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((k) => k * p >= mx) * p; })();
-  const y = (v) => T + ih - v / nice * ih, slot = iw / months.length, bw = st.cost ? Math.min(22, slot * .3) : Math.min(36, slot * .55);
-  let g = "";
-  for (let i = 0; i <= 4; i++) { const v = nice * i / 4, yy = y(v); g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${i ? man(v) : "0"}</text>`; }
-  months.forEach((M, i) => {
-    const cx = L + slot * i + slot / 2, on = M.m === st.month;
-    let s = `<g class="mcol${on ? " on" : ""}" data-m="${M.m}" tabindex="0" role="button" aria-label="${esc(mLabel(M.m))}を表示"><rect x="${L + slot * i}" y="${T}" width="${slot}" height="${ih}" fill="transparent"/>`;
-    const rx = st.cost ? cx - bw - 1 : cx - bw / 2;
-    if (M.revenue) {
-      const sh = Math.max(0, M.sales || 0), rh = Math.max(0, M.rent || 0);
-      s += `<rect x="${rx}" y="${y(sh)}" width="${bw}" height="${ih + T - y(sh)}" fill="${REV}"><title>${esc(mLabel(M.m))} 通常営業 ${yen(M.sales)}</title></rect>`;
-      if (rh) s += `<rect x="${rx}" y="${y(sh + rh)}" width="${bw}" height="${Math.max(1, y(sh) - y(sh + rh) - 1)}" fill="var(--series-rent)"><title>${esc(mLabel(M.m))} レンタル ${yen(M.rent)}</title></rect>`;
-    }
-    if (st.cost) {
-      let base = 0;
-      CATS.forEach((c) => { const v = M.c[c.key].v; if (!v || v <= 0) return; const y1 = y(base + v), h = Math.max(1, y(base) - y1 - 1); s += `<rect x="${cx + 1}" y="${y1}" width="${bw}" height="${h}" fill="${c.color}"><title>${esc(mLabel(M.m))} ${esc(c.name)} ${yen(v)}</title></rect>`; base += v; });
-      const p = M.profit, r = M.ref;
-      const txt = p != null ? (p >= 0 ? "+" : "") + man(p) : r != null ? (r >= 0 ? "+" : "") + man(r) : "—";
-      s += `<text class="pl${p == null ? (r != null ? " ref" : "") : p >= 0 ? " pos" : " neg"}" x="${cx}" y="${H - 6}" text-anchor="middle">${esc(txt)}</text>`;
-    }
-    s += `<text x="${cx}" y="${H - (st.cost ? 24 : 8)}" text-anchor="middle"${on ? ' class="lab"' : ""}>${mShort(M.m)}</text></g>`;
-    g += s;
+  const y = (v) => T + ih - v / nice * ih;
+  // 左に固定する縦の目盛り
+  let ax = ""; for (let i = 0; i <= 4; i++) { const v = nice * i / 4; ax += `<text x="${AX - 6}" y="${y(v) + 4}" text-anchor="end">${i ? man(v) : "0"}</text>`; }
+  const hs = el("div", "hs"), sc = el("div", "hscroll");
+  hs.innerHTML = `<svg class="yax" width="${AX}" height="${H}" viewBox="0 0 ${AX} ${H}" aria-hidden="true">${ax}</svg>`;
+  hs.append(sc); box.append(hs);
+  const draw = (slot) => {
+    if (pop.anchor && sc.contains(pop.anchor) && !pop.pinned) hidePop(false);   // 描き直しで消える棒に付いたポップアップは閉じる
+    const W = slot * months.length, bw = st.cost ? Math.min(30, slot * .34) : Math.min(44, slot * .5);
+    let g = ""; for (let i = 0; i <= 4; i++) { const yy = y(nice * i / 4); g += `<line class="gl" x1="0" x2="${W}" y1="${yy}" y2="${yy}"/>`; }
+    months.forEach((M, i) => {
+      const cx = slot * i + slot / 2, on = M.m === st.month;
+      let s = `<g class="hit mcol${on ? " on" : ""}" data-m="${M.m}" aria-label="${esc(mLabel(M.m))}の内訳"><rect class="bg" x="${slot * i + 2}" y="${T}" width="${slot - 4}" height="${ih}" fill="transparent"/>`;
+      const rx = st.cost ? cx - bw - 1 : cx - bw / 2;
+      if (M.revenue) {
+        const sh = Math.max(0, M.sales || 0), rh = Math.max(0, M.rent || 0);
+        s += `<rect class="bar" x="${rx}" y="${y(sh)}" width="${bw}" height="${ih + T - y(sh)}" fill="${REV}"/>`;
+        if (rh) s += `<rect class="bar" x="${rx}" y="${y(sh + rh)}" width="${bw}" height="${Math.max(1, y(sh) - y(sh + rh) - 1)}" fill="${RENT}"/>`;
+      }
+      if (st.cost) {
+        let base = 0;
+        CATS.forEach((c) => { const v = M.c[c.key].v; if (!v || v <= 0) return; const y1 = y(base + v), h = Math.max(1, y(base) - y1 - 1); s += `<rect class="bar" x="${cx + 1}" y="${y1}" width="${bw}" height="${h}" fill="${c.color}"/>`; base += v; });
+        const p = M.profit, r = M.ref;
+        const txt = p != null ? (p >= 0 ? "+" : "") + man(p) : r != null ? (r >= 0 ? "+" : "") + man(r) : "—";
+        s += `<text class="pl${p == null ? (r != null ? " ref" : "") : p >= 0 ? " pos" : " neg"}" x="${cx}" y="${H - 6}" text-anchor="middle">${esc(txt)}</text>`;
+      }
+      s += `<text x="${cx}" y="${H - (st.cost ? 24 : 8)}" text-anchor="middle"${on ? ' class="lab"' : ""}>${mShort(M.m)}</text></g>`;
+      g += s;
+    });
+    // 中に押せる月があるので role は group
+    sc.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="group" aria-label="月ごとの売上${st.cost ? "とコスト" : ""}">${g}</svg>`;
+    sc.querySelectorAll("g.mcol").forEach((n) => {
+      const M = months.find((x) => x.m === n.dataset.m);
+      attachPop(n, "trend", M.m, () => monthPop(M), () => { st.month = M.m; render(); });
+    });
+  };
+  draw(SLOT);
+  // 幅に余裕があれば広げて描き直す。足りなければ横スクロール（新しい月が見えるよう右端へ）
+  setTimeout(() => {
+    if (!sc.isConnected) return;
+    const w = sc.clientWidth; if (w > SLOT * months.length) draw(Math.floor(w / months.length));
+    sc.scrollLeft = sc.scrollWidth;
   });
-  // 中に押せる月があるので role は group（img にすると読み上げから中の操作が見えない）
-  const wrap = el("div"); wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="月ごとの売上${st.cost ? "とコスト" : ""}">${g}</svg>`;
-  wrap.querySelectorAll("g.mcol").forEach((n) => {
-    const pick = () => { const m = n.dataset.m; st.month = m; render(); const again = document.querySelector(`#hm-board g.mcol[data-m="${m}"]`); if (again) again.focus(); };   // 描き直しのあともフォーカスを残す
-    n.addEventListener("click", pick); n.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
-  });
-  box.append(wrap);
   const lg = el("div", "legend"), sw = (c, t) => { const s = el("span"), d = el("i", "dot"); d.style.background = c; s.append(d, t); lg.append(s); };
-  sw(REV, "売上（通常営業）"); sw("var(--series-rent)", "売上（レンタル）");
+  sw(REV, "売上（通常営業）"); sw(RENT, "売上（レンタル）");
   if (st.cost) { CATS.forEach((c) => sw(c.color, c.name)); lg.append(el("span", "", "下の数字は利益（灰色はレンタルが月次確定前の参考値、— は費用の記録がそろわない月）")); }
   box.append(lg);
   const d = el("details", "tbl"), tw = el("div", "tablewrap"), t = el("table", "rtable");
@@ -294,8 +435,8 @@ function trend(box, months) {
   tw.append(t); d.append(tw); box.append(d);
 }
 
-/* 2. 損益（滝グラフ）: 売上合計から費目を順に引いて、残りが利益。費目の名前は青字のリンク */
-function waterfall(M, isCur) {
+/* 2. 損益（滝グラフ）: 売上合計から費目を順に引いて、残りが利益。棒に触れると詳細（前月との差、各画面へのリンク） */
+function waterfall(M, P, isCur) {
   const title = isCur ? `${mShort(M.m)}のここまでの損益` : `${mShort(M.m)}の損益`;
   const cap = isCur ? "今日までの売上合計から、費用を順に引いた残り（固定費は月額をまるごと引いています）" : "売上合計から費用を順に引き、残りが利益（損失）";
   const foot = [["変動費の内訳を見る", "#cost-var"], ["固定費を見る", "#cost-fixed"]];
@@ -303,11 +444,11 @@ function waterfall(M, isCur) {
     const msg = M.revenue == null ? emptyMsg(st.L) : CATS.every((c) => M.c[c.key].s === "error") ? "費用を読み込めませんでした。" : "読み込み中です。";
     return widget({ title, cap, action: ["コスト管理を開く", "#cost"], body: [el("p", "empty", msg)], foot });
   }
-  const steps = [{ name: "売上合計", v: M.revenue, color: REV, kind: "total", route: "#sales" }];
+  const steps = [{ key: "rev", name: "売上合計", v: M.revenue, color: REV, kind: "total", route: "#sales" }];
   CATS.forEach((c) => { const x = M.c[c.key]; steps.push({ key: c.key, name: c.name, v: x.v, color: c.color, kind: "cost", s: x.s, route: c.route }); });
   // 残りは費用がそろった月だけ出す（レンタルだけ未確定なら参考値）。費用が欠けた月は — （大きく出て誤解を招くため。契約 §1b）
   const profit = M.complete ? M.revenue - M.known : null, sure = M.profit != null;
-  steps.push({ name: !M.complete ? (isCur ? "ここまで" : "残り") : !sure ? (isCur ? "ここまで（参考）" : "残り（参考）") : isCur ? "ここまで" : profit >= 0 ? "利益" : "損失", v: profit, color: profit >= 0 ? "var(--green)" : "var(--red)", kind: "result" });
+  steps.push({ key: "res", name: !M.complete ? (isCur ? "ここまで" : "残り") : !sure ? (isCur ? "ここまで（参考）" : "残り（参考）") : isCur ? "ここまで" : profit >= 0 ? "利益" : "損失", v: profit, color: profit >= 0 ? "var(--green)" : "var(--red)", kind: "result", route: "#cost" });
   let run = M.revenue; const lo = [], hi = [];
   steps.forEach((s) => {
     if (s.kind === "total") { s.a = 0; s.b = s.v; }
@@ -317,21 +458,35 @@ function waterfall(M, isCur) {
   });
   const W = 600, H = 260, L = 50, R = 8, T = 22, B = 40, iw = W - L - R, ih = H - T - B;
   const mn = Math.min(0, ...lo), mx = Math.max(1, ...hi);
-  const y = (v) => T + (mx - v) / (mx - mn) * ih, slot = iw / steps.length, bw = Math.min(56, slot * .62);
+  const y = (v) => T + (mx - v) / (mx - mn) * ih, slot = iw / steps.length, bw = Math.min(60, slot * .7);
   let g = "";
   for (let i = 0; i <= 4; i++) { const v = mn + (mx - mn) * i / 4, yy = y(v); g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${man(v)}</text>`; }
   g += `<line class="zero" x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}"/>`;
   steps.forEach((s, i) => {
     const x = L + slot * i + (slot - bw) / 2, top = y(s.b), h = Math.max(1, y(s.a) - y(s.b)), na = s.v == null;
     if (i < steps.length - 1 && s.kind !== "result") { const ny = s.kind === "total" ? y(s.b) : y(s.a); g += `<line class="conn" x1="${x + bw}" x2="${x + slot}" y1="${ny}" y2="${ny}"/>`; }
-    g += `<rect x="${x}" y="${na ? y(s.b) - 1 : top}" width="${bw}" height="${na ? 2 : h}" fill="${s.color}"${na || (s.kind === "result" && !sure) ? ' opacity=".45"' : ""}><title>${esc(s.name)} ${yen(s.v)}</title></rect>`;
+    g += `<g class="hit" data-i="${i}" aria-label="${esc(s.name)}の詳細"><rect class="bg" x="${L + slot * i + 2}" y="${T}" width="${slot - 4}" height="${ih}" fill="transparent"/>`;
+    g += `<rect x="${x}" y="${na ? y(s.b) - 1 : top}" width="${bw}" height="${na ? 2 : h}" fill="${s.color}"${na || (s.kind === "result" && !sure) ? ' opacity=".45"' : ""}/>`;
     const lab = na ? stName(s.key, s.s) : (s.kind === "cost" ? `−${man(s.v)}` : man(s.v));
     g += `<text class="lab" x="${x + bw / 2}" y="${(s.kind === "result" && s.v < 0 ? y(s.a) + 14 : top - 6)}" text-anchor="middle">${esc(lab)}</text>`;
-    const nm = `<text class="nm" x="${x + bw / 2}" y="${H - 22}" text-anchor="middle">${esc(s.name)}</text>`;
-    g += s.route ? `<a href="${s.route}">${nm}</a>` : nm;
+    g += `<text x="${x + bw / 2}" y="${H - 22}" text-anchor="middle">${esc(s.name)}</text>`;
     if (s.kind === "cost" && !na && M.revenue) g += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${pc(s.v / M.revenue)}</text>`;
+    g += "</g>";
   });
   const box = el("div"); box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(mLabel(M.m))}の損益の内訳">${g}</svg>`;
+  // ポップアップ: 金額（その画面へのリンク）・売上合計に対する割合・前月との差（今月は途中なので差を出さず、前月の1か月分だけ）
+  const prevOf = (s) => s.key === "rev" ? P.revenue : s.key === "res" ? (P.complete ? P.revenue - P.known : null) : P.c[s.key] ? P.c[s.key].v : null;
+  box.querySelectorAll("g.hit").forEach((n) => {
+    const s = steps[+n.dataset.i];
+    attachPop(n, "wf", s.key, () => {
+      const pv = prevOf(s), rows = [[s.kind === "cost" ? "金額" : s.name, s.v == null ? stName(s.key, s.s) : yen(s.v), s.route, { tot: true, cls: s.kind === "result" && s.v != null ? (s.v >= 0 ? "pos" : "neg") : s.v == null ? "na" : "" }]];
+      if (s.kind === "total") rows.push(["通常営業", yen(M.sales), "#sales", { color: REV }], ["レンタル", M.c.rent.s === "ok" ? yen(M.rent || 0) : "未確定", "#sales", { color: RENT }]);
+      if (s.kind !== "total" && s.v != null && M.revenue) rows.push(["売上合計に対する割合", pc(s.v / M.revenue)]);
+      if (s.kind === "result") rows.push(["売上合計", yen(M.revenue), "#sales"], ["コスト合計", yen(M.known), "#cost"]);
+      if (pv != null && s.v != null) rows.push("sep", ...prevRows(s.v, pv, P.m, isCur, s.kind === "cost"));
+      return popBody(`${mShort(M.m)}・${s.name}`, rows, s.route ? "金額を押すと、その画面を開きます" : "");
+    });
+  });
   const notes = [];
   if (!M.complete) notes.push(`記録がそろっていない費目があるため、残りは出していません${M.c.rent.s !== "ok" ? "（レンタルも月次確定前）" : ""}。灰色の細い線が未記録の費目です。`);
   else if (!sure) notes.push("レンタルが月次確定前のため、残りは参考値です。");
@@ -340,7 +495,7 @@ function waterfall(M, isCur) {
     const day = +todayBiz().slice(8, 10), dim = daysIn(M.m), fxDay = M.fixed * day / dim;
     notes.push(`固定費を今日までの日割り（${day}/${dim}日）にすると ${yen(fxDay)}、残りは ${yen(profit + M.fixed - fxDay)}（売上管理の利益と同じ考え方）。`);
   }
-  notes.push("青字の費目を押すと、その画面を開きます。費目の下の % は売上合計に対する割合。");
+  notes.push("棒に触れると、前月との差と各画面へのリンクが出ます。費目の下の % は売上合計に対する割合。");
   return widget({ title, cap, action: ["コスト管理を開く", "#cost"], chart: true, body: [box, el("p", "note", notes.join(""))], foot });
 }
 
@@ -357,8 +512,7 @@ function breakEven(M, isCur, today) {
     return widget({ ...base, cap: "損益分岐売上 ＝ 固定費 ÷（1 − 変動費率）", body: [el("p", "empty", msg)] });
   }
   const dim = daysIn(M.m), done = doneDays(M.m, today);
-  // 月末の見込み: 通常営業は済んだ日のペースで伸ばし、レンタルの確定値は伸ばさない
-  // 今日の伝票は途中なので、昨日までの通常営業の売上だけでペースを出す
+  // 月末の見込み: 今日の伝票は途中なので、昨日までの通常営業の売上でペースを出し、レンタルの確定値は伸ばさない
   const pace = isCur && done >= 2 && M.sales != null ? salesUpTo(M.m, done) / done * dim + (M.rent || 0) : null;
   const gap = be - M.revenue, left = dim - done;
   const body = [el("div", "be-big num " + (gap <= 0 ? "pos" : ""), gap <= 0 ? `損益分岐を ${yen(-gap)} 上回っています` : `損益分岐まで あと ${yen(gap)}`)];
@@ -371,11 +525,15 @@ function breakEven(M, isCur, today) {
   if (pace != null && pace > M.revenue) { const p = el("i", "be-pace"); p.style.left = w(M.revenue); p.style.width = `calc(${w(pace)} - ${w(M.revenue)})`; p.title = `月末の見込み ${yen(pace)}`; tr.append(p); }
   const mk = el("div", "be-mark"), pos = be / top; mk.style.left = w(be); if (pos > .8) mk.classList.add("edge-r"); else if (pos < .2) mk.classList.add("edge-l");
   mk.append(el("span", "", `損益分岐 ${man(be)}`)); tr.append(mk);
-  tr.setAttribute("role", "img"); tr.setAttribute("aria-label", `売上合計 ${yen(M.revenue)}、損益分岐売上 ${yen(be)}${pace != null ? `、月末の見込み ${yen(pace)}` : ""}`);
+  tr.setAttribute("aria-label", `売上合計 ${yen(M.revenue)}、損益分岐売上 ${yen(be)}${pace != null ? `、月末の見込み ${yen(pace)}` : ""}`);
+  // 帯に触れると、内訳（売上・損益分岐・見込み・固定費）
+  const pay = M.c.fixed.f.items.filter((i) => i.category === "返済・配当").reduce((x, i) => x + i.monthly, 0);
+  attachPop(tr, "be", M.m, () => popBody("損益分岐の内訳", [["売上合計", yen(M.revenue), "#sales", { color: REV }], ["損益分岐売上", yen(be), "#cost", { tot: true }],
+    ...(pace != null ? [["月末の見込み", yen(pace), "#sales"]] : []), "sep", ["固定費（月額）", yen(M.fixed), "#cost-fixed", { color: "var(--c-fixed)" }],
+    ...(pay ? [["うち返済・配当", yen(pay), "#cost-fixed"]] : []), ["変動費", yen(M.varKnown), "#cost-var"], ["変動費率", pc(rate)]], "金額を押すと、その画面を開きます"));
   const ax = el("div", "be-axis"); ax.append(el("span", "", "¥0"), el("span", "", man(top)));
   body.push(tr, ax);
   // 固定費には返済・配当（出資者配当金・銀行借入の返済）を含む（§3c）。会計上の費用だけの損益分岐も並べる
-  const pay = M.c.fixed.f.items.filter((i) => i.category === "返済・配当").reduce((x, i) => x + i.monthly, 0);
   const kvb = el("div", "kv");
   [["売上合計", yen(M.revenue)], ["損益分岐売上", yen(be)], ["変動費率", pc(rate)], ["固定費（月額・返済・配当を含む）", yen(M.fixed)],
    ...(pay ? [["返済・配当を除いた損益分岐", yen((M.fixed - pay) / (1 - rate))]] : [])].forEach(([a, b]) => { const d = el("div"); d.append(el("span", "", a), el("b", "num", b)); kvb.append(d); });
@@ -384,32 +542,79 @@ function breakEven(M, isCur, today) {
   return widget({ ...base, cap: isCur ? "今月の売上合計と損益分岐売上（月の合計）。破線は昨日までのペースで見込んだ月末の売上" : `${mLabel(M.m)}の売上合計と損益分岐売上`, body });
 }
 
-/* 4. 曜日ごとの平均売上（直近12週。今日は途中なので除く。伝票のあった日だけの平均。いちばん高い曜日を色で） */
+/* 4. 構成比（円グラフ）: コストの内訳（閲覧だけの人は売上の内訳）。扇に触れると金額・割合・前月、名前と金額は各画面へのリンク */
+function donut(M, P) {
+  const parts = st.cost
+    ? CATS.map((c) => ({ key: c.key, name: c.name, color: c.color, route: c.route, v: M.c[c.key].v, s: M.c[c.key].s, pv: P.c[c.key] ? P.c[c.key].v : null }))
+    : [{ key: "sales", name: "通常営業", color: REV, route: "#sales", v: M.sales, pv: P.sales }, { key: "rent", name: "レンタル", color: RENT, route: "#sales", v: M.c.rent.s === "ok" ? (M.rent || 0) : null, s: M.c.rent.s, pv: P.c.rent.s === "ok" ? (P.rent || 0) : null }];
+  const title = st.cost ? `${mShort(M.m)}のコストの内訳` : `${mShort(M.m)}の売上の内訳`;
+  const base = { title, cap: st.cost ? "コスト合計に占める割合（記録済みの費目）。扇に触れると金額と前月" : "売上合計に占める割合。扇に触れると金額と前月", action: st.cost ? ["コスト管理を開く", "#cost"] : ["売上管理を開く", "#sales"],
+    foot: st.cost ? [["変動費の内訳を見る", "#cost-var"], ["固定費を見る", "#cost-fixed"]] : [["売上管理を開く", "#sales"]] };
+  const pos = parts.filter((p) => p.v > 0), total = pos.reduce((x, p) => x + p.v, 0);
+  if (!total) return widget({ ...base, body: [el("p", "empty", M.revenue == null ? emptyMsg(st.L) : "この月の記録がまだありません。")] });
+  const R = 76, C = 2 * Math.PI * R, SW = 28;
+  let off = 0, segs = "";
+  pos.forEach((p, i) => {
+    const len = p.v / total * C, gap = pos.length > 1 ? Math.min(2, len / 3) : 0;
+    segs += `<circle class="seg hit" data-i="${parts.indexOf(p)}" cx="100" cy="100" r="${R}" fill="none" stroke="${p.color}" stroke-width="${SW}" stroke-dasharray="${Math.max(0, len - gap)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 100 100)" aria-label="${esc(p.name)} ${pc(p.v / total)}"/>`;
+    off += len;
+  });
+  const wrap = el("div", "dn"), fig = el("div");
+  fig.innerHTML = `<svg viewBox="0 0 200 200" role="group" aria-label="${esc(title)}">${segs}<text class="c1" x="100" y="94" text-anchor="middle">${st.cost ? "コスト合計" : "売上合計"}</text><text class="c2" x="100" y="116" text-anchor="middle">${esc(man(st.cost && M.known != null ? M.known : total))}</text></svg>`;
+  const popOf = (p) => () => {
+    const rows = [["金額", p.v == null ? stName(p.key, p.s) : yen(p.v), p.route, { tot: true, color: p.color }], ["構成比", pc(p.v / total)]];
+    if (st.cost && M.revenue) rows.push(["売上合計に対する割合", pc(p.v / M.revenue)]);
+    if (p.pv != null && p.v != null) rows.push("sep", ...prevRows(p.v, p.pv, P.m, M.m === todayBiz().slice(0, 7), st.cost));
+    return popBody(`${mShort(M.m)}・${p.name}`, rows, "金額を押すと、その画面を開きます");
+  };
+  fig.querySelectorAll(".seg").forEach((n) => { const p = parts[+n.dataset.i]; attachPop(n, "dn", p.key, popOf(p)); });
+  // 凡例（名前と金額は各画面へのリンク）
+  const ul = el("ul", "dn-list");
+  parts.forEach((p) => {
+    const li = el("li"), i = el("i"); i.style.background = p.color;
+    li.append(i, link(p.route, p.name), p.v == null ? el("span", "v", stName(p.key, p.s)) : link(p.route, yen(p.v), "v"), el("span", "p", p.v > 0 ? pc(p.v / total) : "—"));
+    ul.append(li);
+  });
+  wrap.append(fig, ul);
+  const body = [wrap];
+  if (st.cost && !M.complete) body.push(el("p", "note", "記録がそろっていない費目は含めていません（割合は記録済みの費目の中での割合です）。"));
+  if (!st.cost && M.c.rent.s !== "ok") body.push(el("p", "note", "レンタルは月次確定前のため含めていません。"));
+  return widget({ ...base, chart: true, body });
+}
+
+/* 5. 曜日ごとの平均売上（直近12週。今日は途中なので除く。伝票のあった日だけの平均。いちばん高い曜日を色で） */
 function weekday(today) {
-  const base = { title: "曜日ごとの平均売上", cap: "直近12週（昨日まで）・通常営業・伝票のあった日の平均", action: ["売上管理を開く", "#sales"], chart: true, foot: [["売上管理で期間ごとに見る", "#sales"]] };
+  const base = { title: "曜日ごとの平均売上", cap: "直近12週（昨日まで）・通常営業・伝票のあった日の平均。棒に触れると詳細", action: ["売上管理を開く", "#sales"], chart: true, foot: [["売上管理で期間ごとに見る", "#sales"]] };
   const d = st.L.daily;
   if (!d) return widget({ ...base, body: [el("p", "empty", emptyMsg(st.L))] });
-  const names = ["月", "火", "水", "木", "金", "土", "日"], sum = Array(7).fill(0), cnt = Array(7).fill(0);
+  const names = ["月", "火", "水", "木", "金", "土", "日"], sum = Array(7).fill(0), cnt = Array(7).fill(0), hi = Array(7).fill(null);
   const end = Date.parse(today + "T00:00:00Z");
   for (let i = 1; i <= 84; i++) {
-    const t = new Date(end - i * 864e5), x = d[t.toISOString().slice(0, 10)]; if (!x) continue;
+    const t = new Date(end - i * 864e5), key = t.toISOString().slice(0, 10), x = d[key]; if (!x) continue;
     const wd = (t.getUTCDay() + 6) % 7; sum[wd] += x.sales; cnt[wd]++;
+    if (!hi[wd] || x.sales > hi[wd].v) hi[wd] = { v: x.sales, d: key };
   }
   const avg = sum.map((s, i) => cnt[i] ? s / cnt[i] : null), best = avg.reduce((b, v, i) => v != null && (b < 0 || v > avg[b]) ? i : b, -1);
   if (best < 0) return widget({ ...base, body: [el("p", "empty", "直近12週に伝票がありません。")] });
-  const W = 520, H = 200, L = 50, R = 8, T = 22, B = 40, iw = W - L - R, ih = H - T - B, mx = Math.max(...avg.filter((v) => v != null));
-  const y = (v) => T + ih - v / mx * ih, slot = iw / 7, bw = Math.min(44, slot * .6);
+  const W = 520, H = 210, L = 50, R = 8, T = 22, B = 40, iw = W - L - R, ih = H - T - B, mx = Math.max(...avg.filter((v) => v != null));
+  const y = (v) => T + ih - v / mx * ih, slot = iw / 7, bw = Math.min(52, slot * .68);
   let g = `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}"/>`;
   avg.forEach((v, i) => {
     const x = L + slot * i + (slot - bw) / 2;
-    if (v != null) g += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${ih + T - y(v)}" fill="${i === best ? REV : "var(--bar)"}"><title>${names[i]}曜 平均 ${yen(v)}（${cnt[i]}日）</title></rect><text class="${i === best ? "lab" : ""}" x="${x + bw / 2}" y="${y(v) - 6}" text-anchor="middle">${man(v)}</text>`;
-    g += `<text x="${x + bw / 2}" y="${H - 22}" text-anchor="middle"${i === best ? ' class="lab"' : ""}>${names[i]}</text><text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${cnt[i]}日</text>`;
+    g += `<g class="hit" data-i="${i}" aria-label="${names[i]}曜の詳細"><rect class="bg" x="${L + slot * i + 2}" y="${T}" width="${slot - 4}" height="${ih}" fill="transparent"/>`;
+    if (v != null) g += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${ih + T - y(v)}" fill="${i === best ? REV : "var(--bar)"}"/><text class="${i === best ? "lab" : ""}" x="${x + bw / 2}" y="${y(v) - 6}" text-anchor="middle">${man(v)}</text>`;
+    g += `<text x="${x + bw / 2}" y="${H - 22}" text-anchor="middle"${i === best ? ' class="lab"' : ""}>${names[i]}</text><text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${cnt[i]}日</text></g>`;
   });
-  const wrap = el("div"); wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="曜日ごとの平均売上">${g}</svg>`;
+  const wrap = el("div"); wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="曜日ごとの平均売上">${g}</svg>`;
+  wrap.querySelectorAll("g.hit").forEach((n) => {
+    const i = +n.dataset.i;
+    attachPop(n, "wd", i, () => popBody(`${names[i]}曜（直近12週）`, [["平均の売上", yen(avg[i]), "#sales", { tot: true }], ["伝票のあった日", `${cnt[i]}日`], ["合計", yen(sum[i]), "#sales"],
+      ...(hi[i] ? [["いちばん高かった日", `${md(hi[i].d)} ${yen(hi[i].v)}`, "#sales"]] : [])], "金額を押すと、売上管理を開きます"));
+  });
   return widget({ ...base, body: [wrap, el("p", "note", `いちばん高いのは${names[best]}曜（平均 ${yen(avg[best])}）。下の数字は、直近12週で伝票のあった日数。`)] });
 }
 
-/* 5. データの状態（AWS の StatusIndicator のように、印と色で）。名前は青字のリンクで、その画面へ */
+/* 6. データの状態（AWS の StatusIndicator のように、印と色で）。名前は緑字のリンクで、その画面へ */
 function health(M, today) {
   const ul = el("ul", "health"), L = st.L;
   const row = (name, href, kind, text, sub) => {
@@ -432,17 +637,23 @@ function health(M, today) {
       const fx = M.c.fixed; row("固定費", "#cost-fixed", kindOf(fx.s), fx.s === "ok" ? `${mShort(M.m)}：${fx.f.items.length}項目・${yen(fx.v)}` : `${mShort(M.m)}：${stName("fixed", fx.s)}`);
     }
   }
-  return widget({ title: "データの状態", cap: "数字の元になる記録が、いつまで入っているか。名前を押すとその画面を開きます", body: [ul] });
+  return widget({ full: true, title: "データの状態", cap: "数字の元になる記録が、いつまで入っているか。名前を押すとその画面を開きます", body: [ul] });
 }
 
 /* ---------- 操作 ---------- */
-$("hm-prev").addEventListener("click", () => { st.month = addM(st.month, -1); render(); });
-$("hm-next").addEventListener("click", () => { if (st.month < todayBiz().slice(0, 7)) { st.month = addM(st.month, 1); render(); } });
+$("hm-prev").addEventListener("click", () => { st.month = addM(st.month, -1); st.pin = null; render(); });
+$("hm-next").addEventListener("click", () => { if (st.month < todayBiz().slice(0, 7)) { st.month = addM(st.month, 1); st.pin = null; render(); } });
 const pageBox = $("hm-root").closest(".page");
 const visible = () => !pageBox || !pageBox.hidden;
-window.addEventListener("portal:route", (e) => { if (e.detail && e.detail.key === "home" && (st.version !== BN.version() || st.env !== BN.env.get() || st.loadedCost !== canCost())) load(); });
+window.addEventListener("portal:route", (e) => {
+  if (!e.detail || e.detail.key !== "home") { hidePop(true); return; }   // ほかの画面へ移ったら閉じる（リンクで移ったとき）
+  if (st.version !== BN.version() || st.env !== BN.env.get() || st.loadedCost !== canCost()) load();
+});
 window.addEventListener("portal:env", () => { if (visible()) load(); else { BN.gen("home"); st.version = -1; } });
 window.addEventListener("portal:access", () => { if (visible()) load(); else st.version = -1; });
+// 横幅が変わったら描き直す（12か月のグラフの幅を合わせる）。スマホのアドレスバーの出し入れ（高さだけの変化）では描き直さない
+let lastW = window.innerWidth, rz = 0;
+window.addEventListener("resize", () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rz); rz = setTimeout(() => { if (visible()) render(); }, 200); });
 // module の script は殻の portal:route より後に動くことがあるので、最初の読み込みはここで始める
 if (document.documentElement.dataset.route === "home" && st.version === -1) load();
 </script>
