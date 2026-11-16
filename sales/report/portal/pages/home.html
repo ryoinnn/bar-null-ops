@@ -232,9 +232,11 @@ function overview(M, P, months, isCur, today) {
       const miss = [...CATS, { key: "rent", name: "レンタル" }].filter((c) => !["ok", "est"].includes(M.c[c.key].s)).map((c) => `${c.name}：${stName(c.key, M.c[c.key].s)}`);
       kvs.append(kv(M.ref == null ? pLabel : pLabel + "（参考）", M.ref == null ? "—" : yen(M.ref), miss.length ? `記録がそろっていません（${miss.slice(0, 2).join("・")}${miss.length > 2 ? "ほか" : ""}）` : emptyMsg(st.L), null, "na"));
     }
-    const pur = M.c.purchase, lab = M.c.labor, mini = el("div", "kv-mini");
-    mini.append(kv("原価率", pur.v != null && M.sales ? pc(pur.v / M.sales) : "—", pur.v != null ? `仕入 ${yen(pur.v)}${pur.s === "partial" ? "（一部のみ）" : ""}` : `仕入：${stName("purchase", pur.s)}`, "#cost-purchase"),
-      kv("人件費率", lab.v != null && M.revenue ? pc(lab.v / M.revenue) : "—", lab.v != null ? `人件費 ${yen(lab.v)}${lab.s === "est" ? "（見込み）" : lab.s === "partial" ? "（一部のみ）" : ""}` : `人件費：${stName("labor", lab.s)}`, "#cost-staff"));
+    // 率は記録がそろった費目だけ出す（売上管理と同じ。「一部のみ」は — にして、記録済みの額だけを添える）
+    const pur = M.c.purchase, lab = M.c.labor, full = (s) => s === "ok" || s === "est", mini = el("div", "kv-mini");
+    const part = (x, name) => x.v != null ? `${name}：${stName("", x.s)}（記録済み ${yen(x.v)}）` : `${name}：${stName("", x.s)}`;
+    mini.append(kv("原価率", full(pur.s) && M.sales ? pc(pur.v / M.sales) : "—", full(pur.s) ? `仕入 ${yen(pur.v)} ÷ 通常営業の売上` : part(pur, "仕入"), "#cost-purchase"),
+      kv("人件費率", full(lab.s) && M.revenue ? pc(lab.v / M.revenue) : "—", full(lab.s) ? `人件費 ${yen(lab.v)}${lab.s === "est" ? "（見込み）" : ""} ÷ 売上合計${M.c.rent.s === "ok" ? "" : "（レンタルは確定前）"}` : part(lab, "人件費"), "#cost-staff"));
     kvs.append(mini);
   }
   const ov = el("div", "ov"), right = el("div", "chart");
@@ -331,6 +333,10 @@ function waterfall(M, isCur) {
   const notes = [];
   if (!sure) notes.push(`記録がそろっていないため、残りは参考値です（${M.c.rent.s !== "ok" ? "レンタルは月次確定前" : "未記録の費目あり"}）。`);
   if (M.est) notes.push("人件費は給与の見込み（その日時点の額）です。");
+  if (isCur && M.fixed != null) {   // 売上管理は固定費を日割りで引く。差が分かるように、日割りの参考値を添える
+    const day = +todayBiz().slice(8, 10), dim = daysIn(M.m), fxDay = M.fixed * day / dim;
+    notes.push(`固定費を今日までの日割り（${day}/${dim}日）にすると ${yen(fxDay)}、残りは ${yen(profit + M.fixed - fxDay)}（売上管理の利益と同じ考え方）。`);
+  }
   notes.push("青字の費目を押すと、その画面を開きます。費目の下の % は売上合計に対する割合。");
   return widget({ title, cap, action: ["コスト管理を開く", "#cost"], chart: true, body: [box, el("p", "note", notes.join(""))], foot });
 }
