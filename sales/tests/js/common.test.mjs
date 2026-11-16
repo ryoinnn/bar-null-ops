@@ -254,3 +254,59 @@ test("固定費: 同じ項目に実績が2つ・通常が同じ開始月で2つ�
   assert.deepEqual(of("2026-04"), { 電気: 100, ガス: 30 });
   assert.deepEqual(of("2026-06"), { 電気: 100, ガス: 50 }, "実績どうしは開始月が新しいもの");
 });
+
+/* ---------- 月ごとの売上・コスト（BN.ledger。コスト管理とホームのダッシュボード） ---------- */
+const dt = (name, d) => ({ name, date_value: d ? { date: d } : null });
+const slip = (id, d, amt, o = {}) => ({ custom_fields: [cf("伝票ID", id), dt("営業日", d), cf("伝票金額", amt), cf("伝票ステータス", { enum: o.status || "入金済み" }),
+  cf("決済手数料", o.fee ?? 0), cf("入金予定額", o.payout ?? null)] });
+const payTask = (m, v, o = {}) => ({ custom_fields: [cf("対象月", m), cf("給与", v), cf("時給の分", o.hourly ?? 0), cf("給与ステータス", { enum: o.status || "確定" })] });
+const purTask = (id, d, v, o = {}) => ({ custom_fields: [cf("仕入記録ID", id), dt("営業日", d), cf("仕入ステータス", { enum: o.status || "取り込み済み" }), cf("仕入金額（税込）", v), cf("店舗", o.store ?? null)] });
+const supTask = (d, v, o = {}) => ({ custom_fields: [dt("営業日", d), cf("備品ステータス", { enum: o.status || "取り込み済み" }), cf("金額（税込）", v), cf("店舗", o.store ?? null), cf("備品区分", { enum: o.kind || "備品・消耗品" })] });
+
+test("ledger: 売上・レンタル・費目を月ごとに集計し、そろった月だけ利益を出す", async () => {
+  const { BN } = load(); const log = [];
+  const pages = [
+    page([slip("S1", "2026-10-03", 50000, { fee: 1500 }), slip("S2", "2026-10-03", 30000), slip("S3", "2026-10-10", 9999, { status: "対象外" }),
+          slip("RS-IB-202610", "2026-10-31", 0, { payout: 40000 }), slip("S4", "2026-11-02", 20000)]),
+    page([fixedTask("家賃", { amount: 60000, start: "2026-01" })]),
+    page([payTask("2026-10", 20000), payTask("2026-11", 5000, { status: "見込み" })]),
+    page([purTask("P-1", "2026-10-05", 10000), purTask("M-1", null, 0), purTask("P-2", "2026-10-20", 999, { status: "対象外" }), purTask("P-3", "2026-11-09", 3000)]),
+    page([supTask("2026-08-03", 100), supTask("2026-10-07", 2000), supTask("2026-11-08", 500), supTask("2026-10-08", 777, { store: "node" })]),
+  ];
+  const L = BN.ledger.create("prod"); let steps = 0;
+  assert.equal(await BN.ledger.load(mcpOf(pages, log), L, { step: () => steps++ }), true);
+  assert.equal(steps, 5);
+  assert.deepEqual(j(log.map((l) => l.input.project)), [BN.IDS.slips.prod, BN.IDS.fixed.prod, BN.IDS.payroll.prod, BN.IDS.purchase.prod, BN.IDS.supplies.prod]);
+  const now = Date.UTC(2026, 10, 15, 3);   // 2026-11-15 12:00 JST
+  const oct = j(BN.ledger.month(L, "2026-10", now));
+  assert.equal(oct.sales, 80000); assert.equal(oct.rent, 40000); assert.equal(oct.revenue, 120000); assert.equal(oct.slipCount, 2);
+  assert.equal(oct.c.fee.v, 1500); assert.equal(oct.c.labor.v, 20000); assert.equal(oct.c.purchase.v, 10000); assert.equal(oct.c.supplies.v, 2000); assert.equal(oct.fixed, 60000);
+  assert.equal(oct.complete, true); assert.equal(oct.known, 93500); assert.equal(oct.profit, 26500);
+  assert.deepEqual(j(L.daily["2026-10-03"]), { sales: 80000, n: 2 }, "日ごとの売上（レンタル・取消を除く）");
+  const nov = j(BN.ledger.month(L, "2026-11", now));
+  assert.equal(nov.c.labor.s, "est"); assert.equal(nov.est, true); assert.equal(nov.complete, true);
+  assert.equal(nov.profit, 20000 - (5000 + 3000 + 500 + 0 + 60000));
+  const sep = j(BN.ledger.month(L, "2026-09", now));
+  assert.equal(sep.c.labor.s, "none"); assert.equal(sep.complete, false); assert.equal(sep.profit, null, "給与の無い月は利益を断定しない");
+  assert.equal(sep.c.purchase.s, "none", "最初の仕入より前の月は未記録");
+  assert.equal(sep.c.supplies.s, "ok"); assert.equal(sep.c.supplies.v, 0, "前後に記録があれば 0 円の記録済み");
+});
+
+test("ledger: 読めなかった費目は null（0 円にしない）。伝票だけの読み込みは費用を読まない", async () => {
+  const { BN } = load();
+  const L = BN.ledger.create("test");
+  await BN.ledger.load(mcpOf([page([slip("S1", "2026-11-02", 20000)]), { code: "not_granted" }, page([payTask("2026-11", 1000)]), page([]), page([])]), L);
+  const m = j(BN.ledger.month(L, "2026-11", Date.UTC(2026, 10, 15, 3)));
+  assert.equal(m.c.fixed.s, "error"); assert.equal(m.fixed, null); assert.equal(m.complete, false); assert.equal(m.profit, null);
+  assert.equal(L.fixedError.code, "not_granted");
+  const V = BN.ledger.create("prod"); const log = [];
+  await BN.ledger.load(mcpOf([page([slip("S1", "2026-11-02", 20000)])], log), V, { cost: false });
+  assert.equal(log.length, 1, "閲覧だけの人は伝票だけを読む");
+  const v = j(BN.ledger.month(V, "2026-11", Date.UTC(2026, 10, 15, 3)));
+  assert.equal(v.revenue, 20000); assert.equal(v.c.labor.s, "off"); assert.equal(v.profit, null);
+  // 新しい読み込みが始まったら、古い結果を書かない
+  const S = BN.ledger.create("prod"); let alive = true;
+  const mcp = { callTool: async () => { alive = false; return page([slip("S1", "2026-11-02", 1)]); } };
+  assert.equal(await BN.ledger.load(mcp, S, { live: () => alive }), false);
+  assert.equal(S.slips, null);
+});

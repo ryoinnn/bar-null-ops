@@ -191,10 +191,137 @@
   }
   const FIXED_FIELDS = ["金額（税込）", "適用開始月", "固定費ステータス"];
 
+  /* ---------- 月ごとの売上・コスト（contract.md §1b・§4・§5。コスト管理とホームのダッシュボードが同じものを使う） ----------
+     const L = BN.ledger.create(env); await BN.ledger.load(mcp, L, { live, step, cost });
+     cost: true なら費用（固定費・給与・仕入・備品消耗品）も読む（持ち主・Editor だけ）。false なら伝票だけ（閲覧だけの人）。
+     BN.ledger.month(L, "YYYY-MM") → その月の売上・費目ごとの値と状態。読めなかった費目は値を null にする（0 円にしない） */
+  const VAR_KEYS = ["labor", "purchase", "supplies", "fee"];
+  const COST_KINDS = ["fixed", "payroll", "purchase", "supplies"];
+  const daysIn = (m) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 0)).getUTCDate();
+  function ledgerCreate(env) {
+    const L = { env, slips: null, rentals: null, daily: null, lastSlip: null, error: null,
+      payroll: null, purchase: null, supplies: null, fixedTasks: null, purchaseFirst: null, purchaseLast: null, suppliesFirst: null, suppliesLast: null };
+    COST_KINDS.forEach((k) => { L[k + "State"] = "wait"; L[k + "Error"] = null; });
+    return L;
+  }
+  async function ledgerLoad(mcp, L, o) {
+    const live = (o && o.live) || (() => true), step = (o && o.step) || (() => {}), withCost = !(o && o.cost === false);
+    if (!withCost) COST_KINDS.forEach((k) => { L[k + "State"] = "off"; });
+    const read = (key, required) => readAll(mcp, IDS[key][L.env], { required });
+    try {   // 伝票: 通常営業は伝票金額（取消＝対象外を除き、未収を含む）、レンタルは RS- の「入金予定額」（月次確定値）
+      const tasks = await read("slips", ["営業日", "伝票金額", "伝票ステータス", "伝票ID", "決済手数料", "入金予定額"]);
+      if (!live()) return false;
+      const slips = {}, rentals = {}, daily = {}; let last = null;
+      tasks.forEach((t) => {
+        const f = fieldsOf(t), date = dateOf(f["営業日"]); if (!date) return;
+        if (txt(f["伝票ステータス"]) === "対象外") return;
+        const m = date.slice(0, 7);
+        if (txt(f["伝票ID"]).startsWith("RS-")) { rentals[m] = (rentals[m] || 0) + (num(f["入金予定額"]) || 0); return; }
+        if (!last || date > last) last = date;
+        const amt = num(f["伝票金額"]); if (amt == null) return;
+        const x = slips[m] = slips[m] || { sales: 0, fee: 0, n: 0 }; x.sales += amt; x.fee += num(f["決済手数料"]) || 0; x.n++;
+        const d = daily[date] = daily[date] || { sales: 0, n: 0 }; d.sales += amt; d.n++;
+      });
+      L.slips = slips; L.rentals = rentals; L.daily = daily; L.lastSlip = last;
+    } catch (e) { if (!live()) return false; L.error = e; }
+    step();
+    if (!withCost) return true;
+    try {   // 固定費（§3c）
+      const tasks = await read("fixed", FIXED_FIELDS);
+      if (!live()) return false;
+      L.fixedTasks = tasks.map(parseFixed); L.fixedState = "ok";
+    } catch (e) { if (!live()) return false; L.fixedState = "error"; L.fixedError = e; }
+    step();
+    try {   // 人件費 ＝ 給与の合計（§2-5）。「給与」が空の記録は時給の分を数え、その月は「一部のみ」にする
+      const tasks = await read("payroll", ["対象月", "給与", "時給の分"]);
+      if (!live()) return false;
+      const pay = {};
+      tasks.forEach((t) => {
+        const f = fieldsOf(t), m = txt(f["対象月"]); if (!YM.test(m)) return;
+        const x = pay[m] = pay[m] || { total: 0, n: 0, est: false, partial: false }, v = num(f["給与"]);
+        if (v == null) x.partial = true;
+        x.total += v != null ? v : (num(f["時給の分"]) || 0); x.n++;
+        if (txt(f["給与ステータス"]) === "見込み") x.est = true;
+      });
+      L.payroll = pay; L.payrollState = "ok";
+    } catch (e) { if (!live()) return false; L.payrollState = "error"; L.payrollError = e; }
+    step();
+    try {   // 仕入（§3）: 仕入記録ID が P- の伝票。対象外を除き、店舗が空のもの。金額は「仕入金額（税込）」（返品はマイナス）
+      const tasks = await read("purchase", ["仕入記録ID", "営業日", "仕入ステータス", "仕入金額（税込）", "店舗"]);
+      if (!live()) return false;
+      const pur = {}; let first = null, last = null;
+      tasks.forEach((t) => {
+        const f = fieldsOf(t), date = dateOf(f["営業日"]);
+        if (!txt(f["仕入記録ID"]).startsWith("P-") || !date || txt(f["仕入ステータス"]) === "対象外" || txt(f["店舗"])) return;
+        const x = pur[date.slice(0, 7)] = pur[date.slice(0, 7)] || { total: 0, partial: false }, v = num(f["仕入金額（税込）"]);
+        if (v == null) x.partial = true; else x.total += v;
+        if (!last || date > last) last = date;
+        if (!first || date < first) first = date;
+      });
+      L.purchase = pur; L.purchaseFirst = first; L.purchaseLast = last; L.purchaseState = "ok";
+    } catch (e) { if (!live()) return false; L.purchaseState = "error"; L.purchaseError = e; }
+    step();
+    try {   // 備品・消耗品（§3b）: 営業日がある、備品ステータスが対象外でない、店舗が空。金額は「金額（税込）」（返金はマイナス）
+      const tasks = await read("supplies", ["営業日", "備品ステータス", "金額（税込）", "店舗"]);
+      if (!live()) return false;
+      const sup = {}; let first = null, last = null;
+      tasks.forEach((t) => {
+        const f = fieldsOf(t), date = dateOf(f["営業日"]);
+        if (!date || txt(f["備品ステータス"]) === "対象外" || txt(f["店舗"])) return;
+        const m = date.slice(0, 7), x = sup[m] = sup[m] || { total: 0, kinds: {}, partial: false }, v = num(f["金額（税込）"]), k = txt(f["備品区分"]) || "備品・消耗品";
+        if (v == null) x.partial = true; else { x.total += v; x.kinds[k] = (x.kinds[k] || 0) + v; }
+        if (!last || date > last) last = date;
+        if (!first || date < first) first = date;
+      });
+      L.supplies = sup; L.suppliesFirst = first; L.suppliesLast = last; L.suppliesState = "ok";
+    } catch (e) { if (!live()) return false; L.suppliesState = "error"; L.suppliesError = e; }
+    step();
+    return true;
+  }
+  /* 月 m の固定費。s: ok／none（項目が無い＝未設定）／wait／error／off */
+  function ledgerFixed(L, m) {
+    if (L.fixedState !== "ok") return { s: L.fixedState, total: null, items: [] };
+    const items = fixedMonth(L.fixedTasks, m);
+    if (!items.length) return { s: "none", total: null, items: [] };
+    return { s: "ok", total: items.reduce((x, i) => x + i.monthly, 0), items };
+  }
+  /* 仕入・備品消耗品の月の状態（§5 の 1〜4）。金額が空の記録がある月は「一部のみ」 */
+  function ledgerRecorded(L, kind, m, rec, today) {
+    const end = `${m}-${String(daysIn(m)).padStart(2, "0")}`;
+    const cov = coverage(kind, L[kind + "First"], L[kind + "Last"], `${m}-01`, end < today ? end : today);
+    if (cov.s === "none") return { s: "none", v: null };
+    return { s: cov.s === "partial" || (rec && rec.partial) ? "partial" : "ok", v: rec ? rec.total : 0, kinds: rec && rec.kinds };
+  }
+  /* 月 m の売上・コスト。c[費目] = { s: ok／est（見込み）／partial／none／wait／error／off, v: 金額 or null }。
+     complete ＝ 変動費の全費目と固定費がそろった（見込みを含む）。そろわない月は利益を断定しない（§5） */
+  function ledgerMonth(L, m, now) {
+    const today = todayBiz(now);
+    const sl = L.slips ? (L.slips[m] || { sales: 0, fee: 0, n: 0 }) : null, rent = L.rentals ? L.rentals[m] : undefined;
+    const pay = L.payroll ? L.payroll[m] : null, pur = L.purchase ? L.purchase[m] : null, sup = L.supplies ? L.supplies[m] : null;
+    const fx = ledgerFixed(L, m);
+    const c = {
+      labor: L.payrollState === "ok" ? (pay ? { s: pay.partial ? "partial" : pay.est ? "est" : "ok", v: pay.total } : { s: "none", v: null }) : { s: L.payrollState, v: null },
+      purchase: L.purchaseState === "ok" ? ledgerRecorded(L, "purchase", m, pur, today) : { s: L.purchaseState, v: null },
+      supplies: L.suppliesState === "ok" ? ledgerRecorded(L, "supplies", m, sup, today) : { s: L.suppliesState, v: null },
+      fee: sl ? { s: "ok", v: sl.fee } : { s: L.error ? "error" : "wait", v: null },
+      fixed: { s: fx.s, v: fx.total, f: fx },
+    };
+    const okS = (s) => s === "ok" || s === "est";
+    const anyVar = VAR_KEYS.some((k) => c[k].v != null), any = anyVar || c.fixed.v != null;
+    const varKnown = VAR_KEYS.reduce((x, k) => x + (c[k].v || 0), 0), known = varKnown + (c.fixed.v || 0);
+    const complete = VAR_KEYS.every((k) => okS(c[k].s)) && okS(c.fixed.s);
+    const revenue = sl ? sl.sales + (rent || 0) : null;
+    return { m, c, sales: sl ? sl.sales : null, slipCount: sl ? sl.n : null, rent, revenue,
+      varKnown: anyVar ? varKnown : null, fixed: c.fixed.v, known: any ? known : null, complete, est: c.labor.s === "est",
+      profit: complete && revenue != null ? revenue - known : null };
+  }
+  const LEDGER_STATE = { ok: "記録済み", est: "見込み", partial: "一部のみ", none: "記録なし", wait: "読み込み中", error: "読めませんでした", off: "—" };
+
   root.BN = Object.freeze({
     IDS, SERVER, OPT, env, todayBiz, dayDiff, fail, errText, writeDenied, canManage, gen,
     fieldsOf, txt, num, dateOf, readAll, writeTasks, coverage,
     version: () => version,
     fixed: Object.freeze({ parse: parseFixed, month: fixedMonth, FIELDS: FIXED_FIELDS }),
+    ledger: Object.freeze({ create: ledgerCreate, load: ledgerLoad, month: ledgerMonth, fixed: ledgerFixed, VAR: VAR_KEYS, STATE: LEDGER_STATE, daysIn }),
   });
 })(typeof window !== "undefined" ? window : globalThis);
