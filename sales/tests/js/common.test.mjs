@@ -285,9 +285,12 @@ test("ledger: 売上・レンタル・費目を月ごとに集計し、そろっ
   assert.deepEqual(j(L.daily["2026-10-03"]), { sales: 80000, n: 2 }, "日ごとの売上（レンタル・取消を除く）");
   const nov = j(BN.ledger.month(L, "2026-11", now));
   assert.equal(nov.c.labor.s, "est"); assert.equal(nov.est, true); assert.equal(nov.complete, true);
-  assert.equal(nov.profit, 20000 - (5000 + 3000 + 500 + 0 + 60000));
+  assert.equal(nov.c.rent.s, "none", "レンタルの月次確定値がまだ無い月");
+  assert.equal(nov.settled, false); assert.equal(nov.profit, null, "レンタルが未確定の月は利益を断定しない（§5）");
+  assert.equal(nov.ref, 20000 - (5000 + 3000 + 500 + 0 + 60000), "参考値は出す");
+  assert.equal(oct.c.rent.s, "ok"); assert.equal(oct.settled, true);
   const sep = j(BN.ledger.month(L, "2026-09", now));
-  assert.equal(sep.c.labor.s, "none"); assert.equal(sep.complete, false); assert.equal(sep.profit, null, "給与の無い月は利益を断定しない");
+  assert.equal(sep.c.labor.s, "none"); assert.equal(sep.c.rent.s, "ok", "後の月に確定値があれば、その月のレンタルは 0 円の確定"); assert.equal(sep.c.rent.v, 0); assert.equal(sep.complete, false); assert.equal(sep.profit, null, "給与の無い月は利益を断定しない");
   assert.equal(sep.c.purchase.s, "none", "最初の仕入より前の月は未記録");
   assert.equal(sep.c.supplies.s, "ok"); assert.equal(sep.c.supplies.v, 0, "前後に記録があれば 0 円の記録済み");
 });

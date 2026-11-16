@@ -292,8 +292,9 @@
     if (cov.s === "none") return { s: "none", v: null };
     return { s: cov.s === "partial" || (rec && rec.partial) ? "partial" : "ok", v: rec ? rec.total : 0, kinds: rec && rec.kinds };
   }
-  /* 月 m の売上・コスト。c[費目] = { s: ok／est（見込み）／partial／none／wait／error／off, v: 金額 or null }。
-     complete ＝ 変動費の全費目と固定費がそろった（見込みを含む）。そろわない月は利益を断定しない（§5） */
+  /* 月 m の売上・コスト。c[費目] = { s: ok／est（見込み）／partial／none／wait／error／off, v: 金額 or null }。c.rent はレンタルの確定の状態。
+     complete ＝ 変動費の全費目と固定費がそろった（見込みを含む）。settled ＝ さらにレンタルも確定。
+     profit は settled の月だけ（§5。そろわない月は利益を断定しない）。ref ＝ 費用がそろい、レンタルだけ未確定の月の参考値 */
   function ledgerMonth(L, m, now) {
     const today = todayBiz(now);
     const sl = L.slips ? (L.slips[m] || { sales: 0, fee: 0, n: 0 }) : null, rent = L.rentals ? L.rentals[m] : undefined;
@@ -311,9 +312,16 @@
     const varKnown = VAR_KEYS.reduce((x, k) => x + (c[k].v || 0), 0), known = varKnown + (c.fixed.v || 0);
     const complete = VAR_KEYS.every((k) => okS(c[k].s)) && okS(c.fixed.s);
     const revenue = sl ? sl.sales + (rent || 0) : null;
+    /* レンタルの店舗収益の状態（§5）。その月の確定値がある・より後の月に確定値がある（その月はレンタル無し＝0円）なら ok。
+       いちばん新しい確定月より後の月は「未確定」で、利益を断定しない（参考値だけ） */
+    const rentMonths = L.rentals ? Object.keys(L.rentals) : [];
+    const rentS = !L.rentals ? (L.error ? "error" : "wait") : rent != null || rentMonths.some((x) => x > m) ? "ok" : "none";
+    c.rent = { s: rentS, v: rentS === "ok" ? (rent || 0) : null };
+    const settled = complete && rentS === "ok";
     return { m, c, sales: sl ? sl.sales : null, slipCount: sl ? sl.n : null, rent, revenue,
-      varKnown: anyVar ? varKnown : null, fixed: c.fixed.v, known: any ? known : null, complete, est: c.labor.s === "est",
-      profit: complete && revenue != null ? revenue - known : null };
+      varKnown: anyVar ? varKnown : null, fixed: c.fixed.v, known: any ? known : null, complete, settled, est: c.labor.s === "est",
+      profit: settled && revenue != null ? revenue - known : null,
+      ref: complete && revenue != null ? revenue - known : null };   // 費用はそろい、レンタルだけ未確定の月の参考値（費用が欠けた月は大きく出て誤解を招くので出さない）
   }
   const LEDGER_STATE = { ok: "記録済み", est: "見込み", partial: "一部のみ", none: "記録なし", wait: "読み込み中", error: "読めませんでした", off: "—" };
 
