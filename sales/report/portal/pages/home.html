@@ -1,83 +1,99 @@
 <!-- ホーム（ダッシュボード）。index.html の殻が fetch して差し込む。ids は hm- の接頭辞。
-     売上管理・コスト管理への大きなボタンと、売上・コストの数字から作る経営の概要。
+     AWS Console Home のように、ウィジェット（見出し・本文・下端のリンク）を並べる。数字と項目は青字のリンクで、それぞれの画面へ飛べる。
      数字は BN.ledger（コスト管理と同じ集計。contract.md §1b・§4・§5）。費用は持ち主・Editor だけに出す（<html data-cost="1">）。 -->
 <style>
-.pg-home{display:flex;flex-direction:column;gap:20px;max-width:1280px;padding-bottom:40px}
-.pg-home .hm-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 16px;padding:8px 0 0}
-.pg-home h1{margin:0;font-size:24px;line-height:30px;font-weight:700}
+.pg-home{display:flex;flex-direction:column;gap:20px;max-width:1400px;padding-bottom:40px}
+.pg-home .hm-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 16px;padding:4px 0 0}
+.pg-home h1{margin:0;font-size:28px;line-height:36px;font-weight:400}
 .pg-home .hm-desc{margin:2px 0 0;color:var(--label-2);font-size:14px}
-.pg-home h2.hm-sec{margin:12px 0 -4px;font-size:20px;line-height:24px;font-weight:700;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px}
-.pg-home h2.hm-sec small{display:block;font-size:14px;font-weight:400;color:var(--label-2)}
 /* 月の切り替え */
-.pg-home .mstep{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--border-input);border-radius:var(--r-control);background:var(--card-solid)}
-.pg-home .mstep button{width:32px;height:30px;border:0;background:none;color:var(--label-2);cursor:pointer;font-size:16px;border-radius:var(--r-control)}
+.pg-home .mstep{display:inline-flex;align-items:center;border:1px solid var(--border-input);border-radius:var(--r-control);background:var(--card-solid)}
+.pg-home .mstep button{width:32px;height:30px;border:0;background:none;color:var(--label-2);cursor:pointer;font-size:16px}
 .pg-home .mstep button:hover{color:var(--accent-text);background:var(--fill)}
 .pg-home .mstep button[disabled]{opacity:.35;cursor:default;background:none}
-.pg-home .mstep b{min-width:7.5em;text-align:center;font-size:14px}
-.pg-home .kpis{grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}
-.pg-home .kpi .v.na{color:var(--label-3)}
-.pg-home .kpi .v.pos{color:var(--green)} .pg-home .kpi .v.neg{color:var(--red)}
-.pg-home .hm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:20px}
+.pg-home .mstep b{min-width:7.5em;text-align:center;font-size:14px;border-inline:1px solid var(--separator);line-height:30px}
+/* ウィジェット（AWS の board item: 見出し・本文・下端のリンク） */
+.pg-home .board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.pg-home .wd{display:flex;flex-direction:column;min-width:0;border-radius:var(--r-card)}
+.pg-home .wd.full{grid-column:1 / -1}
+.pg-home .wd-h{display:flex;align-items:flex-start;justify-content:space-between;gap:8px 16px;padding:16px 20px 4px}
+.pg-home .wd-h h2{margin:0;font-size:18px;line-height:22px;font-weight:700}
+.pg-home .wd-cap{margin:4px 0 0;font-size:12px;line-height:16px;color:var(--label-2)}
+.pg-home .wd-act{flex:none;font-size:14px;color:var(--accent-text);text-decoration:none;white-space:nowrap;padding-top:2px}
+.pg-home .wd-act:hover,.pg-home .wd-f a:hover,.pg-home a.kv-link:hover,.pg-home .health a:hover{text-decoration:underline}
+.pg-home .wd-b{flex:1;padding:12px 20px 20px;min-width:0}
+.pg-home .wd-f{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 32px;padding:10px 20px;border-top:1px solid var(--separator)}
+.pg-home .wd-f a{font-size:14px;color:var(--accent-text);text-decoration:none}
+/* 概要（AWS の Cost and usage: 左に大きな数字、右にグラフ） */
+.pg-home .ov{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:20px 32px}
+.pg-home .kvs{display:flex;flex-direction:column;gap:18px}
+.pg-home .kv-k{font-size:14px;font-weight:700;color:var(--label)}
+.pg-home .kv-v{display:block;font-size:30px;line-height:38px;font-weight:400;white-space:nowrap}
+.pg-home a.kv-link{color:var(--accent-text);text-decoration:none}
+.pg-home .kv-v.pos{color:var(--green)} .pg-home .kv-v.neg{color:var(--red)} .pg-home .kv-v.na{color:var(--label-3)}
+.pg-home .kv-d{font-size:12px;line-height:16px;color:var(--label-2)}
+.pg-home .kv-d .up{color:var(--green);font-weight:700} .pg-home .kv-d .down{color:var(--red);font-weight:700}
+.pg-home .kv-mini{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 20px}
+.pg-home .kv-mini .kv-v{font-size:22px;line-height:28px}
 /* グラフ */
 .pg-home .chart text{font-size:12px}
 .pg-home .chart .lab{fill:var(--label);font-weight:700}
 .pg-home .chart .zero{stroke:var(--label-3);stroke-width:1}
 .pg-home .chart .conn{stroke:var(--label-3);stroke-width:1;stroke-dasharray:3 3}
+.pg-home .chart a text.nm{fill:var(--accent-text)}
+.pg-home .chart a:hover text.nm{text-decoration:underline}
 .pg-home .chart g.mcol{cursor:pointer}
 .pg-home .chart g.mcol:not(.on) rect{opacity:.5}
 .pg-home .chart g.mcol:hover rect{opacity:1}
 .pg-home .chart .pl{font-weight:700}
-.pg-home .chart .pl.pos{fill:var(--green)} .pg-home .chart .pl.neg{fill:var(--red)}
+.pg-home .chart .pl.pos{fill:var(--green)} .pg-home .chart .pl.neg{fill:var(--red)} .pg-home .chart .pl.ref{fill:var(--label-3);font-weight:400}
+.pg-home .chart-y{font-size:12px;font-weight:700;color:var(--label);margin-bottom:4px}
 .pg-home .legend{margin-top:10px}
-.pg-home .legend .dot{display:inline-block;width:10px;height:10px;border-radius:2px}
+.pg-home .legend .dot{display:inline-block;width:10px;height:10px;border-radius:0}
 .pg-home details.tbl{margin-top:10px;font-size:14px}
-.pg-home details.tbl summary{cursor:pointer;color:var(--accent-text);font-weight:700}
+.pg-home details.tbl summary{cursor:pointer;color:var(--accent-text)}
 .pg-home .note{margin:8px 0 0;font-size:12px;line-height:16px;color:var(--label-2)}
 /* 損益分岐 */
-.pg-home .be-big{font-size:28px;line-height:34px;font-weight:700;margin:4px 0}
-.pg-home .be-big.pos{color:var(--green)} .pg-home .be-big.neg{color:var(--label)}
+.pg-home .be-big{font-size:26px;line-height:32px;font-weight:400;margin:0 0 4px}
+.pg-home .be-big.pos{color:var(--green)}
 .pg-home .be-sub{font-size:14px;color:var(--label-2)}
-.pg-home .be-track{position:relative;height:28px;margin:28px 0 8px;border-radius:6px;background:var(--fill-2)}
-.pg-home .be-fill{position:absolute;inset:0 auto 0 0;border-radius:6px 0 0 6px;background:var(--c-rev2)}
-.pg-home .be-pace{position:absolute;top:0;bottom:0;border:2px dashed var(--c-rev2);border-left:0;border-radius:0 6px 6px 0}
-.pg-home .be-mark{position:absolute;top:-24px;bottom:-6px;width:2px;margin-left:-1px;background:var(--label)}
+.pg-home .be-track{position:relative;height:24px;margin:40px 0 8px;background:var(--fill-2)}
+.pg-home .be-fill{position:absolute;inset:0 auto 0 0;background:var(--c-rev2)}
+.pg-home .be-pace{position:absolute;top:0;bottom:0;border:2px dashed var(--c-rev2);border-left:0}
+.pg-home .be-mark{position:absolute;top:-22px;bottom:-6px;width:2px;margin-left:-1px;background:var(--label)}
 .pg-home .be-mark span{position:absolute;bottom:100%;transform:translateX(-50%);white-space:nowrap;font-size:12px;font-weight:700;color:var(--label);margin-bottom:2px}
 .pg-home .be-mark.edge-r span{transform:translateX(-100%)} .pg-home .be-mark.edge-l span{transform:none}
 .pg-home .be-axis{display:flex;justify-content:space-between;font-size:12px;color:var(--label-2)}
 .pg-home .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 20px;margin-top:16px}
-.pg-home .kv div{display:flex;flex-direction:column;border-left:2px solid var(--separator);padding-left:12px}
-.pg-home .kv span{font-size:14px;font-weight:700;color:var(--label-2)}
+.pg-home .kv div{display:flex;flex-direction:column}
+.pg-home .kv span{font-size:12px;font-weight:700;color:var(--label-2)}
 .pg-home .kv b{font-size:16px;font-weight:400}
-/* データの状態（Cloudscape の StatusIndicator） */
+/* データの状態（AWS の StatusIndicator） */
 .pg-home .health{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
-.pg-home .health li{display:grid;grid-template-columns:minmax(7em,auto) minmax(0,1fr);gap:4px 16px;padding:8px 0;border-bottom:1px solid var(--separator);font-size:14px}
+.pg-home .health li{display:grid;grid-template-columns:minmax(8em,auto) minmax(0,1fr);gap:4px 16px;padding:8px 0;border-bottom:1px solid var(--separator);font-size:14px}
 .pg-home .health li:last-child{border-bottom:0}
-.pg-home .health .nm{font-weight:700}
+.pg-home .health a,.pg-home .health .nm{color:var(--accent-text);text-decoration:none}
+.pg-home .health .nm.plain{color:var(--label);font-weight:700}
 .pg-home .st{display:inline-flex;align-items:flex-start;gap:6px}
 .pg-home .st i{flex:none;width:16px;height:16px;margin-top:2px;border-radius:50%;display:grid;place-items:center;font:700 11px/1 var(--font);font-style:normal;color:var(--card-solid)}
 .pg-home .st.ok{color:var(--green)} .pg-home .st.ok i{background:var(--green)}
-.pg-home .st.warn{color:var(--warn-text)} .pg-home .st.warn i{background:var(--warn);color:#0f141a}
+.pg-home .st.warn{color:var(--warn-text)} .pg-home .st.warn i{background:var(--warn)}
 .pg-home .st.err{color:var(--red)} .pg-home .st.err i{background:var(--red)}
 .pg-home .st.wait{color:var(--label-2)} .pg-home .st.wait i{background:var(--label-3)}
 .pg-home .st small{display:block;color:var(--label-2);font-size:12px;line-height:16px}
+.pg-home .empty{padding:24px 0;text-align:center}
+@media (max-width: 1100px){ .pg-home .ov{grid-template-columns:minmax(0,1fr)} .pg-home .kvs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))} }
+@media (max-width: 1279px){ .pg-home .board{grid-template-columns:minmax(0,1fr)} }   /* 2列にすると、グラフの文字が小さくなりすぎる */
+@media (max-width: 900px){ .pg-home h1{font-size:24px;line-height:30px} }
 </style>
 
 <div class="pg-home" id="hm-root">
   <header class="hm-head">
-    <div><h1>ダッシュボード</h1><p class="hm-desc" id="hm-sub">Bar null の売上とコストの概要</p></div>
-  </header>
-
-  <h2 class="hm-sec"><span>経営の概要<small id="hm-cap">読み込んでいます</small></span>
+    <div><h1>ダッシュボード</h1><p class="hm-desc" id="hm-sub">読み込んでいます</p></div>
     <span class="mstep" role="group" aria-label="対象の月"><button type="button" id="hm-prev" aria-label="前の月">‹</button><b id="hm-month" class="num">—</b><button type="button" id="hm-next" aria-label="次の月">›</button></span>
-  </h2>
+  </header>
   <div id="hm-notice"></div>
-  <section class="kpis" id="hm-kpis" aria-label="主要な数字"></section>
-  <div class="hm-grid" id="hm-row1"></div>
-  <section class="card lg chart" id="hm-trend-card"><h2 id="hm-trend-title">月ごとの売上とコスト</h2><p class="cap" id="hm-trend-cap"></p><div id="hm-trend"></div></section>
-  <div class="hm-grid">
-    <section class="card lg chart"><h2>曜日ごとの平均売上</h2><p class="cap" id="hm-wd-cap">直近12週・通常営業・伝票のあった日の平均</p><div id="hm-wd"></div></section>
-    <section class="card lg"><h2>データの状態</h2><p class="cap">数字の元になる記録が、いつまで入っているか</p><ul class="health" id="hm-health"></ul></section>
-  </div>
+  <div class="board" id="hm-board"></div>
   <p class="foot" id="hm-foot"></p>
 </div>
 
@@ -87,6 +103,7 @@ const { todayBiz } = BN;
 const $ = (id) => document.getElementById(id);
 const use = (n) => (window.claude && window.claude.use) ? window.claude.use(n) : Promise.resolve(null);
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const link = (href, text, cls) => { const a = el("a", cls, text); a.href = href; return a; };
 const yen = (v) => v == null ? "—" : (v < 0 ? "−" : "") + "¥" + Math.abs(Math.round(v)).toLocaleString("ja-JP");
 const man = (v) => { const a = Math.abs(v), s = v < 0 ? "−" : ""; return a >= 10000 ? `${s}${(a / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万` : `${s}${Math.round(a).toLocaleString("ja-JP")}`; };
 const pc = (x) => x == null || !isFinite(x) ? "—" : `${(x * 100).toFixed(1)}%`;
@@ -97,16 +114,16 @@ const mShort = (m) => `${+m.slice(5, 7)}月`;
 const md = (d) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`;
 const daysIn = BN.ledger.daysIn;
 const S = BN.ledger.STATE;
-/* 費目の状態の言葉。固定費の項目が無い月は §3c どおり「未設定」と呼ぶ */
-const stName = (key, s) => key === "fixed" && s === "none" ? "未設定" : (S[s] || s || "—");
+/* 費目の状態の言葉。固定費の項目が無い月は §3c どおり「未設定」、レンタルの確定値が無い月は「未確定」 */
+const stName = (key, s) => key === "fixed" && s === "none" ? "未設定" : key === "rent" && s === "none" ? "未確定" : (S[s] || s || "—");
 
-/* 費目（色は shared.css。コスト管理と同じ） */
+/* 費目（色は shared.css。コスト管理と同じ）。route はその費目の画面 */
 const CATS = [
-  { key: "purchase", name: "仕入", color: "var(--c-purchase)" },
-  { key: "labor", name: "人件費", color: "var(--c-labor)" },
-  { key: "supplies", name: "備品・消耗品", color: "var(--c-supplies)" },
-  { key: "fee", name: "決済手数料", color: "var(--c-fee)" },
-  { key: "fixed", name: "固定費", color: "var(--c-fixed)" },
+  { key: "purchase", name: "仕入", color: "var(--c-purchase)", route: "#cost-purchase" },
+  { key: "labor", name: "人件費", color: "var(--c-labor)", route: "#cost-staff" },
+  { key: "supplies", name: "備品・消耗品", color: "var(--c-supplies)", route: "#cost-supplies" },
+  { key: "fee", name: "決済手数料", color: "var(--c-fee)", route: "#cost-var" },
+  { key: "fixed", name: "固定費", color: "var(--c-fixed)", route: "#cost-fixed" },
 ];
 const REV = "var(--c-rev2)";
 
@@ -124,170 +141,114 @@ async function load() {
   await BN.ledger.load(st.mcp, L, { cost: st.cost, live: () => live() && st.L === L, step: () => { if (live() && st.L === L) render(); } });
 }
 
-/* ---------- 表示 ---------- */
-function kpi(label, value, sub, cls) {
-  const k = el("div", "kpi lg"); k.append(el("span", "lb", label), el("span", "v num" + (cls ? " " + cls : ""), value), el("span", "d", sub || "　")); return k;
+/* ---------- 部品 ---------- */
+/* ウィジェット: 見出し（右に開く先のリンク）・本文・下端のリンク */
+function widget(o) {
+  const w = el("section", "wd lg" + (o.full ? " full" : "")), h = el("header", "wd-h"), t = el("div");
+  t.append(el("h2", "", o.title)); if (o.cap) t.append(el("p", "wd-cap", o.cap));
+  h.append(t); if (o.action) h.append(link(o.action[1], o.action[0], "wd-act"));
+  const b = el("div", "wd-b" + (o.chart ? " chart" : "")); (o.body || []).forEach((n) => n && b.append(n));
+  w.append(h, b);
+  if (o.foot && o.foot.length) { const f = el("footer", "wd-f"); o.foot.forEach(([x, href]) => f.append(link(href, x))); w.append(f); }
+  return w;
 }
-function noticeBox(title, body) { const d = el("div", "notice"); d.append(el("strong", "", title), body); return d; }
-
-function render() {
-  const today = todayBiz(), cur = today.slice(0, 7), L = st.L;
-  $("hm-month").textContent = mLabel(st.month);
-  $("hm-next").disabled = st.month >= cur;
-  const isCur = st.month === cur;
-  $("hm-cap").textContent = `${st.env === "test" ? "テスト用のデータ・" : ""}${mLabel(st.month)}${isCur ? "（集計中）" : ""}${st.cost ? "" : "・売上だけ（コストは管理者だけが見られます）"}`;
-  // お知らせ（読めなかった記録・古いデータ）
-  const nb = $("hm-notice"); nb.textContent = "";
-  if (st.mcp === null) nb.append(noticeBox("Asana につながっていません", "claude.ai で Asana を接続すると、売上とコストが表示されます。"));
-  else {
-    const errs = new Map();
-    [["伝票", L.error], ["固定費", L.fixedError], ["給与", L.payrollError], ["仕入", L.purchaseError], ["備品・消耗品", L.suppliesError]].forEach(([n, e]) => {
-      if (!e) return; const t = BN.errText(e); errs.set(t, [...(errs.get(t) || []), n]);
-    });
-    errs.forEach((names, t) => nb.append(noticeBox(`${names.join("・")}を読み込めませんでした`, t)));
-    const ago = st.env === "prod" && L.lastSlip ? BN.dayDiff(L.lastSlip, today) : 0;
-    if (ago >= 4) nb.append(noticeBox("データが古い可能性があります", `最後の伝票は ${md(L.lastSlip)}（${ago}日前）です。伝票の取り込みが止まっているか、営業の無い日が続いています。`));
-  }
-  const months = []; for (let i = 11; i >= 0; i--) months.push(BN.ledger.month(L, addM(st.month, -i)));
-  const M = months[11], P = months[10];
-  renderKpis(M, P, isCur, today);
-  const row = $("hm-row1"); row.textContent = "";
-  if (st.cost) { row.append(waterfallCard(M, isCur), breakEvenCard(M, isCur, today)); row.hidden = false; }
-  else { row.hidden = true; }
-  renderTrend(months);
-  renderWeekday(today);
-  renderHealth(M, today);
-  $("hm-foot").textContent = st.cost
-    ? "定義（コスト管理と同じ）：売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値のある月だけ。売上管理の速報値とは違うことがあります）／変動費＝仕入（NIGITA）＋人件費（給与の合計。今月は見込み）＋備品・消耗品（カード BAR NULL）＋決済手数料（Square）／固定費＝Asana「Bar null 固定費」の月額（月の途中でも月額のまま。返済・配当を含む）／利益＝売上合計 − 変動費 − 固定費。記録がそろわない費目がある月は利益を出さず、記録済みの分だけの参考値を添えます／金額は税込"
-    : "売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値のある月だけ）。金額は税込";
+/* 大きな数字（AWS の key-value）。href があれば青字のリンク */
+function kv(label, value, sub, href, cls) {
+  const d = el("div"); d.append(el("div", "kv-k", label));
+  const v = href && value !== "—" ? link(href, value, "kv-v num kv-link" + (cls ? " " + cls : "")) : el("span", "kv-v num" + (cls ? " " + cls : ""), value);
+  d.append(v); if (sub) { const s = el("div", "kv-d"); if (typeof sub === "string") s.textContent = sub; else s.append(...sub); d.append(s); }
+  return d;
 }
+/* 増減の印（↑ 緑・↓ 赤）と文 */
+function delta(now, prev, text) {
+  if (now == null || !prev) return null;
+  const r = now / prev - 1, up = r >= 0, s = el("span", up ? "up" : "down", `${up ? "↑" : "↓"} ${Math.abs(r * 100).toFixed(0)}%`);
+  return [s, ` ${text}`];
+}
+function noticeBox(title, body, kind) { const d = el("div", "notice" + (kind ? " " + kind : "")); d.append(el("strong", "", title), body); return d; }
+const emptyMsg = (L) => L.error ? "伝票を読み込めませんでした。" : st.mcp === null ? "Asana につながっていません。" : "読み込み中です。";
 
-/* 前月の同じ日数までの通常営業の売上（今月の比較用） */
+/* 今月は、まだ終わっていない今日を数えない（伝票は営業日の途中で入るため）。done ＝ 済んだ営業日の数 */
+function doneDays(m, today) { return m === today.slice(0, 7) ? +today.slice(8, 10) - 1 : daysIn(m); }
 function salesUpTo(m, day) {
   const d = st.L.daily; if (!d) return null;
   let s = 0; for (let i = 1; i <= Math.min(day, daysIn(m)); i++) { const x = d[`${m}-${String(i).padStart(2, "0")}`]; if (x) s += x.sales; }
   return s;
 }
-function delta(a, b) { if (a == null || b == null || !b) return ""; const r = a / b - 1; return `${r >= 0 ? "+" : "−"}${Math.abs(r * 100).toFixed(0)}%`; }
 
-function renderKpis(M, P, isCur, today) {
-  const k = $("hm-kpis"); k.textContent = "";
-  // 売上合計: 今月は「前月の同じ日まで」と、過去の月は前月と比べる（通常営業の売上）
-  let cmp = "";
+/* ---------- 表示 ---------- */
+function render() {
+  const today = todayBiz(), cur = today.slice(0, 7), L = st.L, isCur = st.month === cur;
+  $("hm-month").textContent = mLabel(st.month);
+  $("hm-next").disabled = st.month >= cur;
+  $("hm-sub").textContent = `${st.env === "test" ? "テスト用のデータ・" : ""}Bar null の売上とコストの概要${st.cost ? "" : "（コストは管理者だけが見られます）"}`;
+  const nb = $("hm-notice"); nb.textContent = "";
+  if (st.mcp === null) nb.append(noticeBox("Asana につながっていません", "claude.ai で Asana を接続すると、売上とコストが表示されます。", "err"));
+  else {
+    const errs = new Map();
+    [["伝票", L.error], ["固定費", L.fixedError], ["給与", L.payrollError], ["仕入", L.purchaseError], ["備品・消耗品", L.suppliesError]].forEach(([n, e]) => {
+      if (!e) return; const t = BN.errText(e); errs.set(t, [...(errs.get(t) || []), n]);
+    });
+    errs.forEach((names, t) => nb.append(noticeBox(`${names.join("・")}を読み込めませんでした`, t, "err")));
+    const ago = st.env === "prod" && L.lastSlip ? BN.dayDiff(L.lastSlip, today) : 0;
+    if (ago >= 4) nb.append(noticeBox("データが古い可能性があります", `最後の伝票は ${md(L.lastSlip)}（${ago}日前）です。伝票の取り込みが止まっているか、営業の無い日が続いています。`, "warn"));
+  }
+  const months = []; for (let i = 11; i >= 0; i--) months.push(BN.ledger.month(L, addM(st.month, -i)));
+  const M = months[11], P = months[10];
+  const board = $("hm-board"); board.textContent = "";
+  board.append(overview(M, P, months, isCur, today));
+  if (st.cost) board.append(waterfall(M, isCur), breakEven(M, isCur, today));
+  board.append(weekday(today), health(M, today));
+  $("hm-foot").textContent = st.cost
+    ? "定義（コスト管理と同じ）：売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値。売上管理の速報値とは違うことがあります）／変動費＝仕入（NIGITA）＋人件費（給与の合計。今月は見込み）＋備品・消耗品（カード BAR NULL）＋決済手数料（Square）／固定費＝Asana「Bar null 固定費」の月額（月の途中でも月額のまま。返済・配当を含む）／利益＝売上合計 − 変動費 − 固定費。費用かレンタルの記録がそろわない月は利益を出さず、記録済みの分だけの参考値を出します／金額は税込"
+    : "売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値のある月だけ）。金額は税込";
+}
+
+/* 1. 概要（左に大きな数字、右に12か月の推移） */
+function overview(M, P, months, isCur, today) {
+  const kvs = el("div", "kvs");
+  // 売上合計: 今月は「前月の同じ日まで」と、過去の月は前月と比べる（通常営業）
+  const done = doneDays(M.m, today);
+  let cmp = null;
   if (M.sales != null) {
-    if (isCur) { const day = +today.slice(8, 10), prev = salesUpTo(P.m, day), now = salesUpTo(M.m, day); if (prev) cmp = `通常営業は前月の同じ日まで ${yen(prev)} より ${delta(now, prev)}`; }
-    else if (P.sales) cmp = `通常営業は前月 ${yen(P.sales)} より ${delta(M.sales, P.sales)}`;
+    if (isCur) { if (done >= 1) cmp = delta(salesUpTo(M.m, done), salesUpTo(P.m, done), `前月の同じ日（${done}日）まで・通常営業`); }
+    else cmp = delta(M.sales, P.sales, "前月より・通常営業");
   }
-  const rentTxt = M.rent != null ? `レンタル ${yen(M.rent)}` : "レンタルは月次確定前";
-  k.append(kpi("売上合計", yen(M.revenue), M.revenue == null ? "" : `通常営業 ${yen(M.sales)}・${rentTxt}`, M.revenue == null ? "na" : ""));
+  const rentTxt = M.c.rent.s === "ok" ? `レンタル ${yen(M.rent || 0)}` : "レンタルは月次確定前";
+  kvs.append(kv(isCur ? "今月の売上合計" : "売上合計", yen(M.revenue), M.revenue == null ? emptyMsg(st.L) : [...(cmp || []), el("br"), `通常営業 ${yen(M.sales)}・${rentTxt}`], "#sales"));
   if (!st.cost) {
-    k.append(kpi("前月との比較", cmp ? cmp.match(/[+−]\d+%$/)[0] : "—", cmp || "比べられる前月の売上がありません", cmp ? "" : "na"));
-    const days = M.slipCount != null ? Object.keys(st.L.daily || {}).filter((d) => d.startsWith(M.m)).length : null;
-    k.append(kpi("伝票の数", M.slipCount == null ? "—" : `${M.slipCount.toLocaleString("ja-JP")}件`, days != null ? `伝票のあった日 ${days}日` : "", M.slipCount == null ? "na" : ""));
-    k.append(kpi("1日あたりの売上", days ? yen(M.sales / days) : "—", "通常営業・伝票のあった日の平均", days ? "" : "na"));
-    return;
+    const days = st.L.daily ? Object.keys(st.L.daily).filter((d) => d.startsWith(M.m)).length : null;
+    const mini = el("div", "kv-mini");
+    mini.append(kv("伝票の数", M.slipCount == null ? "—" : `${M.slipCount.toLocaleString("ja-JP")}件`, days != null ? `伝票のあった日 ${days}日` : "", "#sales"),
+      kv("1日あたり", days ? yen(M.sales / days) : "—", "通常営業・伝票のあった日", "#sales"));
+    kvs.append(mini);
+  } else {
+    const pcmp = !isCur && M.known != null && P.known ? delta(M.known, P.known, "前月より") : null;
+    kvs.append(kv("コスト合計", yen(M.known), M.known == null ? emptyMsg(st.L) : [...(pcmp ? [...pcmp, el("br")] : []), `変動費 ${yen(M.varKnown)}・固定費 ${M.fixed == null ? stName("fixed", M.c.fixed.s) : yen(M.fixed)}${M.complete ? "" : "（記録済みの分）"}`], "#cost"));
+    // 利益: 費用とレンタルがそろった月だけ断定する（§5）。そろわない月は灰色の参考値
+    const pLabel = isCur ? "ここまでの損益" : "利益";
+    if (M.profit != null) kvs.append(kv(pLabel, yen(M.profit), `利益率 ${pc(M.profit / M.revenue)}${M.est ? "・人件費は見込み" : ""}${isCur ? "・固定費は月額で引いています" : ""}`, "#cost", M.profit >= 0 ? "pos" : "neg"));
+    else {
+      const miss = [...CATS, { key: "rent", name: "レンタル" }].filter((c) => !["ok", "est"].includes(M.c[c.key].s)).map((c) => `${c.name}：${stName(c.key, M.c[c.key].s)}`);
+      kvs.append(kv(M.ref == null ? pLabel : pLabel + "（参考）", M.ref == null ? "—" : yen(M.ref), miss.length ? `記録がそろっていません（${miss.slice(0, 2).join("・")}${miss.length > 2 ? "ほか" : ""}）` : emptyMsg(st.L), null, "na"));
+    }
+    const pur = M.c.purchase, lab = M.c.labor, mini = el("div", "kv-mini");
+    mini.append(kv("原価率", pur.v != null && M.sales ? pc(pur.v / M.sales) : "—", pur.v != null ? `仕入 ${yen(pur.v)}${pur.s === "partial" ? "（一部のみ）" : ""}` : `仕入：${stName("purchase", pur.s)}`, "#cost-purchase"),
+      kv("人件費率", lab.v != null && M.revenue ? pc(lab.v / M.revenue) : "—", lab.v != null ? `人件費 ${yen(lab.v)}${lab.s === "est" ? "（見込み）" : lab.s === "partial" ? "（一部のみ）" : ""}` : `人件費：${stName("labor", lab.s)}`, "#cost-staff"));
+    kvs.append(mini);
   }
-  const missing = [...CATS.filter((c) => !["ok", "est"].includes(M.c[c.key].s)).map((c) => `${c.name}：${stName(c.key, M.c[c.key].s)}`)];
-  k.append(kpi("コスト合計", yen(M.known), M.known == null ? "" : `変動費 ${yen(M.varKnown)}・固定費 ${M.fixed == null ? stName("fixed", M.c.fixed.s) : yen(M.fixed)}${M.complete ? "" : "（記録済みの分）"}`, M.known == null ? "na" : ""));
-  // 今月は確定値と同じ言葉で言い切らない（固定費は月額をまるごと引いているため。2026-11-16 E の指摘）
-  const pLabel = isCur ? "ここまでの損益" : "利益";
-  if (M.profit != null) k.append(kpi(pLabel, yen(M.profit), `利益率 ${pc(M.profit / M.revenue)}${M.est ? "・人件費は見込み" : ""}${isCur ? "・月の途中（固定費は月額で引いています）" : ""}`, M.profit >= 0 ? "pos" : "neg"));
-  else k.append(kpi(pLabel, "—", missing.length ? `記録がそろっていません（${missing.slice(0, 2).join("・")}${missing.length > 2 ? "ほか" : ""}）${M.revenue != null && M.known != null ? `。参考 ${yen(M.revenue - M.known)}` : ""}` : "読み込み中", "na"));
-  const pur = M.c.purchase, lab = M.c.labor;
-  k.append(kpi("原価率", pur.v != null && M.sales ? pc(pur.v / M.sales) : "—", pur.v != null ? `仕入 ${yen(pur.v)} ÷ 通常営業の売上${pur.s === "partial" ? "（仕入は一部のみ）" : ""}` : `仕入：${S[pur.s]}`, pur.v != null && M.sales ? "" : "na"));
-  k.append(kpi("人件費率", lab.v != null && M.revenue ? pc(lab.v / M.revenue) : "—", lab.v != null ? `人件費 ${yen(lab.v)}${lab.s === "est" ? "（見込み）" : lab.s === "partial" ? "（一部のみ）" : ""}` : `人件費：${S[lab.s]}`, lab.v != null && M.revenue ? "" : "na"));
+  const ov = el("div", "ov"), right = el("div", "chart");
+  right.append(el("div", "chart-y", st.cost ? "売上とコスト（円）" : "売上（円）"));
+  trend(right, months);
+  ov.append(kvs, right);
+  return widget({ full: true, title: "売上とコスト", cap: `${mLabel(M.m)}${isCur ? "（集計中）" : ""}・グラフは直近12か月。月を押すとその月を表示`,
+    action: ["売上管理を開く", "#sales"], body: [ov],
+    foot: st.cost ? [["売上管理を開く", "#sales"], ["コスト管理を開く", "#cost"], ["変動費の内訳を見る", "#cost-var"]] : [["売上管理を開く", "#sales"]] });
 }
 
-/* 今月の損益（滝グラフ）: 売上合計から費目を順に引いて、残りが利益 */
-function waterfallCard(M, isCur) {
-  const card = el("section", "card lg chart");
-  card.append(el("h2", "", isCur ? `${mShort(M.m)}のここまでの損益` : `${mShort(M.m)}の損益`),
-    el("p", "cap", isCur ? "今日までの売上合計から、費用を順に引いた残り（固定費は月額をまるごと引いています）。高さはすべて同じ円の目盛り" : "売上合計から費用を順に引き、残りが利益（損失）。高さはすべて同じ円の目盛り"));
-  if (M.revenue == null || M.known == null) { card.append(el("p", "empty", S[M.c.fixed.s === "error" ? "error" : "wait"] + "です。")); return card; }
-  const steps = [{ name: "売上合計", v: M.revenue, color: REV, kind: "total" }];
-  CATS.forEach((c) => { const x = M.c[c.key]; steps.push({ key: c.key, name: c.name, v: x.v, color: c.color, kind: "cost", s: x.s }); });
-  const profit = M.revenue - M.known;
-  steps.push({ name: !M.complete ? "残り（参考）" : isCur ? "ここまで" : profit >= 0 ? "利益" : "損失", v: profit, color: profit >= 0 ? "var(--green)" : "var(--red)", kind: "result" });
-  let run = M.revenue; const lo = [], hi = [];
-  steps.forEach((s) => {
-    if (s.kind === "total") { s.a = 0; s.b = s.v; }
-    else if (s.kind === "cost") { s.a = run - (s.v || 0); s.b = run; run -= (s.v || 0); }
-    else { s.a = Math.min(0, s.v); s.b = Math.max(0, s.v); }
-    lo.push(s.a); hi.push(s.b);
-  });
-  const W = 640, H = 260, L = 50, R = 8, T = 22, B = 40, iw = W - L - R, ih = H - T - B;
-  const mn = Math.min(0, ...lo), mx = Math.max(1, ...hi);
-  const y = (v) => T + (mx - v) / (mx - mn) * ih, slot = iw / steps.length, bw = Math.min(64, slot * .62);
-  let g = "";
-  for (let i = 0; i <= 4; i++) { const v = mn + (mx - mn) * i / 4, yy = y(v); g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${man(v)}</text>`; }
-  g += `<line class="zero" x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}"/>`;
-  steps.forEach((s, i) => {
-    const x = L + slot * i + (slot - bw) / 2, top = y(s.b), h = Math.max(1, y(s.a) - y(s.b));
-    if (i < steps.length - 1 && s.kind !== "result") { const ny = s.kind === "total" ? y(s.b) : y(s.a); g += `<line class="conn" x1="${x + bw}" x2="${x + slot}" y1="${ny}" y2="${ny}"/>`; }
-    const na = s.v == null;
-    g += `<rect x="${x}" y="${na ? y(s.b) - 1 : top}" width="${bw}" height="${na ? 2 : h}" rx="3" fill="${s.color}"${na ? ' opacity=".35"' : ""}><title>${esc(s.name)} ${yen(s.v)}</title></rect>`;
-    const lab = na ? stName(s.key, s.s) : (s.kind === "cost" ? `−${man(s.v)}` : man(s.v));
-    g += `<text class="lab" x="${x + bw / 2}" y="${(s.kind === "result" && s.v < 0 ? y(s.a) + 14 : top - 6)}" text-anchor="middle">${esc(lab)}</text>`;
-    g += `<text x="${x + bw / 2}" y="${H - 22}" text-anchor="middle">${esc(s.name)}</text>`;
-    if (s.kind === "cost" && !na && M.revenue) g += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${pc(s.v / M.revenue)}</text>`;
-  });
-  const box = el("div"); box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(mLabel(M.m))}の損益の内訳">${g}</svg>`;
-  card.append(box);
-  const notes = [];
-  if (!M.complete) notes.push("記録がそろっていない費目があるため、残りは参考値です（灰色の細い線は未記録・読み込み中）。");
-  if (M.est) notes.push("人件費は給与の見込み（その日時点の額）です。");
-  if (isCur) notes.push("月の途中です。固定費は月額のまま引いています。");
-  notes.push("費目の下の % は売上合計に対する割合。");
-  card.append(el("p", "note", notes.join("")));
-  return card;
-}
-
-/* 損益分岐までの距離: 損益分岐売上 ＝ 固定費 ÷ (1 − 変動費率)。今月は今のペースで月末の売上を見込む */
-function breakEvenCard(M, isCur, today) {
-  const card = el("section", "card lg");
-  card.append(el("h2", "", "損益分岐までの距離"));
-  const varOK = BN.ledger.VAR.every((k) => ["ok", "est"].includes(M.c[k].s));
-  const rate = varOK && M.revenue ? M.varKnown / M.revenue : null;
-  const be = M.fixed != null && rate != null && rate < 1 ? M.fixed / (1 - rate) : null;
-  if (be == null) {
-    card.append(el("p", "cap", "損益分岐売上 ＝ 固定費 ÷（1 − 変動費率）"));
-    card.append(el("p", "empty", M.fixed == null ? `固定費が${stName("fixed", M.c.fixed.s)}のため出せません。` : rate != null && rate >= 1 ? "変動費が売上合計を上回っているため、売上を増やしても黒字になりません。" : "変動費の記録がそろうと出します。"));
-    return card;
-  }
-  const day = isCur ? +today.slice(8, 10) : daysIn(M.m), dim = daysIn(M.m);
-  const pace = isCur && day >= 3 ? M.revenue / day * dim : null;
-  const gap = be - M.revenue;
-  card.append(el("p", "cap", isCur ? `今月の売上合計と損益分岐売上（月の合計）。破線は今のペースで見込んだ月末の売上` : `${mLabel(M.m)}の売上合計と損益分岐売上`));
-  const big = el("div", "be-big num " + (gap <= 0 ? "pos" : "neg"), gap <= 0 ? `損益分岐を ${yen(-gap)} 上回っています` : `損益分岐まで あと ${yen(gap)}`);
-  card.append(big);
-  const sub = [];
-  if (isCur && gap > 0 && dim - day > 0) sub.push(`残り${dim - day}日で、1日あたり ${yen(gap / (dim - day))} の売上が必要です`);
-  if (pace != null) sub.push(`今のペースなら月末の売上合計は ${yen(pace)}（損益分岐の ${pc(pace / be)}）`);
-  if (sub.length) card.append(el("div", "be-sub", sub.join("。") + "。"));
-  const top = Math.max(be, M.revenue, pace || 0) * 1.08, w = (v) => `${Math.max(0, Math.min(100, v / top * 100))}%`;
-  const tr = el("div", "be-track"), fill = el("i", "be-fill"); fill.style.width = w(M.revenue); fill.title = `売上合計 ${yen(M.revenue)}`; tr.append(fill);
-  if (pace != null && pace > M.revenue) { const p = el("i", "be-pace"); p.style.left = w(M.revenue); p.style.width = `calc(${w(pace)} - ${w(M.revenue)})`; p.title = `月末の見込み ${yen(pace)}`; tr.append(p); }
-  const mk = el("div", "be-mark"), pos = be / top; mk.style.left = w(be); if (pos > .8) mk.classList.add("edge-r"); else if (pos < .2) mk.classList.add("edge-l");
-  mk.append(el("span", "", `損益分岐 ${man(be)}`)); tr.append(mk);
-  tr.setAttribute("role", "img"); tr.setAttribute("aria-label", `売上合計 ${yen(M.revenue)}、損益分岐売上 ${yen(be)}${pace != null ? `、月末の見込み ${yen(pace)}` : ""}`);
-  const ax = el("div", "be-axis"); ax.append(el("span", "", "¥0"), el("span", "", man(top)));
-  card.append(tr, ax);
-  // 固定費には返済・配当（出資者配当金・銀行借入の返済）を含む（§3c）。会計上の費用だけの損益分岐も並べる（コスト管理の固定費と同じ扱い）
-  const pay = M.c.fixed.f.items.filter((i) => i.category === "返済・配当").reduce((x, i) => x + i.monthly, 0);
-  const kv = el("div", "kv");
-  [["売上合計", yen(M.revenue)], ["損益分岐売上", yen(be)], ["変動費率", pc(rate)], ["固定費（月額・返済・配当を含む）", yen(M.fixed)],
-   ...(pay ? [["返済・配当を除いた損益分岐", yen((M.fixed - pay) / (1 - rate))]] : [])].forEach(([a, b]) => { const d = el("div"); d.append(el("span", "", a), el("b", "num", b)); kv.append(d); });
-  card.append(kv);
-  if (isCur && M.rent == null) card.append(el("p", "note", "レンタルの店舗収益は月次確定後に入るため、今月の売上合計にはまだ含まれていません。"));
-  return card;
-}
-
-/* 月ごとの売上とコスト（12か月）。左の棒が売上合計、右の棒がコスト（費目の積み上げ）。下の数字が利益。月を押すとその月を見る */
-function renderTrend(months) {
-  const box = $("hm-trend"); box.textContent = "";
-  $("hm-trend-title").textContent = st.cost ? "月ごとの売上とコスト" : "月ごとの売上";
-  $("hm-trend-cap").textContent = st.cost ? "直近12か月。左が売上合計、右がコスト（費目の積み上げ）。下の数字は利益（記録がそろわない月は —）。月を押すとその月を表示" : "直近12か月の売上合計（通常営業とレンタル）。月を押すとその月を表示";
-  const W = 760, H = st.cost ? 270 : 240, L = 50, R = 8, T = 18, B = st.cost ? 44 : 26, iw = W - L - R, ih = H - T - B;
+/* 12か月の推移。左の棒が売上合計（通常営業＋レンタル）、右の棒がコスト（費目の積み上げ）。下の数字が利益（灰色は参考値） */
+function trend(box, months) {
+  const W = 760, H = st.cost ? 270 : 240, L = 50, R = 8, T = 12, B = st.cost ? 44 : 26, iw = W - L - R, ih = H - T - B;
   const costOf = (M) => CATS.reduce((x, c) => x + (M.c[c.key].v || 0), 0);
   const mx = Math.max(1, ...months.map((M) => Math.max(M.revenue || 0, st.cost ? costOf(M) : 0)));
   const nice = (() => { const p = Math.pow(10, Math.floor(Math.log10(mx))); return [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((k) => k * p >= mx) * p; })();
@@ -296,19 +257,19 @@ function renderTrend(months) {
   for (let i = 0; i <= 4; i++) { const v = nice * i / 4, yy = y(v); g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${i ? man(v) : "0"}</text>`; }
   months.forEach((M, i) => {
     const cx = L + slot * i + slot / 2, on = M.m === st.month;
-    let s = `<g class="mcol${on ? " on" : ""}" data-m="${M.m}" tabindex="0" role="button" aria-label="${esc(mLabel(M.m))}を表示">`;
-    s += `<rect x="${L + slot * i}" y="${T}" width="${slot}" height="${ih}" fill="transparent"/>`;
+    let s = `<g class="mcol${on ? " on" : ""}" data-m="${M.m}" tabindex="0" role="button" aria-label="${esc(mLabel(M.m))}を表示"><rect x="${L + slot * i}" y="${T}" width="${slot}" height="${ih}" fill="transparent"/>`;
     const rx = st.cost ? cx - bw - 1 : cx - bw / 2;
     if (M.revenue) {
       const sh = Math.max(0, M.sales || 0), rh = Math.max(0, M.rent || 0);
-      s += `<rect x="${rx}" y="${y(sh)}" width="${bw}" height="${ih + T - y(sh)}" rx="2" fill="${REV}"><title>${esc(mLabel(M.m))} 通常営業 ${yen(M.sales)}</title></rect>`;
-      if (rh) s += `<rect x="${rx}" y="${y(sh + rh)}" width="${bw}" height="${Math.max(1, y(sh) - y(sh + rh) - 1)}" rx="2" fill="var(--series-rent)"><title>${esc(mLabel(M.m))} レンタル ${yen(M.rent)}</title></rect>`;
+      s += `<rect x="${rx}" y="${y(sh)}" width="${bw}" height="${ih + T - y(sh)}" fill="${REV}"><title>${esc(mLabel(M.m))} 通常営業 ${yen(M.sales)}</title></rect>`;
+      if (rh) s += `<rect x="${rx}" y="${y(sh + rh)}" width="${bw}" height="${Math.max(1, y(sh) - y(sh + rh) - 1)}" fill="var(--series-rent)"><title>${esc(mLabel(M.m))} レンタル ${yen(M.rent)}</title></rect>`;
     }
     if (st.cost) {
       let base = 0;
-      CATS.forEach((c) => { const v = M.c[c.key].v; if (!v || v <= 0) return; const y1 = y(base + v), h = Math.max(1, y(base) - y1 - 1); s += `<rect x="${cx + 1}" y="${y1}" width="${bw}" height="${h}" rx="2" fill="${c.color}"><title>${esc(mLabel(M.m))} ${esc(c.name)} ${yen(v)}</title></rect>`; base += v; });
-      const p = M.profit;
-      s += `<text class="pl${p == null ? "" : p >= 0 ? " pos" : " neg"}" x="${cx}" y="${H - 6}" text-anchor="middle">${p == null ? "—" : (p >= 0 ? "+" : "") + man(p)}</text>`;
+      CATS.forEach((c) => { const v = M.c[c.key].v; if (!v || v <= 0) return; const y1 = y(base + v), h = Math.max(1, y(base) - y1 - 1); s += `<rect x="${cx + 1}" y="${y1}" width="${bw}" height="${h}" fill="${c.color}"><title>${esc(mLabel(M.m))} ${esc(c.name)} ${yen(v)}</title></rect>`; base += v; });
+      const p = M.profit, r = M.ref;
+      const txt = p != null ? (p >= 0 ? "+" : "") + man(p) : r != null ? (r >= 0 ? "+" : "") + man(r) : "—";
+      s += `<text class="pl${p == null ? (r != null ? " ref" : "") : p >= 0 ? " pos" : " neg"}" x="${cx}" y="${H - 6}" text-anchor="middle">${esc(txt)}</text>`;
     }
     s += `<text x="${cx}" y="${H - (st.cost ? 24 : 8)}" text-anchor="middle"${on ? ' class="lab"' : ""}>${mShort(M.m)}</text></g>`;
     g += s;
@@ -321,62 +282,147 @@ function renderTrend(months) {
   box.append(wrap);
   const lg = el("div", "legend"), sw = (c, t) => { const s = el("span"), d = el("i", "dot"); d.style.background = c; s.append(d, t); lg.append(s); };
   sw(REV, "売上（通常営業）"); sw("var(--series-rent)", "売上（レンタル）");
-  if (st.cost) CATS.forEach((c) => sw(c.color, c.name));
+  if (st.cost) { CATS.forEach((c) => sw(c.color, c.name)); lg.append(el("span", "", "下の数字は利益（灰色はレンタルが月次確定前の参考値、— は費用の記録がそろわない月）")); }
   box.append(lg);
-  // 表で見る
   const d = el("details", "tbl"), tw = el("div", "tablewrap"), t = el("table", "rtable");
   d.append(el("summary", "", "表で見る"));
   t.innerHTML = `<thead><tr><th>月</th><th class="n">売上合計</th><th class="n">通常営業</th><th class="n">レンタル</th>${st.cost ? CATS.map((c) => `<th class="n">${esc(c.name)}</th>`).join("") + '<th class="n">コスト合計</th><th class="n">利益</th>' : ""}</tr></thead><tbody>` +
-    months.slice().reverse().map((M) => `<tr><td>${esc(mLabel(M.m))}</td><td class="n num">${yen(M.revenue)}</td><td class="n num">${yen(M.sales)}</td><td class="n num">${M.rent == null ? "—" : yen(M.rent)}</td>${st.cost ? CATS.map((c) => `<td class="n num">${M.c[c.key].v == null ? esc(S[M.c[c.key].s] || "—") : yen(M.c[c.key].v)}</td>`).join("") + `<td class="n num">${yen(M.known)}</td><td class="n num">${yen(M.profit)}</td>` : ""}</tr>`).join("") + "</tbody>";
+    months.slice().reverse().map((M) => `<tr><td>${esc(mLabel(M.m))}</td><td class="n num">${yen(M.revenue)}</td><td class="n num">${yen(M.sales)}</td><td class="n num">${M.c.rent.s === "ok" ? yen(M.rent || 0) : esc(stName("rent", M.c.rent.s))}</td>${st.cost ? CATS.map((c) => `<td class="n num">${M.c[c.key].v == null ? esc(stName(c.key, M.c[c.key].s)) : yen(M.c[c.key].v)}</td>`).join("") + `<td class="n num">${yen(M.known)}</td><td class="n num">${M.profit != null ? yen(M.profit) : M.ref != null ? "参考 " + yen(M.ref) : "—"}</td>` : ""}</tr>`).join("") + "</tbody>";
   tw.append(t); d.append(tw); box.append(d);
 }
 
-/* 曜日ごとの平均売上（直近12週。伝票のあった日だけの平均。いちばん高い曜日を濃く） */
-function renderWeekday(today) {
-  const box = $("hm-wd"); box.textContent = "";
+/* 2. 損益（滝グラフ）: 売上合計から費目を順に引いて、残りが利益。費目の名前は青字のリンク */
+function waterfall(M, isCur) {
+  const title = isCur ? `${mShort(M.m)}のここまでの損益` : `${mShort(M.m)}の損益`;
+  const cap = isCur ? "今日までの売上合計から、費用を順に引いた残り（固定費は月額をまるごと引いています）" : "売上合計から費用を順に引き、残りが利益（損失）";
+  const foot = [["変動費の内訳を見る", "#cost-var"], ["固定費を見る", "#cost-fixed"]];
+  if (M.revenue == null || M.known == null) {
+    const msg = M.revenue == null ? emptyMsg(st.L) : CATS.every((c) => M.c[c.key].s === "error") ? "費用を読み込めませんでした。" : "読み込み中です。";
+    return widget({ title, cap, action: ["コスト管理を開く", "#cost"], body: [el("p", "empty", msg)], foot });
+  }
+  const steps = [{ name: "売上合計", v: M.revenue, color: REV, kind: "total", route: "#sales" }];
+  CATS.forEach((c) => { const x = M.c[c.key]; steps.push({ key: c.key, name: c.name, v: x.v, color: c.color, kind: "cost", s: x.s, route: c.route }); });
+  const profit = M.revenue - M.known, sure = M.profit != null;   // 費用が欠けた月も、欠けた費目を見せたうえで残りを出す（参考）
+  steps.push({ name: !sure ? (isCur ? "ここまで（参考）" : "残り（参考）") : isCur ? "ここまで" : profit >= 0 ? "利益" : "損失", v: profit, color: profit >= 0 ? "var(--green)" : "var(--red)", kind: "result" });
+  let run = M.revenue; const lo = [], hi = [];
+  steps.forEach((s) => {
+    if (s.kind === "total") { s.a = 0; s.b = s.v; }
+    else if (s.kind === "cost") { s.a = run - (s.v || 0); s.b = run; run -= (s.v || 0); }
+    else { s.a = Math.min(0, s.v); s.b = Math.max(0, s.v); }
+    lo.push(s.a); hi.push(s.b);
+  });
+  const W = 600, H = 260, L = 50, R = 8, T = 22, B = 40, iw = W - L - R, ih = H - T - B;
+  const mn = Math.min(0, ...lo), mx = Math.max(1, ...hi);
+  const y = (v) => T + (mx - v) / (mx - mn) * ih, slot = iw / steps.length, bw = Math.min(56, slot * .62);
+  let g = "";
+  for (let i = 0; i <= 4; i++) { const v = mn + (mx - mn) * i / 4, yy = y(v); g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${man(v)}</text>`; }
+  g += `<line class="zero" x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}"/>`;
+  steps.forEach((s, i) => {
+    const x = L + slot * i + (slot - bw) / 2, top = y(s.b), h = Math.max(1, y(s.a) - y(s.b)), na = s.v == null;
+    if (i < steps.length - 1 && s.kind !== "result") { const ny = s.kind === "total" ? y(s.b) : y(s.a); g += `<line class="conn" x1="${x + bw}" x2="${x + slot}" y1="${ny}" y2="${ny}"/>`; }
+    g += `<rect x="${x}" y="${na ? y(s.b) - 1 : top}" width="${bw}" height="${na ? 2 : h}" fill="${s.color}"${na || (s.kind === "result" && !sure) ? ' opacity=".45"' : ""}><title>${esc(s.name)} ${yen(s.v)}</title></rect>`;
+    const lab = na ? stName(s.key, s.s) : (s.kind === "cost" ? `−${man(s.v)}` : man(s.v));
+    g += `<text class="lab" x="${x + bw / 2}" y="${(s.kind === "result" && s.v < 0 ? y(s.a) + 14 : top - 6)}" text-anchor="middle">${esc(lab)}</text>`;
+    const nm = `<text class="nm" x="${x + bw / 2}" y="${H - 22}" text-anchor="middle">${esc(s.name)}</text>`;
+    g += s.route ? `<a href="${s.route}">${nm}</a>` : nm;
+    if (s.kind === "cost" && !na && M.revenue) g += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${pc(s.v / M.revenue)}</text>`;
+  });
+  const box = el("div"); box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(mLabel(M.m))}の損益の内訳">${g}</svg>`;
+  const notes = [];
+  if (!sure) notes.push(`記録がそろっていないため、残りは参考値です（${M.c.rent.s !== "ok" ? "レンタルは月次確定前" : "未記録の費目あり"}）。`);
+  if (M.est) notes.push("人件費は給与の見込み（その日時点の額）です。");
+  notes.push("青字の費目を押すと、その画面を開きます。費目の下の % は売上合計に対する割合。");
+  return widget({ title, cap, action: ["コスト管理を開く", "#cost"], chart: true, body: [box, el("p", "note", notes.join(""))], foot });
+}
+
+/* 3. 損益分岐までの距離: 損益分岐売上 ＝ 固定費 ÷ (1 − 変動費率)。今月は済んだ日のペースで月末の売上を見込む */
+function breakEven(M, isCur, today) {
+  const foot = [["固定費を見る", "#cost-fixed"], ["変動費を見る", "#cost-var"]];
+  const base = { title: "損益分岐までの距離", action: ["コスト管理を開く", "#cost"], foot };
+  const varOK = BN.ledger.VAR.every((k) => ["ok", "est"].includes(M.c[k].s));
+  const rate = varOK && M.revenue ? M.varKnown / M.revenue : null;
+  const be = M.fixed != null && rate != null && rate < 1 ? M.fixed / (1 - rate) : null;
+  if (be == null) {
+    const msg = M.fixed == null ? `固定費が${stName("fixed", M.c.fixed.s)}のため出せません。` : M.revenue === 0 ? "この月の売上がまだありません。"
+      : M.revenue == null ? emptyMsg(st.L) : rate != null && rate >= 1 ? "変動費が売上合計を上回っているため、売上を増やしても黒字になりません。" : "変動費の記録がそろうと出します。";
+    return widget({ ...base, cap: "損益分岐売上 ＝ 固定費 ÷（1 − 変動費率）", body: [el("p", "empty", msg)] });
+  }
+  const dim = daysIn(M.m), done = doneDays(M.m, today);
+  // 月末の見込み: 通常営業は済んだ日のペースで伸ばし、レンタルの確定値は伸ばさない
+  const pace = isCur && done >= 2 && M.sales != null ? M.sales / done * dim + (M.rent || 0) : null;
+  const gap = be - M.revenue, left = dim - done;
+  const body = [el("div", "be-big num " + (gap <= 0 ? "pos" : ""), gap <= 0 ? `損益分岐を ${yen(-gap)} 上回っています` : `損益分岐まで あと ${yen(gap)}`)];
+  const sub = [];
+  if (isCur && gap > 0 && left > 0) sub.push(`今日を含む残り${left}日で、1日あたり ${yen(gap / left)} の売上が必要です`);
+  if (pace != null) sub.push(`昨日までのペースなら、月末の売上合計は ${yen(pace)}（損益分岐の ${pc(pace / be)}）`);
+  if (sub.length) body.push(el("div", "be-sub", sub.join("。") + "。"));
+  const top = Math.max(be, M.revenue, pace || 0) * 1.08, w = (v) => `${Math.max(0, Math.min(100, v / top * 100))}%`;
+  const tr = el("div", "be-track"), fill = el("i", "be-fill"); fill.style.width = w(M.revenue); fill.title = `売上合計 ${yen(M.revenue)}`; tr.append(fill);
+  if (pace != null && pace > M.revenue) { const p = el("i", "be-pace"); p.style.left = w(M.revenue); p.style.width = `calc(${w(pace)} - ${w(M.revenue)})`; p.title = `月末の見込み ${yen(pace)}`; tr.append(p); }
+  const mk = el("div", "be-mark"), pos = be / top; mk.style.left = w(be); if (pos > .8) mk.classList.add("edge-r"); else if (pos < .2) mk.classList.add("edge-l");
+  mk.append(el("span", "", `損益分岐 ${man(be)}`)); tr.append(mk);
+  tr.setAttribute("role", "img"); tr.setAttribute("aria-label", `売上合計 ${yen(M.revenue)}、損益分岐売上 ${yen(be)}${pace != null ? `、月末の見込み ${yen(pace)}` : ""}`);
+  const ax = el("div", "be-axis"); ax.append(el("span", "", "¥0"), el("span", "", man(top)));
+  body.push(tr, ax);
+  // 固定費には返済・配当（出資者配当金・銀行借入の返済）を含む（§3c）。会計上の費用だけの損益分岐も並べる
+  const pay = M.c.fixed.f.items.filter((i) => i.category === "返済・配当").reduce((x, i) => x + i.monthly, 0);
+  const kvb = el("div", "kv");
+  [["売上合計", yen(M.revenue)], ["損益分岐売上", yen(be)], ["変動費率", pc(rate)], ["固定費（月額・返済・配当を含む）", yen(M.fixed)],
+   ...(pay ? [["返済・配当を除いた損益分岐", yen((M.fixed - pay) / (1 - rate))]] : [])].forEach(([a, b]) => { const d = el("div"); d.append(el("span", "", a), el("b", "num", b)); kvb.append(d); });
+  body.push(kvb);
+  if (isCur && M.c.rent.s !== "ok") body.push(el("p", "note", "レンタルの店舗収益は月次確定後に入るため、今月の売上合計にはまだ含まれていません。"));
+  return widget({ ...base, cap: isCur ? "今月の売上合計と損益分岐売上（月の合計）。破線は昨日までのペースで見込んだ月末の売上" : `${mLabel(M.m)}の売上合計と損益分岐売上`, body });
+}
+
+/* 4. 曜日ごとの平均売上（直近12週。今日は途中なので除く。伝票のあった日だけの平均。いちばん高い曜日を色で） */
+function weekday(today) {
+  const base = { title: "曜日ごとの平均売上", cap: "直近12週（昨日まで）・通常営業・伝票のあった日の平均", action: ["売上管理を開く", "#sales"], chart: true, foot: [["売上管理で期間ごとに見る", "#sales"]] };
   const d = st.L.daily;
-  if (!d) { box.append(el("p", "empty", st.L.error ? "伝票を読み込めませんでした。" : "読み込み中です。")); return; }
+  if (!d) return widget({ ...base, body: [el("p", "empty", emptyMsg(st.L))] });
   const names = ["月", "火", "水", "木", "金", "土", "日"], sum = Array(7).fill(0), cnt = Array(7).fill(0);
   const end = Date.parse(today + "T00:00:00Z");
-  for (let i = 0; i < 84; i++) {
-    const t = new Date(end - i * 864e5), key = t.toISOString().slice(0, 10), x = d[key]; if (!x) continue;
-    const w = (t.getUTCDay() + 6) % 7; sum[w] += x.sales; cnt[w]++;
+  for (let i = 1; i <= 84; i++) {
+    const t = new Date(end - i * 864e5), x = d[t.toISOString().slice(0, 10)]; if (!x) continue;
+    const wd = (t.getUTCDay() + 6) % 7; sum[wd] += x.sales; cnt[wd]++;
   }
   const avg = sum.map((s, i) => cnt[i] ? s / cnt[i] : null), best = avg.reduce((b, v, i) => v != null && (b < 0 || v > avg[b]) ? i : b, -1);
-  if (best < 0) { box.append(el("p", "empty", "直近12週に伝票がありません。")); return; }
+  if (best < 0) return widget({ ...base, body: [el("p", "empty", "直近12週に伝票がありません。")] });
   const W = 520, H = 200, L = 50, R = 8, T = 22, B = 40, iw = W - L - R, ih = H - T - B, mx = Math.max(...avg.filter((v) => v != null));
   const y = (v) => T + ih - v / mx * ih, slot = iw / 7, bw = Math.min(44, slot * .6);
   let g = `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}"/>`;
   avg.forEach((v, i) => {
     const x = L + slot * i + (slot - bw) / 2;
-    if (v != null) g += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${ih + T - y(v)}" rx="3" fill="${i === best ? REV : "var(--bar)"}"><title>${names[i]}曜 平均 ${yen(v)}（${cnt[i]}日）</title></rect><text class="${i === best ? "lab" : ""}" x="${x + bw / 2}" y="${y(v) - 6}" text-anchor="middle">${man(v)}</text>`;
+    if (v != null) g += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${ih + T - y(v)}" fill="${i === best ? REV : "var(--bar)"}"><title>${names[i]}曜 平均 ${yen(v)}（${cnt[i]}日）</title></rect><text class="${i === best ? "lab" : ""}" x="${x + bw / 2}" y="${y(v) - 6}" text-anchor="middle">${man(v)}</text>`;
     g += `<text x="${x + bw / 2}" y="${H - 22}" text-anchor="middle"${i === best ? ' class="lab"' : ""}>${names[i]}</text><text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${cnt[i]}日</text>`;
   });
   const wrap = el("div"); wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="曜日ごとの平均売上">${g}</svg>`;
-  box.append(wrap, el("p", "note", `いちばん高いのは${names[best]}曜（平均 ${yen(avg[best])}）。下の数字は、直近12週で伝票のあった日数。`));
+  return widget({ ...base, body: [wrap, el("p", "note", `いちばん高いのは${names[best]}曜（平均 ${yen(avg[best])}）。下の数字は、直近12週で伝票のあった日数。`)] });
 }
 
-/* データの状態（Cloudscape の StatusIndicator のように、印と色で） */
-function renderHealth(M, today) {
-  const ul = $("hm-health"); ul.textContent = ""; const L = st.L;
-  const row = (name, kind, text, sub) => {
+/* 5. データの状態（AWS の StatusIndicator のように、印と色で）。名前は青字のリンクで、その画面へ */
+function health(M, today) {
+  const ul = el("ul", "health"), L = st.L;
+  const row = (name, href, kind, text, sub) => {
     const li = el("li"), s = el("span", "st " + kind), i = el("i", "", { ok: "✓", warn: "!", err: "×", wait: "…" }[kind]);
     const t = el("span", "", text); if (sub) t.append(el("small", "", sub));
-    s.append(i, t); li.append(el("span", "nm", name), s); ul.append(li);
+    s.append(i, t); li.append(href ? link(href, name) : el("span", "nm plain", name), s); ul.append(li);
   };
-  if (st.mcp === null) { row("Asana", "err", "つながっていません"); return; }
-  // 伝票
-  if (L.error) row("伝票（売上）", "err", "読めませんでした");
-  else if (!L.slips) row("伝票（売上）", "wait", "読み込み中");
-  else { const ago = L.lastSlip ? BN.dayDiff(L.lastSlip, today) : null; row("伝票（売上）", ago == null || ago >= 4 ? "warn" : "ok", L.lastSlip ? `最後の伝票 ${md(L.lastSlip)}（${ago === 0 ? "今日" : ago + "日前"}）` : "伝票がありません", ago >= 4 ? "4日以上入っていません" : ""); }
-  if (L.rentals) { const ms = Object.keys(L.rentals).sort(); row("レンタル", ms.length ? "ok" : "warn", ms.length ? `確定は ${mLabel(ms[ms.length - 1])} まで` : "月次確定値がありません", "店舗収益（振込額）の月次確定値"); }
-  if (!st.cost) return;
-  const kindOf = (s) => ({ ok: "ok", est: "ok", partial: "warn", none: "warn", wait: "wait", error: "err", off: "wait" }[s] || "wait");
-  const lab = M.c.labor; row("給与（人件費）", kindOf(lab.s), `${mShort(M.m)}：${S[lab.s]}`, lab.s === "none" ? "給与の記録が無い月は利益を出しません" : lab.s === "est" ? "計算日の前はその日時点の見込み" : "");
-  const lastTxt = (k) => L[k + "Last"] ? `記録は ${md(L[k + "Last"])} まで` : "記録がありません";
-  const pur = M.c.purchase; row("仕入", kindOf(pur.s), `${mShort(M.m)}：${S[pur.s]}`, L.purchaseState === "ok" ? lastTxt("purchase") + "（週1回の取り込み）" : "");
-  const sup = M.c.supplies; row("備品・消耗品", kindOf(sup.s), `${mShort(M.m)}：${S[sup.s]}`, L.suppliesState === "ok" ? lastTxt("supplies") + "（カード明細は1〜2日遅れ）" : "");
-  const fx = M.c.fixed; row("固定費", kindOf(fx.s), fx.s === "ok" ? `${mShort(M.m)}：${fx.f.items.length}項目・${yen(fx.v)}` : `${mShort(M.m)}：${fx.s === "none" ? "未設定" : S[fx.s]}`);
+  if (st.mcp === null) row("Asana", null, "err", "つながっていません");
+  else {
+    if (L.error) row("伝票（売上）", "#sales", "err", "読めませんでした");
+    else if (!L.slips) row("伝票（売上）", "#sales", "wait", "読み込み中");
+    else { const ago = L.lastSlip ? BN.dayDiff(L.lastSlip, today) : null; row("伝票（売上）", "#sales", ago == null || ago >= 4 ? "warn" : "ok", L.lastSlip ? `最後の伝票 ${md(L.lastSlip)}（${ago === 0 ? "今日" : ago + "日前"}）` : "伝票がありません", ago >= 4 ? "4日以上入っていません" : ""); }
+    if (L.rentals) { const ms = Object.keys(L.rentals).sort(); row("レンタル", "#sales", ms.length ? "ok" : "warn", ms.length ? `確定は ${mLabel(ms[ms.length - 1])} まで` : "月次確定値がありません", "店舗収益（振込額）の月次確定値"); }
+    if (st.cost) {
+      const kindOf = (s) => ({ ok: "ok", est: "ok", partial: "warn", none: "warn", wait: "wait", error: "err", off: "wait" }[s] || "wait");
+      const lab = M.c.labor; row("給与（人件費）", "#cost-staff", kindOf(lab.s), `${mShort(M.m)}：${stName("labor", lab.s)}`, lab.s === "none" ? "給与の記録が無い月は利益を出しません" : lab.s === "est" ? "計算日の前はその日時点の見込み" : "");
+      const lastTxt = (k) => L[k + "Last"] ? `記録は ${md(L[k + "Last"])} まで` : "記録がありません";
+      const pur = M.c.purchase; row("仕入", "#cost-purchase", kindOf(pur.s), `${mShort(M.m)}：${stName("purchase", pur.s)}`, L.purchaseState === "ok" ? lastTxt("purchase") + "（週1回の取り込み）" : "");
+      const sup = M.c.supplies; row("備品・消耗品", "#cost-supplies", kindOf(sup.s), `${mShort(M.m)}：${stName("supplies", sup.s)}`, L.suppliesState === "ok" ? lastTxt("supplies") + "（カード明細は1〜2日遅れ）" : "");
+      const fx = M.c.fixed; row("固定費", "#cost-fixed", kindOf(fx.s), fx.s === "ok" ? `${mShort(M.m)}：${fx.f.items.length}項目・${yen(fx.v)}` : `${mShort(M.m)}：${stName("fixed", fx.s)}`);
+    }
+  }
+  return widget({ title: "データの状態", cap: "数字の元になる記録が、いつまで入っているか。名前を押すとその画面を開きます", body: [ul] });
 }
 
 /* ---------- 操作 ---------- */
