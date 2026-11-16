@@ -38,16 +38,19 @@
 .pg-supplies tr.off td{opacity:.5;text-decoration:line-through}
 .pg-supplies .msg{font-size:13px;color:var(--label-2)}
 .pg-supplies tr.off td .keep{display:inline-block;text-decoration:none}
-.pg-supplies .nar{display:none}
-/* 狭い幅: 営業日の列をやめて支払先の下に出し、支払先と操作を折り返して、金額と操作を画面内に収める */
+.pg-supplies .nar,.pg-supplies td .nar,.pg-supplies .only-n{display:none}   /* td .nar: 上の td .sub より強くする（広い幅で日付が二重に出ないように） */
+/* 狭い幅: 営業日の列をやめて支払先の下に出し、見出しと支払先を折り返し、操作は短い名前にして、金額と操作を画面内に収める */
 @media (max-width: 670px){
   .pg-supplies .tablewrap table{min-width:0}
   .pg-supplies .tablewrap th,.pg-supplies .tablewrap td{padding-inline:4px}
-  .pg-supplies .tablewrap .c-date{display:none}
-  .pg-supplies .tablewrap .nar{display:block}
-  .pg-supplies .tablewrap .c-payee,.pg-supplies .tablewrap .c-op{white-space:normal;overflow-wrap:anywhere}
-  .pg-supplies .tablewrap td select{max-width:7.5em;padding:6px;font-size:13px}
-  .pg-supplies .tablewrap .c-op .btn{white-space:normal;padding:6px 8px;font-size:12.5px;line-height:1.3}
+  .pg-supplies .tablewrap th{white-space:normal}
+  .pg-supplies .tablewrap .c-date,.pg-supplies .only-w{display:none}
+  .pg-supplies .tablewrap .nar,.pg-supplies .tablewrap td .nar{display:block;white-space:nowrap}
+  .pg-supplies .only-n{display:inline}
+  .pg-supplies .tablewrap .c-payee{white-space:normal;overflow-wrap:anywhere}
+  .pg-supplies .tablewrap .c-op{white-space:normal;word-break:keep-all}
+  .pg-supplies .tablewrap td select{max-width:6em;padding:6px 4px;font-size:13px}
+  .pg-supplies .tablewrap .c-op .btn{white-space:nowrap;padding:6px 8px;font-size:12.5px;line-height:1.3}
 }
 </style>
 
@@ -336,10 +339,10 @@ function renderList(view, p) {
   const rows = (state.showOff ? f.all : f.xs).slice();
   const { key, dir } = state.sort;
   rows.sort((a, b) => (key === "payee" || key === "cat" ? a[key].localeCompare(b[key], "ja") : (a[key] < b[key] ? -1 : a[key] > b[key] ? 1 : 0)) * dir);
-  const cols = [["date", "営業日", false], ["payee", "支払先", false], ["cat", "区分", false], ["amount", "金額（税込）", true]];
+  const cols = [["date", "営業日", false], ["payee", "支払先", false], ["cat", "区分", false], ["amount", "金額", true]];   // 狭い幅では「（税込）」を省く（下の only-w）
   const head = h("tr", {}, ...cols.map(([k, t, n]) => h("th", { class: "sort" + (n ? " r" : ""), "aria-sort": key === k ? (dir > 0 ? "ascending" : "descending") : null, tabindex: "0",
     onclick: () => { state.sort = { key: k, dir: key === k ? -dir : (n || k === "date" ? -1 : 1) }; render(); },
-    onkeydown: (e) => { if (e.key === "Enter") e.currentTarget.click(); } }, t)), h("th", { text: "操作" }));
+    onkeydown: (e) => { if (e.key === "Enter") e.currentTarget.click(); } }, t, k === "amount" ? h("span", { class: "only-w", text: "（税込）" }) : null)), h("th", { text: "操作" }));
   head.firstChild.classList.add("c-date");
   const note = state.note;
   const body = h("tbody", {}, ...rows.map((i) => {
@@ -352,12 +355,15 @@ function renderList(view, p) {
     sel.addEventListener("change", () => { if (CAT_OPT[sel.value]) save(i, { [F.cat]: CAT_OPT[sel.value] }, msg, () => { sel.value = i.cat; }); });
     const target = !i.off;   // 送る状態は、行を描いたときに決める（押した時点の item からは決めない）
     // NIGITA の対象外は戻さない（仕入で数えているので、戻すと二重になる）
+    // 狭い幅では短い名前（対象外へ／戻す）を出す。読み上げは aria-label の正式な名前
+    const opName = target ? "対象外にする" : "取り込み済みに戻す";
     const op = i.off && isNigita(i.payee) ? h("span", { class: "sub keep", text: "NIGITA は仕入で数えるため対象外" })
-      : h("button", { type: "button", class: "btn plain", disabled: state.busy, text: target ? "対象外にする" : "取り込み済みに戻す",
-          onclick: () => save(i, { [F.status]: ST_OPT[target ? "対象外" : "取り込み済み"], [F.manual]: MANUAL_ON }, msg) });
+      : h("button", { type: "button", class: "btn plain", disabled: state.busy, "aria-label": opName,
+          onclick: () => save(i, { [F.status]: ST_OPT[target ? "対象外" : "取り込み済み"], [F.manual]: MANUAL_ON }, msg) },
+          h("span", { class: "only-w", text: opName }), h("span", { class: "only-n", text: target ? "対象外へ" : "戻す" }));
     return h("tr", { class: i.off ? "off" : null },
       h("td", { class: "c-date", text: i.date }),
-      h("td", { class: "c-payee" }, i.payee, h("span", { class: "sub nar", text: i.date }), i.src === "手入力" ? h("span", { class: "sub", text: "手入力" }) : null,
+      h("td", { class: "c-payee" }, i.payee, h("span", { class: "sub nar", text: i.date.slice(5).replace("-", "/") }), i.src === "手入力" ? h("span", { class: "sub", text: "手入力" }) : null,
         i.manual ? h("span", { class: "sub", title: "同期が上書きしない明細", text: "手動修正" }) : null),
       h("td", {}, sel), h("td", { class: "r num", text: yen(i.amount) + (i.amount >= HIGH ? "（高額）" : "") }), h("td", { class: "c-op" }, op, " ", msg));
   }));
