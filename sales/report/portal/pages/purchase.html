@@ -320,6 +320,8 @@ function setMsg(title, body, retry) {
 }
 const kpi = (lb, v, d) => h("div", { class: "kpi lg lg--text" }, h("span", { class: "lb", text: lb }), h("span", { class: "v num", text: v }), h("span", { class: "d", text: d || "　" }));
 const card = (title, cap, ...kids) => h("section", { class: "card lg lg--text" }, h("h2", { text: title }), cap ? h("p", { class: "cap", text: cap }) : null, ...kids);
+/* 定義の脚注（閉じておく。見た目は shared.css の .defs） */
+const defs = (...lines) => h("details", { class: "defs" }, h("summary", { text: "数字の定義" }), ...lines.map((t) => h("p", { text: t })));
 const fact = (k, v, sub) => h("div", { class: "fact" }, h("span", { class: "k", text: k }), h("span", { class: "v num", text: v }), sub ? h("span", { class: "k", text: sub }) : null);
 
 function render() {
@@ -331,8 +333,8 @@ function render() {
   const drafts = state.data.masters.filter((m) => m.status !== "確認済み").length;
   $("purchase-title").textContent = state.tab === "master" ? "商品マスタ" : `仕入 ${label(p)}`;
   $("purchase-sub").textContent = (state.tab === "master"
-    ? `${state.data.masters.length}商品（表示名が案のもの ${drafts}件）`
-    : `${md(p.start)}〜${md(p.end)}${inProgress(p) ? "（集計中）" : ""}・NIGITA（NOS の仕入実績）`) + (state.data.env === "test" ? "・テストのデータ" : "");
+    ? `${state.data.masters.length}商品・案 ${drafts}件`
+    : `${md(p.start)}〜${md(p.end)}${inProgress(p) ? "（集計中）" : ""}`) + (state.data.env === "test" ? "・テストのデータ" : "");
   if (state.tab === "dash") renderDash(view, p);
   else if (state.tab === "items") renderItems(view, p);
   else renderMaster(view);
@@ -340,12 +342,12 @@ function render() {
 
 function renderDash(view, p) {
   const x = figures(p.start, min(p.end, today())), pv = prevOf(p), y = figures(pv.start, pv.end);
-  const change = (a, b) => b ? `前の期間（${md(pv.start)}〜${md(pv.end)}）比 ${pct(a / b - 1)}` : "前の期間の記録なし";
+  const change = (a, b) => b ? `前期比 ${pct(a / b - 1)}` : "前期の記録なし";
   view.append(h("section", { class: "kpis" },
     kpi("仕入の合計（税込）", yen(x.gross), change(x.gross, y.gross)),
-    kpi("発注回数", `${x.days}回`, "取引日（納品日）の数"),
-    kpi("1回あたりの発注（税込）", yen(x.per), y.per ? change(x.per, y.per) : "　"),
-    kpi("税抜の合計", yen(x.net), `消費税（推定）${yen(x.tax)}`)));
+    kpi("発注回数", `${x.days}回`, y.days ? `前期 ${y.days}回` : null),
+    kpi("1回あたりの発注（税込）", yen(x.per), y.per ? change(x.per, y.per) : null),
+    kpi("税抜の合計", yen(x.net), `消費税 ${yen(x.tax)}`)));
   if (!x.vs.length) { view.append(card("この期間の仕入", null, h("p", { class: "empty", text: "この期間の仕入の記録はありません。" }))); return; }
 
   // 発注数ランキング TOP5
@@ -384,8 +386,8 @@ function renderDash(view, p) {
       h("i", { style: `height:${Math.max(0, c.g) / maxG * 100}%` }), h("span", { class: "num", text: c.lb }))));
 
   view.append(h("section", { class: "split" },
-    card("発注数ランキング TOP5", "表示名ごとの仕入数量（返品を差し引き）。同数なら金額の大きい順", rank, more),
-    card("区分ごとの仕入（税抜）", "区分は商品マスタの区分（未設定は NOS のカテゴリから）", catBox,
+    card("発注数ランキング TOP5", null, rank, more),
+    card("区分ごとの仕入（税抜）", null, catBox,
       h("div", { class: "facts", style: "margin-top:14px" },
         fact("返品", x.returns ? `${x.returns}件` : "なし", x.returns ? yen(x.returnAmt) : null),
         fact("欠品のあった品目", x.shortage ? `${x.shortage}件` : "なし")))));
@@ -393,6 +395,13 @@ function renderDash(view, p) {
   const notes = notesOf(x);
   if (notes.length) view.append(card("注意", null, ...notes));
   view.append(aiCard(p, x, y, its));
+  view.append(defs(
+    `前期: ${md(pv.start)}〜${md(pv.end)}（週は前の週、月は前月、年は前年。集計中の期間は同じ日数まで）。`,
+    "発注回数: 仕入のあった取引日（納品日）の数。同じ日の複数の伝票は1回と数える。",
+    "消費税: NOS のカテゴリで税率を決めた推定（飲料・調味料・食品 8%、ほか 10%）。",
+    "ランキング: 表示名ごとの仕入数量（返品を差し引く）。同数なら金額の大きい順。金額は税抜。",
+    "区分: 商品マスタの区分。未設定の商品は NOS のカテゴリから決める。",
+    "AI の示唆: この期間と前期・直近6か月の集計値と、表示名ごとの数量・金額だけを Claude に渡す。"));
 }
 
 function renderItems(view, p) {
@@ -404,16 +413,17 @@ function renderItems(view, p) {
     onclick: () => { state.sort = { key: k, dir: key === k ? -dir : (n ? -1 : 1) }; render(); },
     onkeydown: (e) => { if (e.key === "Enter") e.currentTarget.click(); } }, t)));
   const body = h("tbody", {}, ...its.map((i) => h("tr", { class: i.draft ? "draft" : null },
-    h("td", {}, i.name, i.draft ? h("span", { class: "sub", text: "表示名は案（商品マスタで確認）" }) : null,
+    h("td", {}, i.name, i.draft ? h("span", { class: "sub", text: "表示名は案" }) : null,
       i.raws.size > 1 || [...i.raws][0] !== i.name ? h("span", { class: "sub", text: [...i.raws].join(" / ") }) : null),
     h("td", { text: i.cat }), h("td", { class: "r", text: i.qty.toLocaleString("ja-JP") }), h("td", { class: "r", text: yen(i.amount) }),
     h("td", { class: "r", text: `${i.times}回` }), h("td", { class: "r", text: yen(i.unit) }))));
   const total = h("tr", { class: "tot" }, h("td", { text: `合計 ${its.length}商品` }), h("td"), h("td", { class: "r", text: sum(its, (i) => i.qty).toLocaleString("ja-JP") }),
     h("td", { class: "r", text: yen(sum(its, (i) => i.amount)) }), h("td"), h("td"));
-  view.append(card(`発注のあった商品（${label(p)}）`, "見出しを押すと並べ替えます。金額は税抜の明細額。同じ表示名の商品は合算しています",
+  view.append(card(`発注のあった商品（${label(p)}）`, null,
     ...notesOf(x),
     its.length ? h("div", { class: "tablewrap num", style: "max-height:none" }, h("table", {}, h("thead", {}, head), body, h("tfoot", {}, total)))
-      : h("p", { class: "empty", text: "この期間の仕入の記録はありません。" })));
+      : h("p", { class: "empty", text: "この期間の仕入の記録はありません。" }),
+    defs("金額: 明細の仕入金額（税抜）。返品は差し引く。", "同じ表示名・区分の商品は1行に合算する。発注回数は、その商品を仕入れた取引日の数。")));
 }
 
 function renderMaster(view) {
@@ -443,13 +453,15 @@ function renderMaster(view) {
   const bar = (i) => h("div", { class: "actions" }, btns[i], msgs[i]);
   view.append(h("section", { class: "card lg lg--text" },
     h("div", { style: "display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between" }, h("h2", { text: "仕入商品と表示名" }), seg),
-    h("p", { class: "cap", text: "新しい商品は、取り込みのときに表示名の案を自動で付けます。直したい行だけ直して、最後に「まとめて保存」を押してください。表示している商品がすべて確認済みになり、以後は自動で変わりません。同じ表示名を付けた商品は、集計で合算されます。" }),
     state.canWrite === false ? h("p", { class: "msg", text: "このページから書き込む許可がありません。Asana のタスク（商品マスタのセクション）で「表示名」「仕入区分」「確認状態」を直してください。" }) : null,
     list.length > 12 ? bar(0) : null,
     list.length ? h("div", { class: "tablewrap", style: "max-height:none" }, h("table", {},
       h("thead", {}, h("tr", {}, h("th", { text: "NOS の商品名" }), h("th", { text: "表示名" }), h("th", { text: "区分" }), h("th", { text: "状態" }))),
       h("tbody", {}, ...rows))) : h("p", { class: "empty", text: state.masterFilter === "draft" ? "案のままの商品はありません。" : "商品マスタはまだありません。" }),
-    list.length ? bar(1) : (state.note ? h("p", { class: "msg", role: "status", text: state.note }) : null)));
+    list.length ? bar(1) : (state.note ? h("p", { class: "msg", role: "status", text: state.note }) : null),
+    defs("表示名の案: 新しい商品は、取り込みのときに自動で付ける。",
+      "まとめて保存: 表示している商品をすべて確認済みにする。確認済みの商品は、取り込みで変わらない。",
+      "同じ表示名を付けた商品は、集計で合算する。")));
 }
 /* 保存中は、入力と「更新」・環境の切替を止める（保存の途中で読み直しや切替が重ならないように） */
 function setBusy(v) {
@@ -567,7 +579,7 @@ function aiCard(p, x, y, its) {
       if (state.aiRun === ctl) { state.aiRun = null; state.aiNote = { key, text }; if (state.tab === "dash") render(); }
     }
   });
-  return card("AI の示唆", "この期間と前の期間・直近6か月の仕入の集計値と、商品（表示名）ごとの数量・金額だけを Claude に渡します",
+  return card("AI の示唆", null,
     h("div", { class: "actions", style: "margin-top:0" }, btn, msg), out);
 }
 
