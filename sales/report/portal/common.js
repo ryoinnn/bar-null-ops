@@ -325,7 +325,13 @@
   }
   const LEDGER_STATE = { ok: "記録済み", est: "見込み", partial: "一部のみ", none: "記録なし", wait: "読み込み中", error: "読めませんでした", off: "—" };
 
+  /* ポータルの版（X.Y.Z。2026-11-16 本人指定。契約 §1b）。公開のたびに上げる。
+     X: 画面の構成・見た目を大きく変える、契約の互換が崩れる／Y: 画面・機能を足す／Z: 修正・文言・小さな見た目。
+     version()（書き込みの回数）とは別のもの */
+  const PORTAL_VERSION = "3.0.0";
+
   root.BN = Object.freeze({
+    VERSION: PORTAL_VERSION,
     IDS, SERVER, OPT, env, todayBiz, dayDiff, fail, errText, writeDenied, canManage, gen,
     fieldsOf, txt, num, dateOf, readAll, writeTasks, coverage,
     version: () => version,

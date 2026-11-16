@@ -313,3 +313,8 @@ test("ledger: 読めなかった費目は null（0 円にしない）。伝票�
   assert.equal(await BN.ledger.load(mcp, S, { live: () => alive }), false);
   assert.equal(S.slips, null);
 });
+
+test("ポータルの版は X.Y.Z の形", () => {
+  const { BN } = load();
+  assert.match(BN.VERSION, /^\d+\.\d+\.\d+$/);
+});
