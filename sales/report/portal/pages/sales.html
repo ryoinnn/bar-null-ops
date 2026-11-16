@@ -40,7 +40,7 @@
      <div class="datacol">
       <div id="notice"></div>
 
-      <h2 class="sect">通常営業<small>LINE の伝票</small></h2>
+      <h2 class="sect">通常営業</h2>
       <section class="kpis" id="kpis" aria-label="通常営業の主要な数字">
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">売上</span><span class="v num">—</span><span class="d">　</span></div>
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">予約数</span><span class="v num">—</span><span class="d">　</span></div>
@@ -48,7 +48,7 @@
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">1日あたり</span><span class="v num">—</span><span class="d">　</span></div>
       </section>
 
-      <h2 class="sect">レンタルスペース<small>インスタベース・スペースマーケット</small></h2>
+      <h2 class="sect">レンタルスペース</h2>
       <section class="kpis" id="rkpis" aria-label="レンタルスペースの主要な数字">
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">利用件数</span><span class="v num">—</span><span class="d">　</span></div>
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">売上（ゲスト支払）</span><span class="v num">—</span><span class="d">　</span></div>
@@ -57,7 +57,7 @@
       </section>
 
 
-      <h2 class="sect" id="psect" hidden>利益<small>売上 − 変動費（仕入・人件費・備品消耗品・決済手数料）− 固定費</small></h2>
+      <h2 class="sect" id="psect" hidden>利益</h2>
       <div class="cov" id="pcover" hidden></div>
       <section class="kpis" id="pkpis" aria-label="利益の主要な数字" hidden>
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">利益（発生ベース）</span><span class="v num">—</span><span class="d">　</span></div>
@@ -67,24 +67,24 @@
       </section>
 
       <div class="detail">
-      <section class="card lg lg--text chart"><h2 id="c1t">日ごとの売上</h2><p class="cap" id="c1c">営業日（6:00〜翌6:00）</p><div id="c1"></div></section>
+      <section class="card lg lg--text chart"><h2 id="c1t">日ごとの売上</h2><div id="c1"></div></section>
       <div class="grid2">
-        <section class="card lg lg--text chart"><h2 id="c2t">推移</h2><p class="cap" id="c2c"></p><div id="c2"></div></section>
-        <section class="card lg lg--text chart"><h2>曜日ごとの平均</h2><p class="cap" id="c3c">伝票のあった日の平均</p><div id="c3"></div></section>
+        <section class="card lg lg--text chart"><h2 id="c2t">推移</h2><div id="c2"></div></section>
+        <section class="card lg lg--text chart"><h2>曜日ごとの平均</h2><div id="c3"></div></section>
       </div>
-      <section class="card lg lg--text"><h2>担当者別の売上・予約数</h2><p class="cap" id="staffcap">LINE で伝票を送った人ごと</p><div class="staff num" id="staff"></div></section>
+      <section class="card lg lg--text"><h2>担当者別の売上・予約数</h2><p class="cap" id="staffcap" hidden></p><div class="staff num" id="staff"></div></section>
       <div class="pdetail" id="pdetail" hidden>
-        <section class="card lg lg--text"><h2>利益の内訳</h2><p class="cap" id="pcap">この期間</p><div id="pstack"></div><div class="facts num" id="pfacts"></div></section>
-        <section class="card lg lg--text"><h2>固定費（日割り）</h2><p class="cap" id="fxcap">月額を日割りにした、この期間の分</p><div class="tablewrap" id="fxtable"></div></section>
-        <section class="card lg lg--text"><h2>担当者別の勤務時間と人件費</h2><p class="cap" id="lbcap">勤怠に記録された分</p><div class="tablewrap" id="lbtable"></div></section>
-        <p class="foot" id="pfoot">定義：利益＝売上合計（通常営業の伝票金額＋レンタルの店舗収益）−変動費（仕入＋人件費＋備品・消耗品＋Square の決済手数料）−固定費（Asana「Bar null 固定費」の月額を日割り）／発生ベースは未収を含み、入金ベースは未収の残高を除く／原価率＝仕入÷通常営業の売上、人件費率＝人件費÷売上合計／損益分岐売上＝固定費÷（1−変動費率）／金額は税込、棚卸（在庫の増減）は反映しない／仕入・人件費・備品消耗品は営業日で計上（備品・消耗品のカード明細は1〜2日遅れて入る）／レンタルの店舗収益は Slack の予約通知の速報値で、コスト管理（月次確定値）と一致しないことがある</p>
+        <section class="card lg lg--text"><h2>利益の内訳</h2><div id="pstack"></div><div class="facts num" id="pfacts"></div></section>
+        <section class="card lg lg--text"><h2>固定費（日割り）</h2><div class="tablewrap" id="fxtable"></div></section>
+        <section class="card lg lg--text"><h2>担当者別の勤務時間と人件費</h2><div class="tablewrap" id="lbtable"></div></section>
+        <details class="defs" id="pfoot"><summary>数字の定義</summary><p>利益＝売上合計（通常営業の伝票金額＋レンタルの店舗収益）−変動費（仕入＋人件費＋備品・消耗品＋Square の決済手数料）−固定費（Asana「Bar null 固定費」の月額を日割り。期間に項目の無い月は数えない）／発生ベースは未収を含み、入金ベースは未収の残高を除く／原価率＝仕入÷通常営業の売上、人件費率＝人件費÷売上合計／損益分岐売上＝固定費÷（1−変動費率）／金額は税込、棚卸（在庫の増減）は反映しない／仕入・人件費・備品消耗品は営業日で計上（備品・消耗品のカード明細は1〜2日遅れて入る）／レンタルの店舗収益は Slack の予約通知の速報値で、コスト管理（月次確定値）と一致しないことがある／人件費は勤怠と給与の記録から。バック・調整は月の一部の期間では日割り</p></details>
       </div>
-      <section class="card lg lg--text"><h2>内訳</h2><p class="cap" id="factscap">この期間</p><div class="facts num" id="facts"></div></section>
-      <section class="card lg lg--text" id="slipcard"><h2>伝票</h2><p class="cap">伝票 ID から Asana のタスクを開けます</p><div class="tablewrap" id="slips"></div></section>
-      <section class="card lg lg--text chart"><h2>レンタルスペースの推移</h2><p class="cap" id="r1c">利用日の月ごと・ゲストの支払額（予約通知から）</p><div id="r1"></div></section>
-      <section class="card lg lg--text"><h2>レンタルスペースの内訳</h2><p class="cap" id="rfactscap">この期間</p><div class="facts num" id="rfacts"></div></section>
-      <section class="card lg lg--text"><h2>レンタルスペースの月次確定値</h2><p class="cap">毎月1日に、前月分をプラットフォームごとに Asana へ記録したもの</p><div class="tablewrap" id="rmonths"></div></section>
-      <p class="foot" id="fresh">定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る</p>
+      <section class="card lg lg--text"><h2>内訳</h2><div class="facts num" id="facts"></div></section>
+      <section class="card lg lg--text" id="slipcard"><h2>伝票</h2><div class="tablewrap" id="slips"></div></section>
+      <section class="card lg lg--text chart"><h2>レンタルスペースの推移</h2><div id="r1"></div></section>
+      <section class="card lg lg--text"><h2>レンタルスペースの内訳</h2><div class="facts num" id="rfacts"></div></section>
+      <section class="card lg lg--text"><h2>レンタルスペースの月次確定値</h2><div class="tablewrap" id="rmonths"></div></section>
+      <details class="defs"><summary>数字の定義</summary><p id="fresh">売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／日は営業日（6:00〜翌6:00）／週は月曜〜日曜で、月をまたぐ週は月で区切る／曜日ごとの平均は伝票のあった日の平均（週の表示では直近8週）／担当者は LINE で伝票を送った人／レンタルスペースは利用日で集計し、キャンセルを除く（推移の金額はゲストの支払額。薄い棒は予約済みの先の月）／レンタルの月次確定値は、毎月1日に前月分をプラットフォームごとに Asana へ記録したもの</p></details>
       </div>
      </div>
 
@@ -93,7 +93,6 @@
         <div class="ai-head">
           <div>
             <h2><svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9.5l-4.7 1.9L12 16l-1.8-4.6L5.5 9.5l4.7-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>AI の示唆</h2>
-            <p class="cap" id="aicap">通常営業・担当者・レンタルスペース・利益とコストそれぞれの傾向・見通し・打ち手と、合わせた総評を Claude がまとめます。</p>
           </div>
           <div class="ai-actions">
             <button type="button" class="btn plain" id="aistop" hidden>止める</button>
@@ -497,7 +496,7 @@ function renderRental(p, today) {
     setRKpi(0, `${cur.count}件`, [`${pn} ${prev.count}件`]);
     setRKpi(1, yen(cur.gross), [`${pn}比 `, deltaNode(cur.gross, prev.gross)]);
     setRKpi(2, yen(cur.net), [cur.gross ? `手数料率 ${((1 - cur.net / cur.gross) * 100).toFixed(0)}%` : "　"]);
-    setRKpi(3, `${fut.count}件`, [`今日より後・${yen(fut.gross)}`]);
+    setRKpi(3, `${fut.count}件`, [yen(fut.gross)]);
     // 推移: 利用日の月ごと（直近12か月と、予約済みの先の月）
     const items = [], last = ym(addMonths(end, 3));
     for (let i = 11; i >= -3; i--) {
@@ -507,7 +506,6 @@ function renderRental(p, today) {
                    title: `${m.slice(0, 7)} ${yen(v.gross)}・${v.count}件${future ? "（予約済み）" : ""}` });
     }
     bars($("r1"), items, { label: "レンタルスペースの推移", h: 200 });
-    $("r1c").textContent = "利用日の月ごと・ゲストの支払額（予約通知から）。薄い棒は予約済みの先の月";
     const box = $("rfacts"); box.textContent = "";
     const rows = cur.rows, hrs = cur.hours;
     const firsts = rows.filter((r) => r.first !== null), firstShare = firsts.length ? Math.round(firsts.filter((r) => r.first).length / firsts.length * 100) : null;
@@ -520,13 +518,12 @@ function renderRental(p, today) {
       ["初めてのお客様", firstShare == null ? "—" : `${firstShare}%`],
       ["主な用途", topPurpose || "—"],
     ];
-    $("rfactscap").textContent = `${md(p.start)}〜${md(end)}（利用日で集計、キャンセルを除く）`;
     facts.forEach(([k, v]) => { const f = el("div", "fact"), a = el("span", "k"), b = el("span", "v"); a.textContent = k; b.textContent = v; f.append(a, b); box.append(f); });
   }
   const mb = $("rmonths"); mb.textContent = "";
   const months = rentalMonthsIn(p.kind === "week" ? monthStart(p.start) : p.start, p.end).sort((a, b) => b.month.localeCompare(a.month) || a.platform.localeCompare(b.platform));
   if (!state.rows) { mb.innerHTML = `<p class="empty">Asana につながると表示されます。</p>`; return; }
-  if (!months.length) { mb.innerHTML = `<p class="empty">この期間の月次確定値はまだありません（翌月1日に記録されます）。</p>`; return; }
+  if (!months.length) { mb.innerHTML = `<p class="empty">この期間の月次確定値はまだありません。</p>`; return; }
   const t = el("table", "rtable"); t.innerHTML = "<thead><tr><th>月</th><th>プラットフォーム</th><th>組数</th><th>売上</th><th>手数料</th><th>振込額</th></tr></thead>";
   const tb = el("tbody");
   months.forEach((m) => {
@@ -556,13 +553,13 @@ function renderCharts(p, today, cur) {
   const end = min(p.end, today);
   // 1) 期間の中の動き: 週・月は日ごと、年は月ごと
   if (p.kind === "year") {
-    $("c1t").textContent = "月ごとの売上"; $("c1c").textContent = `${p.year}年`;
+    $("c1t").textContent = "月ごとの売上";
     const items = []; for (let m = p.start; m <= p.end; m = addMonths(m, 1)) {
       const v = sum(m, monthEnd(m)); items.push({ label: `${Number(m.slice(5, 7))}月`, value: v.sales, cls: m <= today ? (inProgress(monthP(ym(m)), today) ? "cur" : "sel") : "", title: `${Number(m.slice(5, 7))}月 ${yen(v.sales)}・${v.count}組` });
     }
     bars($("c1"), items, { label: "月ごとの売上", h: 220 });
   } else {
-    $("c1t").textContent = "日ごとの売上"; $("c1c").textContent = "営業日（6:00〜翌6:00）";
+    $("c1t").textContent = "日ごとの売上";
     const items = []; for (let d = p.start; d <= p.end; d = add(d, 1)) {
       const v = sum(d, d); items.push({ label: p.kind === "week" ? md(d) : String(toD(d).getUTCDate()), sub: p.kind === "week" ? WD[wdi(d)] : "",
         value: v.sales, cls: v.sales ? "sel" : "", title: `${md(d)}（${WD[wdi(d)]}）${yen(v.sales)}・${v.count}組` });
@@ -571,18 +568,18 @@ function renderCharts(p, today, cur) {
   }
   // 2) 推移: 週は直近12週（月曜〜日曜）、月は直近12か月、年は年ごと
   if (p.kind === "week") {
-    $("c2t").textContent = "週ごとの推移"; $("c2c").textContent = "直近12週（月曜〜日曜）・この週を強調";
+    $("c2t").textContent = "週ごとの推移";
     const items = [], m0 = monday(p.start);
     for (let i = 11; i >= 0; i--) { const ws = add(m0, -7 * i), v = sum(ws, add(ws, 6));
       items.push({ label: md(ws), value: v.sales, cls: ws === m0 ? "sel" : (inProgress({ start: ws, end: add(ws, 6) }, today) ? "cur" : ""), title: `${md(ws)}〜${md(add(ws, 6))} ${yen(v.sales)}・${v.count}組` }); }
     bars($("c2"), items, { label: "週ごとの推移", h: 200 });
   } else if (p.kind === "month") {
-    $("c2t").textContent = "月ごとの推移"; $("c2c").textContent = "直近12か月・この月を強調";
+    $("c2t").textContent = "月ごとの推移";
     const items = []; for (let i = 11; i >= 0; i--) { const m = addMonths(p.start, -i), v = sum(m, min(monthEnd(m), today));
       items.push({ label: `${Number(m.slice(5, 7))}月`, value: v.sales, cls: i === 0 ? "sel" : "", title: `${m.slice(0, 7)} ${yen(v.sales)}・${v.count}組` }); }
     bars($("c2"), items, { label: "月ごとの推移", h: 200 });
   } else {
-    $("c2t").textContent = "年ごとの推移"; $("c2c").textContent = "伝票のある年";
+    $("c2t").textContent = "年ごとの推移";
     const items = []; const fy = Number(dataStart(today).slice(0, 4));
     for (let y = fy; y <= Number(today.slice(0, 4)); y++) { const v = sum(`${y}-01-01`, `${y}-12-31`);
       items.push({ label: `${y}年`, value: v.sales, cls: String(y) === p.year ? "sel" : "", title: `${y}年 ${yen(v.sales)}・${v.count}組` }); }
@@ -590,7 +587,6 @@ function renderCharts(p, today, cur) {
   }
   // 3) 曜日ごとの平均（週は直近8週、月・年はその期間）
   const a = p.kind === "week" ? add(monday(p.start), -49) : p.start;
-  $("c3c").textContent = p.kind === "week" ? "直近8週・伝票のあった日の平均" : "この期間・伝票のあった日の平均";
   const avg = weekdayAvg(a, end);
   const best = Math.max(...avg.map((x) => x.avg));
   bars($("c3"), avg.map((x, i) => ({ label: WD[i], value: x.avg, cls: x.avg && x.avg === best ? "sel" : "", title: `${WD[i]}曜 平均 ${yen(x.avg)}（${x.n}日）` })),
@@ -619,7 +615,6 @@ function renderFacts(p, today, cur, prev) {
     ["入金確認完了 / 決済確認済み", `${by["入金確認完了"] || 0}件 / ${by["決済確認済み"] || 0}件`],
     ["起票済み / 要確認", `${by["起票済み"] || 0}件 / ${by["要確認"] || 0}件`],
   ];
-  $("factscap").textContent = `${md(p.start)}〜${md(cur.end)}`;
   const box = $("facts"); box.textContent = "";
   facts.forEach(([k, v]) => { const f = el("div", "fact"), a = el("span", "k"), b = el("span", "v"); a.textContent = k; b.textContent = v; f.append(a, b); box.append(f); });
 }
@@ -628,7 +623,7 @@ function renderStaff(p, today, C) {
   const left = [];
   if (cur.admin.count) left.push(`管理者（桝本 崚允）の入力 ${cur.admin.count}組・${yen(cur.admin.sales)}`);
   if (cur.unknown.count) left.push(`担当の記録が無い伝票 ${cur.unknown.count}組・${yen(cur.unknown.sales)}`);
-  $("staffcap").textContent = `${md(p.start)}〜${md(C.cur.end)}・LINE で伝票を送った人ごと` + (left.length ? `。${left.join("、")}は除く` : "");
+  $("staffcap").textContent = left.length ? `${left.join("、")}は除く` : ""; $("staffcap").hidden = !left.length;
   box.textContent = "";
   const names = [...new Set([...Object.keys(cur.by), ...Object.keys(prev.by)])]
     .sort((a, b) => (cur.by[b]?.sales || 0) - (cur.by[a]?.sales || 0) || (prev.by[b]?.sales || 0) - (prev.by[a]?.sales || 0));
@@ -885,7 +880,7 @@ function stackNode(P) {   // 売上の使いみちの帯と凡例
   const lg = el("div", "legend");
   segs.forEach(([k, t, v]) => { const s = el("span"), sw = el("i", "sw"); sw.style.background = COLORS[k]; s.append(sw, `${t} ${yen(v)}（${pc(v / P.revenue)}）`); lg.append(s); });
   wrap.append(bar, lg);
-  const note = !P.complete ? `記録済みの分だけの帯です（${P.missing.join("・")}は記録済みではありません）。` : P.profit < 0 ? `費用が売上を ${yen(-P.profit)} 上回っています。` : "";
+  const note = !P.complete ? `記録済みの分だけ（${P.missing.join("・")}は記録済みではありません）` : "";
   if (note) { const n = el("p", "cap"); n.style.margin = "0"; n.textContent = note; wrap.append(n); }
   return wrap;
 }
@@ -922,15 +917,14 @@ function renderProfit(p, today) {
     setPKpi(1, yen(P.profitCash), [`未収 ${yen(P.openUnpaid)} を除く`]);
   } else {
     setPKpi(0, "—", [`断定できません（${miss}）`]);
-    setPKpi(1, "—", [`未収 ${yen(P.openUnpaid)} を除いた利益。同じ理由で出せません`]);
+    setPKpi(1, "—", ["同じ理由で出せません"]);
   }
   const parts = [`仕入 ${noRec(P.cov.purchase) ? "—" : yen(P.pur.total)}`, `人件費 ${noRec(P.cov.labor) ? "—" : yen(P.lab.cost)}`, `備品 ${noRec(P.cov.supplies) ? "—" : yen(P.sup.total)}`, `手数料 ${yen(P.fee)}`];
   setPKpi(2, yen(P.variable), [P.complete ? `売上の ${pc(P.varRate)}` : "記録済みの分だけ", `　${parts.join("・")}`]);
   const fxNone = ["wait", "none", "error"].includes(P.fx.s);
   setPKpi(3, fxNone ? "—" : yen(P.fx.total),
-    [P.fx.s === "error" ? "読み込めませんでした" : P.fx.s === "wait" ? "読み込み中" : P.fx.s === "none" ? "この期間は固定費の適用開始月より前です" : `月額の合計 ${yen(P.fx.monthly)} を日割り`]);
+    [P.fx.s === "error" ? "読み込めませんでした" : P.fx.s === "wait" ? "読み込み中" : P.fx.s === "none" ? "未設定" : `月額 ${yen(P.fx.monthly)}`]);
 
-  $("pcap").textContent = `${md(p.start)}〜${md(end)}`;
   $("pstack").textContent = ""; $("pstack").append(stackNode(P));
   const box = $("pfacts"); box.textContent = "";
   const facts = [
@@ -948,7 +942,7 @@ function renderProfit(p, today) {
   if (P.fx.s === "wait" || P.fx.s === "error") {
     const e = el("p", "empty"); e.textContent = P.fx.s === "wait" ? "読み込み中です。" : `固定費を読み込めませんでした。${P.fx.why || ""}`; fb.append(e);
   } else {
-    if (P.fx.s !== "full") { const e = el("p", "empty"); e.textContent = "この期間の一部は、固定費の項目が無い月です（未設定の月は数えていません）。"; fb.append(e); }
+    if (P.fx.s !== "full") { const e = el("p", "empty"); e.textContent = "一部の月は固定費が未設定です。"; fb.append(e); }
     // 年の表示では「月額」の列を出さない（月ごとに額が変わりうるので、1つの月の額を並べると合計と合わない）
     const mo = p.kind !== "year", cols = (name, monthly, amount) => mo ? [name, monthly, amount] : [name, amount];
     if (P.fx.items.length) fb.append(tableOf(mo ? [["項目"], ["月額", true], ["この期間", true]] : [["項目"], ["この期間", true]],
@@ -956,7 +950,6 @@ function renderProfit(p, today) {
   }
 
   const lb = $("lbtable"), lc = P.cov.labor; lb.textContent = "";
-  $("lbcap").textContent = (lc.s === "full" ? "勤怠と給与の記録から" + (lc.est ? "（給与は見込みを含む）" : "") : `人件費：${COV_TEXT(lc)}`) + "。バック・調整は月の一部の期間では日割り";
   if (!P.lab.workers) {
     const e = el("p", "empty"); e.textContent = lc.s === "wait" ? "読み込み中です。" : lc.s === "error" ? `勤怠・給与を読み込めませんでした。${lc.why || ""}` : "この期間の勤怠・給与は未記録です。"; lb.append(e);
   } else {
@@ -1594,7 +1587,6 @@ async function loadData(refresh) {
     const staffLabel = {}; rows.forEach((r) => { if (r.staffKey && !staffLabel[r.staffKey]) staffLabel[r.staffKey] = r.staff; });   // 表示は最初に見た表記
     Object.assign(state, { rows, dataEnv: env, staffLabel, rentalMonths: months });
     if (state.profitOK) loadCosts(mcp, env, live, refresh);
-    $("fresh").textContent = `Asana から読み込み：${new Date().toLocaleString("ja-JP", { hour12: false })}　定義：売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／週は月曜〜日曜で、月をまたぐ週は月で区切る`;
     render();
     recordSnapshots(env, rows);
   } catch (err) {

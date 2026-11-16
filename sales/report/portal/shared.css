@@ -140,6 +140,7 @@ a{color:var(--accent-text)}
 .row .v{font-size:12px;color:var(--label-3)}
 .row.month-row .t b{font-weight:700;color:var(--label)}
 .row.month-row .v{color:var(--label-2)}
+.row.month-row .t > span:not(.tag){display:none}   /* 月の行の「月の集計」は見れば分かるので出さない */
 /* 選択中: 緑の太字と、左の線 */
 .row[aria-current="true"]{color:var(--accent-text);background:var(--accent-soft)}
 .row[aria-current="true"]::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent-fill)}
@@ -244,6 +245,11 @@ td a:hover{text-decoration:underline}
 .notice strong{display:block;font-size:14px;margin-bottom:2px}
 .empty{color:var(--label-2);font-size:14px;padding:6px 0}
 .foot{font-size:12px;line-height:16px;color:var(--label-2);padding:0}
+/* 数字の定義（長い脚注は閉じておく。本人: 見れば分かる説明はノイズになる） */
+details.defs{font-size:12px;line-height:16px;color:var(--label-2)}
+details.defs > summary{cursor:pointer;width:max-content;color:var(--label-2)}
+details.defs > summary:hover{color:var(--accent-text)}
+details.defs[open] > summary{margin-bottom:6px}
 
 /* ---------- 設定（右上） ---------- */
 .tools{display:flex;align-items:center;gap:8px;position:relative}

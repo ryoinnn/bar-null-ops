@@ -78,7 +78,7 @@
 
 <div class="pad pg-cost" id="cost-root">
   <header class="toolbar lg">
-    <div><h1 id="cost-title">コスト管理</h1><div class="sub" id="cost-sub">読み込んでいます</div></div>
+    <div><h1 id="cost-title">コスト管理</h1><div class="sub" id="cost-sub" hidden></div></div>
     <div class="tb-tools">
       <div class="mstep" role="group" aria-label="対象の月">
         <button type="button" id="cost-prev" aria-label="前の月">‹</button><b id="cost-month" class="num">—</b><button type="button" id="cost-next" aria-label="次の月">›</button>
@@ -92,7 +92,7 @@
   <section class="view" id="cost-v-all" aria-label="コスト全体">
     <section class="kpis" id="cost-k-all"></section>
     <div class="cov" id="cost-cov-all"></div>
-    <section class="card lg lg--text chart"><h2>コストの推移</h2><p class="cap" id="cost-c-all-cap">直近6か月・月ごと</p><div id="cost-c-all"></div></section>
+    <section class="card lg lg--text chart"><h2>コストの推移</h2><div id="cost-c-all"></div></section>
     <div class="grid2" id="cost-boxes"></div>
   </section>
 
@@ -100,14 +100,13 @@
   <section class="view" id="cost-v-fixed" aria-label="固定費" hidden>
     <section class="kpis" id="cost-k-fixed"></section>
     <div class="grid2">
-      <section class="card lg lg--text"><h2>区分別</h2><p class="cap" id="cost-fx-catcap">この月の月額（税込）</p><div id="cost-fx-cats"></div></section>
-      <section class="card lg lg--text"><h2>項目別</h2><p class="cap" id="cost-fx-cap">月額（税込）</p><div id="cost-fx-items"></div></section>
+      <section class="card lg lg--text"><h2>区分別</h2><div id="cost-fx-cats"></div></section>
+      <section class="card lg lg--text"><h2>項目別</h2><div id="cost-fx-items"></div></section>
     </div>
-    <section class="card lg lg--text chart"><h2>固定費の推移</h2><p class="cap">直近6か月・区分ごと。月の下は売上合計に対する割合</p><div id="cost-c-fixed"></div></section>
+    <section class="card lg lg--text chart"><h2>固定費の推移</h2><div id="cost-c-fixed"></div></section>
     <div class="grid2">
-      <section class="card lg lg--text"><h2>今後3か月の変わり目</h2><p class="cap">金額が変わる・始まる・終わる項目</p><div id="cost-fx-next"></div></section>
+      <section class="card lg lg--text"><h2>今後3か月の変わり目</h2><div id="cost-fx-next"></div></section>
       <section class="card lg lg--text box"><div class="box-head"><h2>項目と金額の編集</h2></div>
-        <p class="note">固定費は Asana「Bar null 固定費」で管理しています（管理者だけ）。値上げは新しい適用開始月のタスクを足し、請求額が月で変わるもの（光熱費など）は「実績」で入れます。</p>
         <a class="btn tinted go" id="cost-fx-asana" href="#" target="_blank" rel="noopener">Asana で開く</a></section>
     </div>
   </section>
@@ -116,10 +115,10 @@
   <section class="view" id="cost-v-var" aria-label="変動費" hidden>
     <section class="kpis" id="cost-k-var"></section>
     <div class="grid4" id="cost-cats"></div>
-    <section class="card lg lg--text chart"><h2>変動費の推移</h2><p class="cap">直近6か月・月ごと</p><div id="cost-c-var"></div></section>
+    <section class="card lg lg--text chart"><h2>変動費の推移</h2><div id="cost-c-var"></div></section>
   </section>
 
-  <p class="foot" id="cost-foot">定義：固定費＝Asana「Bar null 固定費」の月額（年払い等は按分。月の途中でも月額のまま表示。返済・配当を含む）／変動費＝人件費（給与の合計。今月は見込み）＋仕入（NIGITA）＋備品・消耗品（カード BAR NULL。明細は1〜2日遅れ）＋決済手数料（Square）／売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値のある月だけ）／人件費は給与の記録のある月だけ（無い月は記録なし）／金額は税込</p>
+  <details class="defs"><summary>数字の定義</summary><p class="foot" id="cost-foot">定義：固定費＝Asana「Bar null 固定費」の月額（年払い等は按分。月の途中でも月額のまま表示。返済・配当を含む）／変動費＝人件費（給与の合計。今月は見込み）＋仕入（NIGITA）＋備品・消耗品（カード BAR NULL。明細は1〜2日遅れ）＋決済手数料（Square）／売上合計＝通常営業の伝票金額（未収を含み、取消を除く）＋レンタルの店舗収益（月次確定値のある月だけ）／人件費は給与の記録のある月だけ（無い月は記録なし）／金額は税込</p></details>
 </div>
 
 <script type="module">
@@ -242,7 +241,7 @@ function render() {
   $("cost-month").textContent = mLabel(st.month);
   $("cost-next").disabled = st.month >= todayBiz().slice(0, 7);
   const cur = st.month === todayBiz().slice(0, 7);
-  $("cost-sub").textContent = `${st.env === "test" ? "テスト用のデータ・" : ""}${mLabel(st.month)}${cur ? "（集計中）" : ""}`;
+  $("cost-sub").textContent = st.env === "test" ? "テスト用のデータ" : ""; $("cost-sub").hidden = st.env !== "test";   // 月は右上に出ているので、見出しの下には出さない
   const nb = $("cost-notice"); nb.textContent = "";
   if (st.mcp === null) { nb.append(noticeBox("Asana につながっていません", "claude.ai で Asana を接続すると、人件費・決済手数料・売上が表示されます。")); }
   else {
@@ -266,14 +265,13 @@ const ratioText = (v, M) => M.revenue ? `売上合計の ${pc(v / M.revenue)}` :
 function renderAll(M, months) {
   const k = $("cost-k-all"); k.textContent = "";
   k.append(
-    kpi("コスト合計", yen(M.known), M.known == null ? "　" : M.complete ? (M.est ? "人件費は見込み" : "") : "記録済みの分だけ（未設定・読めなかった費用を除く）", M.known == null),
+    kpi("コスト合計", yen(M.known), M.known == null ? "　" : M.complete ? (M.est ? "人件費は見込み" : "") : "記録済みの分", M.known == null),
     kpi("固定費", M.fixed == null ? "—" : yen(M.fixed), M.fixed == null ? STATE_TEXT[M.c.fixed.s] : ratioText(M.fixed, M), M.fixed == null),
     kpi("変動費", yen(M.varKnown), M.varKnown == null ? "　" : ratioText(M.varKnown, M), M.varKnown == null),
     kpi("売上に対するコスト", M.revenue && M.known != null ? pc(M.known / M.revenue) : "—", M.revenue ? `売上合計 ${yen(M.revenue)}` + (M.complete ? "" : "・記録済みの分") : "", !(M.revenue && M.known != null)));
   const cv = $("cost-cov-all"); cv.textContent = "";
-  [...CATS, FIXED].forEach((c) => { const s = M.c[c.key].s; cv.append(chip(s, `${c.name}：${STATE_TEXT[s] || s}`)); });
+  [...CATS, FIXED].forEach((c) => { const s = M.c[c.key].s; if (s !== "ok") cv.append(chip(s, `${c.name}：${STATE_TEXT[s] || s}`)); });   // 記録済みの費目は出さない（そろっていないものだけ知らせる）
   const series = [...CATS.map((c) => ({ ...c, get: (X) => X.c[c.key].v })), { ...FIXED, get: (X) => X.c.fixed.v }];
-  $("cost-c-all-cap").textContent = "直近6か月・月ごと。横線は売上合計";
   const ch = $("cost-c-all"); ch.textContent = ""; ch.append(stackChart(months, series, true));
   // 遷移の箱（固定費・変動費）
   const bx = $("cost-boxes"); bx.textContent = "";
@@ -283,7 +281,7 @@ function renderAll(M, months) {
   const fa = el("a", "btn go", "固定費を見る"); fa.href = "#cost-fixed"; fb.append(fa);
   const vb = el("section", "card lg lg--text box"), vh = el("div", "box-head"), vh2 = el("h2"); vh2.append("変動費"); vh.append(vh2);
   const parts = CATS.map((c) => ({ ...c, v: M.c[c.key].v || 0 }));
-  vb.append(vh, el("div", "big num", yen(M.varKnown)), el("div", "sub", `人件費・仕入・備品消耗品・決済手数料（記録済みの分）`), band(parts, M.varKnown), legend(CATS));
+  vb.append(vh, el("div", "big num", yen(M.varKnown)), band(parts, M.varKnown), legend(CATS));
   const va = el("a", "btn go", "変動費を見る"); va.href = "#cost-var"; vb.append(va);
   bx.append(fb, vb);
 }
@@ -297,7 +295,7 @@ function renderFixed(M, months) {
     kpi("固定費（月額）", M.fixed == null ? "—" : yen(M.fixed), M.fixed == null ? STATE_TEXT[f.s] : `1日あたり ${yen(M.fixed / daysIn(M.m))}`, M.fixed == null),
     kpi("売上に対する割合", M.fixed != null && M.revenue ? pc(M.fixed / M.revenue) : "—", M.revenue ? `売上合計 ${yen(M.revenue)}` : "売上合計がまだありません", !(M.fixed != null && M.revenue)),
     kpi("前月との差", dlt == null ? "—" : (dlt > 0 ? "+" : dlt < 0 ? "−" : "±") + yen(Math.abs(dlt)), P.fixed != null ? `前月 ${yen(P.fixed)}` : "前月は未設定", dlt == null),
-    kpi("損益分岐売上", be == null ? "—" : yen(be), be == null ? (M.fixed == null ? "固定費が未設定" : "変動費がすべて記録済みになると出します") : `売上合計は損益分岐の ${pc(M.revenue / be)}（${M.revenue >= be ? "+" : "−"}${yen(Math.abs(M.revenue - be))}）`, be == null));
+    kpi("損益分岐売上", be == null ? "—" : yen(be), be == null ? (M.fixed == null ? "固定費が未設定" : "変動費の記録待ち") : `売上合計は損益分岐の ${pc(M.revenue / be)}（${M.revenue >= be ? "+" : "−"}${yen(Math.abs(M.revenue - be))}）`, be == null));
   // 区分別
   const cb = $("cost-fx-cats"); cb.textContent = "";
   if (!f.items.length) cb.append(el("p", "empty", f.s === "wait" ? "読み込み中です。" : f.s === "error" ? "固定費を読み込めませんでした。" : "この月の固定費の項目はありません（未設定）。"));
@@ -325,7 +323,7 @@ function renderFixed(M, months) {
     });
     box.append(hb);
   }
-  $("cost-fx-cap").textContent = `月額（税込）・${mLabel(M.m)}`;
+
   // 推移（区分の積み上げ。月の下は売上合計に対する割合）
   const ch = $("cost-c-fixed"); ch.textContent = "";
   ch.append(stackChart(months, FX_CATS.filter((c) => months.some((X) => X.c.fixed.v != null && fxCatSum(X.c.fixed.f, c.name))).map((c) => ({ ...c, get: (X) => X.c.fixed.v == null ? null : fxCatSum(X.c.fixed.f, c.name) || null })), false,
@@ -363,13 +361,13 @@ function renderVar(M, months) {
   const box = $("cost-cats"); box.textContent = "";
   CATS.forEach((c) => {
     const x = M.c[c.key], card = el("section", "card lg lg--text box cat"), h = el("div", "box-head"), h2 = el("h2"), d = el("i", "dot"); d.style.background = c.color; h2.append(d, c.name);
-    h.append(h2, chip(x.s, STATE_TEXT[x.s] || x.s));
+    h.append(h2); if (x.s !== "ok") h.append(chip(x.s, STATE_TEXT[x.s] || x.s));   // 記録済みなら印は出さない
     card.append(h, el("div", "big num", x.v == null ? "—" : yen(x.v)), el("div", "sub", x.v != null ? ratioText(x.v, M) + (x.kinds && Object.keys(x.kinds).length ? "・" + Object.entries(x.kinds).sort((p, q) => q[1] - p[1]).map(([kk, vv]) => `${kk} ${yen(vv)}`).join("・") : "") : STATE_TEXT[x.s]));
     const last = c.key === "purchase" ? st.L.purchaseLast : c.key === "supplies" ? st.L.suppliesLast : null;   // いちばん新しい記録の日（古さが分かるように）
     if (last) card.append(el("p", "note", `記録は ${md(last)} まで`));
     const sp = el("div"); sp.innerHTML = spark(months, (X) => X.c[c.key].v, c.color); card.append(sp);
     if (c.route) { const a = el("a", "btn tinted go", `${c.name}の詳細`); a.href = "#" + c.route; card.append(a); }
-    else card.append(el("p", "note", "Square の決済手数料。伝票から自動で数えます"));
+
     box.append(card);
   });
   const ch = $("cost-c-var"); ch.textContent = ""; ch.append(stackChart(months, CATS.map((c) => ({ ...c, get: (X) => X.c[c.key].v })), true));
