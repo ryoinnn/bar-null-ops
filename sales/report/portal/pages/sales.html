@@ -699,7 +699,7 @@ function noticeBox(title, body) { const d = el("div", "notice"), s = el("strong"
    人件費は勤怠と給与（§2）、仕入（§3）、備品・消耗品（§3b）、固定費（§3c。計算は BN.fixed）。読むプロジェクトの ID は BN.IDS。
    費用が「記録済み」でない期間は、利益を断定せず「—」にする（記録済みの分だけの参考値は添える）。
    利益のセクションは、費用のプロジェクトを読める人（Editor 以上）にだけ見せる。 */
-const COLORS = { purchase: "var(--accent)", labor: "var(--series-rent)", fee: "var(--warn)", supplies: "#8a63d2", fixed: "color-mix(in srgb, var(--label-2) 75%, transparent)", profit: "var(--green)" };
+const COLORS = { purchase: "var(--c-purchase)", labor: "var(--c-labor)", fee: "var(--c-fee)", supplies: "var(--c-supplies)", fixed: "var(--c-fixed)", profit: "var(--green)" };   // 費目の色は shared.css（ホーム・コスト管理と同じ）
 Object.assign(state, { cost: null, profitOK: false, pinsights: {} });
 
 function parseAttendance(t) {   // 勤怠（1人 × 1稼働日）。contract.md §2-1
@@ -1482,6 +1482,8 @@ const Lens = {
   PRESET: { bar: { bezel: 18, scale: 18, blur: 3 }, tile: { bezel: 14, scale: 12, blur: 2.5 } },   // 控えめに曲げる
   init() {
     const brands = (navigator.userAgentData && navigator.userAgentData.brands) || [];
+    // 今の見た目（shared.css の --lg-blur が none）ではガラスを使わないので、屈折の処理（変位マップの作成）を動かさない
+    if (getComputedStyle(document.documentElement).getPropertyValue("--lg-blur").trim() === "none") { this.supported = false; return; }
     this.supported = brands.some((b) => /Chromium/.test(b.brand)) && CSS.supports("backdrop-filter", "url(#x)") &&
       !matchMedia("(prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active)").matches;
     const sw = $("lens");
