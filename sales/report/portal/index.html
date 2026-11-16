@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <style>
 /* ポータルの殻（AWS Console の配置: 上部バー・左のサイドナビ・パンくず・本文）。
    色・部品は shared.css（トークンと共通の部品）を読み込んで使う。ここには殻だけのスタイルを置く。 */
@@ -13,7 +13,7 @@ body{margin:0}
 /* 上部バー */
 .topnav{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;height:var(--topnav-h,48px);
   padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));background:var(--topnav,#0f141a);color:var(--topnav-text,#f9f9fa);
-  border-bottom:1px solid #2a2f38}
+  border-bottom:1px solid #000}
 .tn-menu{display:none;width:36px;height:36px;border:0;border-radius:8px;background:none;color:inherit;cursor:pointer;place-items:center}
 .tn-menu:hover{background:rgba(255,255,255,.1)}
 .tn-menu svg{width:20px;height:20px}
@@ -23,7 +23,7 @@ body{margin:0}
 .envchip{padding:2px 8px;border-radius:4px;font-size:12px;line-height:16px;font-weight:700;white-space:nowrap;color:#0f141a;background:#fbd332}
 .tn-right{margin-left:auto;display:flex;align-items:center;gap:12px}
 .tn-env{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--topnav-2,#b4b4bb)}
-.topnav .tn-env select{background:#161d26;color:#f9f9fa;border:1px solid #656871;border-radius:8px;padding:4px 8px;min-height:30px;font:inherit;font-size:14px}
+.topnav .tn-env select{background:#2a2a2a;color:#f2f2f2;border:1px solid #6b6b6b;border-radius:2px;padding:4px 8px;min-height:30px;font:inherit;font-size:14px}
 /* 本体: サイドナビ ＋ 本文 */
 .layout{display:grid;grid-template-columns:var(--sidenav-w,264px) minmax(0,1fr);min-height:calc(100vh - var(--topnav-h,48px))}
 .sidenav{position:sticky;top:var(--topnav-h,48px);height:calc(100vh - var(--topnav-h,48px));overflow:auto;scrollbar-width:thin;
