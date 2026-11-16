@@ -1,121 +1,145 @@
 <title>Bar null ポータル</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap">
 <style>
-/* ホームポータルの殻。見た目の部品（トークン・ガラス・カード）は shared.css（A が管理）を読み込んで使う。
-   ここには殻だけのスタイルを置く。 */
-html,body{overflow-x:clip}   /* 1px の端数で横スクロールが出ないように（clip は sticky を壊さない） */
-.shell[hidden],.page[hidden]{display:none}
-.boot{padding:48px max(16px,env(safe-area-inset-left,0px));color:var(--label-2,#666);font:15px/1.6 system-ui,sans-serif}
-.shell.lg{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;border-radius:0;border-width:0 0 1px;
-  display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;min-height:52px;
-  padding:8px max(18px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px))}
-.shell .logo{margin:0;font-size:18px;font-weight:700;letter-spacing:-.015em;color:var(--label);text-decoration:none;white-space:nowrap}
-.shell .logo small{margin-left:8px;font-size:12px;font-weight:600;color:var(--label-2)}
-.envchip{padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;color:var(--warn-text,#8a5a00);background:color-mix(in srgb, var(--warn,#c97800) 16%, transparent);border:1px solid color-mix(in srgb, var(--warn,#c97800) 40%, transparent)}
-.envchip[hidden]{display:none}
-.subtabs{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
-.subtabs a{padding:6px 12px;border-radius:var(--r-control);font-size:13.5px;font-weight:600;color:var(--label-2);text-decoration:none}
-.subtabs a:hover{background:var(--fill)}
-.subtabs a[aria-current="page"]{background:var(--accent-fill);color:var(--on-accent)}
-.subtabs .crumb{align-self:center;color:var(--label-3);padding:0 2px}
-.subtabs a.child{font-weight:550}
-.subtabs a.child[aria-current="page"]{background:var(--accent-soft);color:var(--accent-text)}
-.tenant{margin-left:auto;position:relative}
-.tenant-btn{display:inline-flex;align-items:center;gap:8px;padding:7px 12px 7px 14px;border:1px solid var(--separator);border-radius:var(--r-control);
-  background:var(--fill);cursor:pointer;font-size:14px;font-weight:650}
-.tenant-btn svg{width:14px;height:14px;transition:transform .2s var(--ease)}
-.tenant-btn[aria-expanded="true"] svg{transform:rotate(180deg)}
-.tenant-btn .k{font-size:11.5px;font-weight:600;color:var(--label-3)}
-.tmenu{position:absolute;right:0;top:calc(100% + 8px);min-width:220px;padding:6px;border-radius:16px;z-index:40;display:flex;flex-direction:column;gap:2px}
-.tmenu[hidden]{display:none}
-.tmenu a{display:flex;flex-direction:column;padding:9px 12px;border-radius:var(--r-row);text-decoration:none;color:var(--label)}
-.tmenu a:hover{background:var(--fill)}
-.tmenu a b{font-size:14px}
-.tmenu a span{font-size:12px;color:var(--label-2)}
-.tmenu a[aria-current="page"]{background:var(--accent-soft)}
-.pad{padding-block:14px 44px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));max-width:1180px}
-.home h1{margin:8px 0 4px;font-size:clamp(24px,3vw,32px);letter-spacing:-.02em}
-.home .lead{margin:0 0 20px;color:var(--label-2);font-size:14px}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}
-.tile{display:flex;flex-direction:column;gap:10px;padding:22px;border-radius:var(--r-card);text-decoration:none;color:var(--label);min-width:0}
-.tile h2{margin:0;font-size:20px;letter-spacing:-.01em}
-.tile p{margin:0;font-size:13.5px;color:var(--label-2)}
-.tile .links{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
-.tile .links a{padding:6px 12px;border-radius:var(--r-control);background:var(--fill);font-size:13px;font-weight:600;color:var(--label);text-decoration:none}
-.tile .links a:hover{background:var(--fill-2)}
-a.tile:hover{transform:translateY(-1px)}
-.tile{transition:transform .2s var(--ease-spring)}
-.err{padding:24px;border-radius:var(--r-card);margin:24px 16px}
+/* ポータルの殻（AWS Console の配置: 上部バー・左のサイドナビ・パンくず・本文）。
+   色・部品は shared.css（トークンと共通の部品）を読み込んで使う。ここには殻だけのスタイルを置く。 */
+html,body{overflow-x:clip}
+body{margin:0}
+.boot{padding:48px 24px;color:#424650;font:14px/1.6 system-ui,sans-serif}
+/* 上部バー */
+.topnav{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;height:var(--topnav-h,48px);
+  padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));background:var(--topnav,#0f141a);color:var(--topnav-text,#f9f9fa);
+  border-bottom:1px solid #2a2f38}
+.tn-menu{display:none;width:36px;height:36px;border:0;border-radius:8px;background:none;color:inherit;cursor:pointer;place-items:center}
+.tn-menu:hover{background:rgba(255,255,255,.1)}
+.tn-menu svg{width:20px;height:20px}
+.tn-logo{display:inline-flex;align-items:center;gap:10px;color:inherit;text-decoration:none;font-weight:700;font-size:16px;white-space:nowrap}
+.tn-logo .mark{width:22px;height:22px;border-radius:6px;background:var(--brand,#FF2D6F);display:grid;place-items:center;color:#fff;font-size:12px;font-style:normal;line-height:1}
+.tn-logo span{font-weight:400;color:var(--topnav-2,#b4b4bb);font-size:14px}
+.envchip{padding:2px 8px;border-radius:4px;font-size:12px;line-height:16px;font-weight:700;white-space:nowrap;color:#0f141a;background:#fbd332}
+.tn-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.tn-env{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--topnav-2,#b4b4bb)}
+.topnav .tn-env select{background:#161d26;color:#f9f9fa;border:1px solid #656871;border-radius:8px;padding:4px 8px;min-height:30px;font:inherit;font-size:14px}
+/* 本体: サイドナビ ＋ 本文 */
+.layout{display:grid;grid-template-columns:var(--sidenav-w,264px) minmax(0,1fr);min-height:calc(100vh - var(--topnav-h,48px))}
+.sidenav{position:sticky;top:var(--topnav-h,48px);height:calc(100vh - var(--topnav-h,48px));overflow:auto;scrollbar-width:thin;
+  background:var(--card-solid);border-right:1px solid var(--separator);padding:20px 0 32px max(0px,env(safe-area-inset-left,0px))}
+.sn-head{padding:0 24px 16px;margin-bottom:12px;border-bottom:1px solid var(--separator)}
+.sn-head a{font-size:18px;line-height:22px;font-weight:700;color:var(--label);text-decoration:none}
+.sn-head small{display:block;font-size:12px;line-height:16px;color:var(--label-2);margin-top:2px}
+.sn-list,.sn-list ul{list-style:none;margin:0;padding:0}
+.sn-list ul{padding-left:16px}
+.sn-sec{padding:12px 24px 4px;font-size:12px;line-height:16px;font-weight:700;color:var(--label-2)}
+.sn-item{display:flex;align-items:center;gap:6px;position:relative;margin:0 12px;padding:5px 12px;border-radius:8px;color:var(--label-2);text-decoration:none;font-size:14px;line-height:20px}
+.sn-item:hover{color:var(--accent-hover);background:var(--fill)}
+.sn-item[aria-current="page"]{color:var(--accent-text);font-weight:700;background:var(--accent-soft)}
+.sn-item[aria-current="page"]::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--accent-fill)}
+.sn-item .chev{width:12px;height:12px;flex:none;margin-left:-16px;color:var(--label-3);transition:transform 160ms ease}
+.sn-item[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.sn-item.parent{font-weight:700;color:var(--label)}
+.sn-item.parent[aria-current="page"]{color:var(--accent-text)}
+.sn-divider{height:1px;background:var(--separator);margin:16px 24px}
+.sn-period h2{margin:0;padding:0 24px 8px;font-size:12px;line-height:16px;font-weight:700;color:var(--label-2)}
+#sideslot .side{box-shadow:none;background:none;border-radius:0;margin:0;overflow:visible}
+#sideslot .side-head{display:none}
+#sideslot .nav{padding:0 12px;overflow:visible}
+.scrim{display:none}
+/* 本文 */
+.main{min-width:0;padding:0 max(24px,env(safe-area-inset-right,0px)) 0 24px}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:16px 0 4px;font-size:14px;line-height:20px;color:var(--label-2)}
+.crumbs a{color:var(--accent-text);text-decoration:none}
+.crumbs a:hover{text-decoration:underline}
+.crumbs .sep{color:var(--label-3)}
+.pad{padding:0}
+.page[hidden]{display:none}
+.err{padding:20px;border-radius:16px;margin:24px 0}
 .err button{margin-top:10px}
+/* 狭い画面: サイドナビは左から出る引き出し。期間の一覧はページの上に戻る */
+@media (max-width: 900px){
+  .tn-menu{display:inline-grid}
+  .tn-logo span{display:none}
+  .tn-env span{display:none}
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .sidenav{position:fixed;left:0;top:var(--topnav-h,48px);z-index:35;width:min(300px,86vw);transform:translateX(-102%);transition:transform 200ms ease;box-shadow:var(--shadow-pop)}
+  .sidenav.open{transform:none}
+  .scrim{position:fixed;inset:var(--topnav-h,48px) 0 0 0;z-index:34;background:rgba(15,20,26,.4)}
+  .scrim.open{display:block}
+  .main{padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
+}
 </style>
 
 <div id="boot" class="boot">読み込んでいます…</div>
 
-<div class="decor" aria-hidden="true"><svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
-  <rect x="-120" y="-140" width="520" height="580" rx="90"/><circle cx="250" cy="300" r="125"/><circle cx="250" cy="300" r="62"/>
-  <rect x="930" y="520" width="620" height="620" rx="96"/><circle cx="1075" cy="640" r="130"/><circle cx="1075" cy="640" r="58"/>
-  <circle cx="810" cy="500" r="78"/><line x1="560" y1="500" x2="1060" y2="500"/><line x1="810" y1="330" x2="810" y2="670"/>
-  <circle cx="1440" cy="370" r="110"/><line x1="1180" y1="370" x2="1600" y2="370"/><line x1="1440" y1="200" x2="1440" y2="540"/>
-</svg></div>
-
-<header class="shell lg" id="shell" hidden>
-  <a class="logo" href="#home">Bar null</a>
+<header class="topnav" id="shell" hidden>
+  <button type="button" class="tn-menu" id="menubtn" aria-label="メニューを開く" aria-expanded="false" aria-controls="sidenav">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <a class="tn-logo" href="#home"><i class="mark" aria-hidden="true">N</i>Bar null<span>ポータル</span></a>
   <span class="envchip" id="envchip" hidden>テスト用のデータ</span>
-  <nav class="subtabs" id="subtabs" aria-label="コスト管理のページ" hidden></nav>
-  <div class="tenant">
-    <button type="button" class="tenant-btn" id="tbtn" aria-haspopup="true" aria-expanded="false" aria-controls="tmenu">
-      <span><span class="k">テナント</span> <span id="tname">ホーム</span></span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <nav class="tmenu lg lg--text" id="tmenu" aria-label="テナントの切り替え" hidden></nav>
+  <div class="tn-right">
+    <label class="tn-env"><span>データ</span><select id="envsel" aria-label="読み込むプロジェクト"><option value="prod">本番</option><option value="test">テスト</option></select></label>
   </div>
 </header>
 
-<div id="pages"></div>
+<div class="layout" id="layout" hidden>
+  <nav class="sidenav" id="sidenav" aria-label="ナビゲーション">
+    <div class="sn-head"><a href="#home">Bar null</a><small>売上とコストの管理</small></div>
+    <ul class="sn-list" id="snlist"></ul>
+    <section class="sn-period" id="snperiod" aria-label="期間" hidden><div class="sn-divider"></div><h2>期間</h2><div id="sideslot"></div></section>
+  </nav>
+  <div class="scrim" id="scrim"></div>
+  <div class="main">
+    <nav class="crumbs" id="crumbs" aria-label="現在の場所"></nav>
+    <div id="pages"></div>
+  </div>
+</div>
 
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
   const use = (name) => (window.claude && window.claude.use) ? window.claude.use(name) : Promise.resolve(null);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
-  /* ---------- ルート（ハッシュは英数字とハイフンだけ） ---------- */
-  const TENANTS = {
-    sales: { name: "売上管理", desc: "売上・予約・担当者・レンタル・利益と AI の示唆", first: "sales" },
-    cost: { name: "コスト管理", desc: "固定費・変動費（人件費・仕入・備品消耗品）", first: "cost", gated: true },
-  };
+  /* ---------- ルート（ハッシュは英数字とハイフンだけ） ----------
+     画面の切り替えは左のサイドナビに統一する（2026-11-16 本人指定）。
+     ホーム（ダッシュボード）→ 売上管理／コスト管理 → コスト管理の中は 全体・固定費・変動費 → 変動費の中は 人件費・仕入・備品消耗品 */
   const ROUTES = {
-    home: { tenant: null, title: "ホーム" },
-    sales: { tenant: "sales", title: "売上管理", page: "pages/sales.html" },
-    /* コスト管理: 全体 → 固定費／変動費 → 変動費の内訳（人件費・仕入・備品消耗品）。全体・固定費・変動費は1つのページ（cost.html）の表示の切り替え */
-    cost: { tenant: "cost", title: "全体", page: "pages/cost.html", top: true },
-    "cost-fixed": { tenant: "cost", title: "固定費", page: "pages/cost.html", top: true },
-    "cost-var": { tenant: "cost", title: "変動費", page: "pages/cost.html", top: true },
-    "cost-staff": { tenant: "cost", title: "人件費", page: "pages/staff.html", parent: "cost-var" },
-    "cost-purchase": { tenant: "cost", title: "仕入", page: "pages/purchase.html", parent: "cost-var" },
-    "cost-supplies": { tenant: "cost", title: "備品・消耗品", page: "pages/supplies.html", parent: "cost-var" },
+    home: { title: "ダッシュボード", page: "pages/home.html" },
+    sales: { title: "売上管理", page: "pages/sales.html", parent: "home" },
+    /* 全体・固定費・変動費は1つのページ（cost.html）の表示の切り替え */
+    cost: { title: "全体", page: "pages/cost.html", parent: "cost-root", gated: true },
+    "cost-fixed": { title: "固定費", page: "pages/cost.html", parent: "cost-root", gated: true },
+    "cost-var": { title: "変動費", page: "pages/cost.html", parent: "cost-root", gated: true },
+    "cost-staff": { title: "人件費", page: "pages/staff.html", parent: "cost-var", gated: true },
+    "cost-purchase": { title: "仕入", page: "pages/purchase.html", parent: "cost-var", gated: true },
+    "cost-supplies": { title: "備品・消耗品", page: "pages/supplies.html", parent: "cost-var", gated: true },
   };
+  const GROUPS = { "cost-root": { title: "コスト管理", first: "cost" } };   // パンくずとサイドナビだけの見出し（ページは持たない）
   const ALIAS = { "cost-other": "cost-fixed" };
+  const chain = (key) => { const out = []; let k = key; while (k && k !== "home") { out.unshift(k); k = (ROUTES[k] || GROUPS[k] || {}).parent; } return out; };
 
   /* コスト管理は、閲覧だけの人には出さない（人件費・給与を扱うため。データ側の権限は各ページと db の rules が守る）。
-     判定は common.js の BN.canManage（読み込みのあとで start() が動かす）。分からないとき・時間切れは出さない */
+     判定は common.js の BN.canManage。分からないとき・時間切れは出さない。結果は <html data-cost> と portal:access で各ページに知らせる */
   let costOK = false, gate = Promise.resolve();
+  const announce = () => { document.documentElement.dataset.cost = costOK ? "1" : "0"; window.dispatchEvent(new CustomEvent("portal:access", { detail: { cost: costOK } })); };
   const startGate = () => {
     const real = (async () => { try { return await window.BN.canManage(await use("user")); } catch (_) { return false; } })();
-    // 判定が届いたら（表示のあとに届いたときも）、メニューとホームにコスト管理を出す
-    real.then((ok) => {
+    real.then((ok) => {   // 判定が届いたら（表示のあとに届いたときも）、サイドナビとホームにコスト管理を出す
       if (!ok || costOK) return;
-      costOK = true;
+      costOK = true; announce();
       const key = document.documentElement.dataset.route, hash = location.hash.replace(/^#/, ""), want = ALIAS[hash] || hash;
       if (!key || !ROUTES[key]) return;   // まだ何も表示していない。待っている route() が costOK を見て描く
       if (ROUTES[want] && want !== key) route();   // コスト管理のページを開こうとしてホームに戻されていたら、開き直す
-      else { renderBar(key); if (key === "home") homeView(); }
+      else renderNav(key);
     });
     gate = Promise.race([real, new Promise((r) => setTimeout(r, 4000))]).then(() => {});   // 表示を待たせるのは 4 秒まで
   };
 
-  const loaded = {};   // key -> { box, promise }
-  const el = (tag, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
-
+  /* ---------- ページの読み込み ---------- */
+  const loaded = {};   // page -> { box, promise }
   const boxId = (key) => "pg-" + ROUTES[key].page.replace(/^pages\//, "").replace(/\.html$/, "");
   function fetchPage(key) {
     const r = ROUTES[key], pk = r.page;
@@ -127,6 +151,8 @@ a.tile:hover{transform:translateY(-1px)}
         const s = document.createElement("script"); if (old.type) s.type = old.type; s.textContent = old.textContent; old.replaceWith(s);
       });
       box.append(tpl.content);
+      const side = box.querySelector(".side");   // 期間の一覧。広い画面ではサイドナビに移す
+      if (side) { sides[box.id] = side; homes.set(side, { parent: side.parentNode, next: side.nextSibling }); }
     }).catch((err) => {
       delete loaded[pk]; box.remove();
       throw err;
@@ -135,55 +161,86 @@ a.tile:hover{transform:translateY(-1px)}
     return promise;
   }
 
-  function homeView() {
-    let box = $("pg-home");
-    if (!box) {
-      box = el("div", "page home pad"); box.id = "pg-home";
-      box.innerHTML = '<h1>Bar null</h1><p class="lead">開きたい管理を選んでください。右上のメニューからも切り替えられます。</p><div class="tiles" id="tiles"></div>';
-      $("pages").prepend(box);
-    }
-    const tiles = box.querySelector("#tiles"); tiles.textContent = "";
-    Object.entries(TENANTS).forEach(([id, t]) => {
-      if (t.gated && !costOK) return;
-      const c = el("div", "tile lg lg--text");
-      const h = el("h2"); h.textContent = t.name; const p = el("p"); p.textContent = t.desc;
-      const links = el("div", "links");
-      Object.entries(ROUTES).filter(([, r]) => r.tenant === id && !r.parent).forEach(([k, r]) => { const a = el("a"); a.href = "#" + k; a.textContent = r.title; links.append(a); });
-      c.append(h, p, links); tiles.append(c);
-    });
-    return box;
-  }
-
-  /* ---------- 上部バー ---------- */
-  function renderBar(key) {
-    const r = ROUTES[key], tn = r.tenant ? TENANTS[r.tenant].name : "ホーム";
-    $("tname").textContent = tn;
-    const sub = $("subtabs"); sub.textContent = "";
-    if (r.tenant === "cost") {   // 上の段（全体・固定費・変動費）と、変動費の中にいるときはその内訳
-      const link = (k, x, on) => { const a = el("a"); a.href = "#" + k; a.textContent = x.title; if (on) a.setAttribute("aria-current", "page"); return a; };
-      Object.entries(ROUTES).filter(([, x]) => x.tenant === "cost" && x.top).forEach(([k, x]) => sub.append(link(k, x, k === key || r.parent === k)));
-      if (r.parent) {
-        const sep = el("span", "crumb"); sep.textContent = "›"; sep.setAttribute("aria-hidden", "true"); sub.append(sep);
-        Object.entries(ROUTES).filter(([, x]) => x.parent === r.parent).forEach(([k, x]) => { const a = link(k, x, k === key); a.classList.add("child"); sub.append(a); });
+  /* ---------- 期間の一覧（各ページの .side）。広い画面ではサイドナビの「期間」に、狭い画面ではページの上に置く ---------- */
+  const sides = {}, homes = new Map(), wide = window.matchMedia("(min-width: 901px)");
+  let shownId = null;
+  function placeSides() {
+    const slot = $("sideslot"); let any = false;
+    Object.entries(sides).forEach(([id, s]) => {
+      if (wide.matches) {
+        if (s.parentNode !== slot) slot.append(s);
+        s.hidden = id !== shownId; if (id === shownId) any = true;
+      } else {
+        const h = homes.get(s);
+        if (s.parentNode !== h.parent) h.parent.insertBefore(s, h.next && h.next.parentNode === h.parent ? h.next : h.parent.firstChild);
+        s.hidden = false;
       }
+    });
+    $("snperiod").hidden = !any;
+  }
+
+  /* ---------- サイドナビとパンくず ---------- */
+  const CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+  function navLink(key, label, cur, cls) {
+    const a = el("a", "sn-item" + (cls ? " " + cls : "")); a.href = "#" + key; a.textContent = label;
+    if (key === cur) a.setAttribute("aria-current", "page");
+    return a;
+  }
+  function renderNav(key) {
+    const list = $("snlist"); list.textContent = "";
+    const li = (node, sub) => { const x = el("li"); x.append(node); if (sub) x.append(sub); list.append(x); return x; };
+    li(navLink("home", "ダッシュボード", key));
+    list.append(el("li", "sn-sec", "管理"));
+    li(navLink("sales", "売上管理", key, "parent"));
+    if (costOK) {
+      const inCost = chain(key)[0] === "cost-root";
+      const top = navLink("cost", "コスト管理", null, "parent");   // 押すと全体を開き、中身（全体・固定費・変動費）を出す
+      top.insertAdjacentHTML("afterbegin", CHEV); top.setAttribute("aria-expanded", String(inCost));
+      let sub = null;
+      if (inCost) {
+        sub = el("ul");
+        ["cost", "cost-fixed", "cost-var"].forEach((k) => {
+          const x = el("li"), a = navLink(k, ROUTES[k].title, key);
+          x.append(a);
+          if (k === "cost-var") {
+            const inVar = key === "cost-var" || ROUTES[key].parent === "cost-var";
+            a.insertAdjacentHTML("afterbegin", CHEV); a.setAttribute("aria-expanded", String(inVar));
+            if (inVar) {
+              const sub2 = el("ul");
+              ["cost-staff", "cost-purchase", "cost-supplies"].forEach((c) => { const y = el("li"); y.append(navLink(c, ROUTES[c].title, key)); sub2.append(y); });
+              x.append(sub2);
+            }
+          }
+          sub.append(x);
+        });
+      }
+      li(top, sub);
     }
-    sub.hidden = r.tenant !== "cost";
-    const menu = $("tmenu"); menu.textContent = "";
-    const items = [["home", "ホーム", "開きたい管理を選ぶ", null]].concat(Object.entries(TENANTS).filter(([, t]) => !t.gated || costOK).map(([id, t]) => [t.first, t.name, t.desc, id]));
-    items.forEach(([k, name, desc, id]) => {
-      const a = el("a"); a.href = "#" + k;
-      const b = el("b"); b.textContent = name; const s = el("span"); s.textContent = desc; a.append(b, s);
-      if ((id === null && key === "home") || (id && r.tenant === id)) a.setAttribute("aria-current", "page");
-      menu.append(a);
+    // パンくず（ホーム › コスト管理 › 変動費 › 仕入）
+    const cr = $("crumbs"); cr.textContent = "";
+    const items = key === "home" ? [] : chain(key);
+    const homeA = el(items.length ? "a" : "span", "", "ホーム"); if (items.length) homeA.href = "#home"; else homeA.setAttribute("aria-current", "page");
+    cr.append(homeA);
+    items.forEach((k, i) => {
+      cr.append(el("span", "sep", "›"));
+      const last = i === items.length - 1, g = GROUPS[k], label = g ? g.title : ROUTES[k].title;
+      if (last) { const s = el("span", "", label); s.setAttribute("aria-current", "page"); cr.append(s); }
+      else { const a = el("a", "", label); a.href = "#" + (g ? g.first : k); cr.append(a); }
     });
   }
-  const setMenu = (open) => { $("tmenu").hidden = !open; $("tbtn").setAttribute("aria-expanded", String(open)); };
-  $("tbtn").addEventListener("click", (e) => { e.stopPropagation(); setMenu($("tmenu").hidden); });
-  document.addEventListener("click", (e) => { if (!$("tmenu").hidden && e.target.isConnected && !$("tmenu").contains(e.target)) setMenu(false); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("tmenu").hidden) { setMenu(false); $("tbtn").focus(); } });
-  $("tmenu").addEventListener("click", () => setMenu(false));
 
-  /* 上部バーの高さを、各ページの固定表示（サイドバー・ツールバー）の位置合わせに渡す */
+  /* ---------- 狭い画面の引き出し ---------- */
+  const setDrawer = (open) => {
+    $("sidenav").classList.toggle("open", open); $("scrim").classList.toggle("open", open);
+    $("menubtn").setAttribute("aria-expanded", String(open));
+  };
+  $("menubtn").addEventListener("click", () => setDrawer(!$("sidenav").classList.contains("open")));
+  $("scrim").addEventListener("click", () => setDrawer(false));
+  $("sidenav").addEventListener("click", (e) => { if (e.target.closest("a, .row")) setDrawer(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("sidenav").classList.contains("open")) { setDrawer(false); $("menubtn").focus(); } });
+  wide.addEventListener("change", () => { placeSides(); setDrawer(false); });
+
+  /* 上部バーの高さを、各ページの固定表示（見出し）の位置合わせに渡す */
   const syncBar = () => document.documentElement.style.setProperty("--shell-h", `${$("shell").offsetHeight}px`);
   if (window.ResizeObserver) new ResizeObserver(syncBar).observe($("shell"));
   window.addEventListener("resize", syncBar);
@@ -191,39 +248,40 @@ a.tile:hover{transform:translateY(-1px)}
   /* ---------- 切り替え ---------- */
   let seq = 0;
   async function route() {
-    if (!window.BN) return;   // 共通部品を読み込む前（読み込み中に戻る・進むを押したとき）は何もしない。読み込みが済むと route() を呼ぶ
+    if (!window.BN) return;   // 共通部品を読み込む前は何もしない。読み込みが済むと route() を呼ぶ
     const mine = ++seq;
     let key = location.hash.replace(/^#/, ""); key = ALIAS[key] || key;
     if (!ROUTES[key]) key = "home";
-    if (ROUTES[key].tenant && TENANTS[ROUTES[key].tenant].gated) { await gate; if (mine !== seq) return; if (!costOK) { key = "home"; } }
+    // コスト管理と、ホーム（ダッシュボードは費用を出すかどうかで中身が変わる）は、権限の判定を待つ
+    if (ROUTES[key].gated || key === "home") { await gate; if (mine !== seq) return; if (ROUTES[key].gated && !costOK) key = "home"; }
     else await Promise.race([gate, new Promise((r) => setTimeout(r, 600))]);
     if (mine !== seq) return;
-    if (key === "home" && !location.hash && !costOK) { await gate; if (mine !== seq) return; if (!costOK) key = "sales"; }   // 選べるのが売上管理だけの人は、ホームを飛ばす
-    $("boot").hidden = true; $("shell").hidden = false;
-    renderBar(key); syncBar();
-    const show = (id) => { document.querySelectorAll("#pages > .page").forEach((p) => { p.hidden = p.id !== id; }); };
+    $("boot").hidden = true; $("shell").hidden = false; $("layout").hidden = false;
+    renderNav(key); syncBar();
     document.documentElement.dataset.route = key;   // 1つのページを複数のルートで使うとき、ページはこれと portal:route で表示を決める
-    if (key === "home") { homeView(); show("pg-home"); window.scrollTo(0, 0); return; }
+    const show = (id) => { shownId = id; document.querySelectorAll("#pages > .page").forEach((p) => { p.hidden = p.id !== id; }); placeSides(); };
     try {
       await fetchPage(key);
       if (mine !== seq) return;
       show(boxId(key));
+      window.scrollTo(0, 0);
       window.dispatchEvent(new CustomEvent("portal:route", { detail: { key } }));
     } catch (err) {
       if (mine !== seq) return;
-      show("none");
-      let e = $("pg-err"); if (!e) { e = el("div", "err lg lg--text page"); e.id = "pg-err"; $("pages").append(e); }
-      e.hidden = false; e.textContent = "";
-      const p = el("p"); p.textContent = "このページを読み込めませんでした。（" + (err && err.message || "不明なエラー") + "）";
-      const b = el("button", "btn tinted"); b.type = "button"; b.textContent = "もう一度読み込む"; b.onclick = () => route();
+      let e = $("pg-err"); if (!e) { e = el("div", "err lg page"); e.id = "pg-err"; $("pages").append(e); }
+      show("pg-err");
+      e.textContent = "";
+      const p = el("p", "", "このページを読み込めませんでした。（" + (err && err.message || "不明なエラー") + "）");
+      const b = el("button", "btn"); b.type = "button"; b.textContent = "もう一度読み込む"; b.onclick = () => route();
       e.append(p, b);
     }
   }
   window.addEventListener("hashchange", route);
 
-  /* テスト用のデータを見ているときは、どのページでも上部バーに印を出す（環境は common.js の BN.env が1つだけ持つ） */
-  const syncEnv = () => { $("envchip").hidden = !(window.BN && window.BN.env.get() === "test"); syncBar(); };
+  /* 本番／テスト（環境は common.js の BN.env が1つだけ持つ）。右上で切り替えられ、テストの間は上部バーに印を出す */
+  const syncEnv = () => { const t = !!(window.BN && window.BN.env.get() === "test"); $("envchip").hidden = !t; $("envsel").value = t ? "test" : "prod"; syncBar(); };
   window.addEventListener("portal:env", syncEnv);
+  $("envsel").addEventListener("change", (e) => window.BN && window.BN.env.set(e.target.value));
 
   /* 共通の見た目（shared.css）と共通の部品（common.js → window.BN）を読み込んでから始める。
      各ページは BN を使うので、ページより先に実行する（link・script src ではなく本文を取って入れる） */
@@ -232,7 +290,7 @@ a.tile:hover{transform:translateY(-1px)}
     const st = document.createElement("style"); st.id = "shared-css"; st.textContent = css; document.head.append(st);
     const sc = document.createElement("script"); sc.id = "common-js"; sc.textContent = js; document.head.append(sc);
     if (!window.BN) throw new Error("common.js を実行できませんでした");
-    syncEnv(); startGate(); route();
+    announce(); syncEnv(); startGate(); route();
   }).catch((err) => { $("boot").textContent = "ページの共通部分を読み込めませんでした。（" + (err && err.message || "不明なエラー") + "）開き直してください。"; });
 })();
 </script>
