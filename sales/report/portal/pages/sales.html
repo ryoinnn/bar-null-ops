@@ -53,7 +53,7 @@
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">利用件数</span><span class="v num">—</span><span class="d">　</span></div>
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">売上（ゲスト支払）</span><span class="v num">—</span><span class="d">　</span></div>
         <div class="kpi lg lg--text" data-lens="tile"><span class="lb">店舗の収益（振込）</span><span class="v num">—</span><span class="d">　</span></div>
-        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">これからの予約</span><span class="v num">—</span><span class="d">　</span></div>
+        <div class="kpi lg lg--text" data-lens="tile"><span class="lb">今月これからの予約</span><span class="v num">—</span><span class="d">　</span></div>
       </section>
 
 
@@ -84,7 +84,7 @@
       <section class="card lg lg--text chart"><h2>レンタルスペースの推移</h2><div id="r1"></div></section>
       <section class="card lg lg--text"><h2>レンタルスペースの内訳</h2><div class="facts num" id="rfacts"></div></section>
       <section class="card lg lg--text"><h2>レンタルスペースの月次確定値</h2><div class="tablewrap" id="rmonths"></div></section>
-      <details class="defs"><summary>数字の定義</summary><p id="fresh">売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／日は営業日（6:00〜翌6:00）／週は月曜〜日曜で、月をまたぐ週は月で区切る／曜日ごとの平均は伝票のあった日の平均（週の表示では直近8週）／担当者は LINE で伝票を送った人／レンタルスペースは利用日で集計し、キャンセルを除く（推移の金額はゲストの支払額。薄い棒は予約済みの先の月）／レンタルの月次確定値は、毎月1日に前月分をプラットフォームごとに Asana へ記録したもの</p></details>
+      <details class="defs"><summary>数字の定義</summary><p id="fresh">売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／日は営業日（6:00〜翌6:00）／週は月曜〜日曜で、月をまたぐ週は月で区切る／曜日ごとの平均は伝票のあった日の平均（週の表示では直近8週）／担当者は LINE で伝票を送った人／レンタルスペースは利用日で集計し、キャンセルを除く（推移の金額はゲストの支払額。薄い棒は予約済みの先の月）／今月これからの予約は、今月のうち今日以降の予約で、金額は店舗収益／レンタルの月次確定値は、毎月1日に前月分をプラットフォームごとに Asana へ記録したもの</p></details>
       </div>
      </div>
 
@@ -285,7 +285,8 @@ function rentalIn(a, b) {
            hours: rows.reduce((x, r) => x + (r.hours || 0), 0), byPlatform: by,
            noNet: rows.filter((r) => r.net == null).length };   // 「店舗収益」を読めなかった予約（収益は 0 円で数えている）
 }
-function rentalUpcoming(today) { return rentalIn(add(today, 1), "9999-12-31"); }
+function rentalUpcoming(today) { return rentalIn(add(today, 1), "9999-12-31"); }   // AI に渡す、明日より先の予約すべて
+function rentalAheadThisMonth(today) { return rentalIn(today, monthEnd(today)); }   // 画面の「これから」＝今月のうち今日以降の予約
 function rentalMonthsIn(a, b) { return state.rentalMonths.filter((m) => m.month >= a.slice(0, 7) && m.month <= b.slice(0, 7)); }
 
 /* ======================= 集計 ======================= */
@@ -492,11 +493,11 @@ function renderRental(p, today) {
   } else {
     const cur = rentalIn(p.start, end), q = prevOf(p), pe = (p.kind !== "week" && inProgress(p, today))
       ? min(q.end, add(q.start, diff(p.start, end))) : q.end, prev = rentalIn(q.start, pe), pn = noun[p.kind];
-    const fut = rentalUpcoming(today);
+    const fut = rentalAheadThisMonth(today);
     setRKpi(0, `${cur.count}件`, [`${pn} ${prev.count}件`]);
     setRKpi(1, yen(cur.gross), [`${pn}比 `, deltaNode(cur.gross, prev.gross)]);
     setRKpi(2, yen(cur.net), [cur.gross ? `手数料率 ${((1 - cur.net / cur.gross) * 100).toFixed(0)}%` : "　"]);
-    setRKpi(3, `${fut.count}件`, [yen(fut.gross)]);
+    setRKpi(3, `${fut.count}件`, [`店舗収益 ${yen(fut.net)}`]);
     // 推移: 利用日の月ごと（直近12か月と、予約済みの先の月）
     const items = [], last = ym(addMonths(end, 3));
     for (let i = 11; i >= -3; i--) {
@@ -1418,14 +1419,14 @@ function figStaff(p) {
 }
 function figRental(p) {
   if (!state.rental) return null;
-  const today = todayBiz(), end = min(p.end, today), cur = rentalIn(p.start, end), fut = rentalUpcoming(today);
+  const today = todayBiz(), end = min(p.end, today), cur = rentalIn(p.start, end), fut = rentalAheadThisMonth(today);
   const rows = Object.entries(cur.byPlatform).sort((a, b) => b[1].gross - a[1].gross)
     .map(([k, v]) => ({ label: k, value: v.gross, text: yen(v.gross), sub: `${v.count}件・振込 ${yen(v.net)}` }));
   const box = el("div", "ai-figs");
   box.append(rows.length ? fig("プラットフォーム別（ゲスト支払）", hbars(rows, "s2"))
                          : fig("プラットフォーム別", Object.assign(el("p", "empty"), { textContent: "この期間の利用はありません。" })));
-  const fr = Object.entries(fut.byPlatform).map(([k, v]) => ({ label: k, value: v.gross, text: yen(v.gross), sub: `${v.count}件` }));
-  if (fr.length) box.append(fig(`これからの予約 ${fut.count}件・${yen(fut.gross)}`, hbars(fr, "s2")));
+  const fr = Object.entries(fut.byPlatform).map(([k, v]) => ({ label: k, value: v.net, text: yen(v.net), sub: `${v.count}件` }));
+  if (fr.length) box.append(fig(`今月これからの予約 ${fut.count}件・店舗収益 ${yen(fut.net)}`, hbars(fr, "s2")));
   return box;
 }
 
