@@ -33,6 +33,35 @@
 .pg-purchase .daybars .d i{display:block;width:100%;max-width:26px;border-radius:5px 5px 2px 2px;background:var(--bar);min-height:2px}
 .pg-purchase .daybars .d.has i{background:var(--bar-cur)}
 .pg-purchase .daybars .d span{position:absolute;bottom:-18px;font-size:10.5px;color:var(--label-3)}
+/* 月ごとの推移（12か月）。選んだ期間の月を濃く、触れると詳細のポップアップ（ホームと同じ動き） */
+.pg-purchase .daybars.mtrend{height:150px;gap:8px}
+.pg-purchase .daybars.mtrend .d{cursor:pointer;outline:none;border-radius:4px}
+.pg-purchase .daybars.mtrend .d i{max-width:40px;background:var(--bar);opacity:.55}
+.pg-purchase .daybars.mtrend .d.on i{background:var(--bar-cur);opacity:1}
+.pg-purchase .daybars.mtrend .d:hover i,.pg-purchase .daybars.mtrend .d:focus-visible i{opacity:1}
+.pg-purchase .daybars.mtrend .d:hover,.pg-purchase .daybars.mtrend .d:focus-visible{background:var(--fill)}
+.pg-purchase .daybars.mtrend .d:focus-visible{box-shadow:0 0 0 2px var(--accent-ring)}
+.pg-purchase .daybars.mtrend .d span{font-size:11.5px;color:var(--label-2);white-space:nowrap}
+.pg-purchase .daybars.mtrend .d .ln{display:none}
+@media (max-width:600px){
+  .pg-purchase .daybars.mtrend{gap:4px}
+  .pg-purchase .daybars.mtrend .d .lw{display:none}
+  .pg-purchase .daybars.mtrend .d .ln{display:inline}
+}
+#purchase-root{position:relative}
+.pg-purchase .pur-pop{position:absolute;z-index:20;width:max-content;min-width:220px;max-width:min(320px,calc(100% - 8px));padding:10px 14px 12px;
+  background:var(--card-solid);border:1px solid var(--border);box-shadow:var(--shadow-pop);font-size:13px;line-height:18px}
+.pg-purchase .pur-pop h3{margin:0 18px 6px 0;font-size:14px;line-height:18px;font-weight:700}
+.pg-purchase .pur-pop dl{display:grid;grid-template-columns:minmax(0,auto) auto;gap:3px 18px;margin:0}
+.pg-purchase .pur-pop dt{color:var(--label-2);white-space:nowrap}
+.pg-purchase .pur-pop dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pg-purchase .pur-pop .sep{grid-column:1 / -1;height:1px;background:var(--separator);margin:3px 0}
+.pg-purchase .pur-pop .tot{font-weight:700;color:var(--label)}
+.pg-purchase .pur-pop .pos{color:var(--red)} .pg-purchase .pur-pop .neg{color:var(--green)}
+.pg-purchase .pur-pop .go{margin-top:8px;padding:0;border:0;background:none;font:inherit;font-size:13px;color:var(--accent-text);cursor:pointer}
+.pg-purchase .pur-pop .go:hover{text-decoration:underline}
+.pg-purchase .pur-pop-x{position:absolute;top:4px;right:6px;width:24px;height:24px;border:0;background:none;color:var(--label-2);cursor:pointer;font-size:16px;line-height:1}
+.pg-purchase .pur-pop-x:hover{color:var(--label)}
 .pg-purchase th.sort{cursor:pointer;user-select:none}
 .pg-purchase th.sort[aria-sort]::after{content:" ▾";color:var(--label-3)}
 .pg-purchase th.sort[aria-sort="ascending"]::after{content:" ▴"}
@@ -324,7 +353,82 @@ const card = (title, cap, ...kids) => h("section", { class: "card lg lg--text" }
 const defs = (...lines) => h("details", { class: "defs" }, h("summary", { text: "数字の定義" }), ...lines.map((t) => h("p", { text: t })));
 const fact = (k, v, sub) => h("div", { class: "fact" }, h("span", { class: "k", text: k }), h("span", { class: "v num", text: v }), sub ? h("span", { class: "k", text: sub }) : null);
 
+/* ---------- ポップアップ（ホームと同じ動き） ----------
+   マウス: 載せると出て、離すと消える（ポップアップの上に移れば残る）。押す・指で触れると留まる（× か外側か Esc で閉じる）。
+   キーボード: フォーカスで出る。Enter で留める。 */
+const pop = { el: null, timer: 0, pinned: false, anchor: null };
+function popEl() {
+  if (pop.el && pop.el.isConnected) return pop.el;
+  const p = h("div", { class: "pur-pop", role: "dialog", hidden: true });
+  p.addEventListener("pointerenter", () => clearTimeout(pop.timer));
+  p.addEventListener("pointerleave", () => { if (!pop.pinned) hideLater(); });
+  p.addEventListener("focusin", () => clearTimeout(pop.timer));
+  p.addEventListener("focusout", (e) => { if (!pop.pinned && !p.contains(e.relatedTarget)) hideLater(); });
+  $("purchase-root").append(p); pop.el = p; return p;
+}
+function showPop(anchor, content, pinned) {
+  clearTimeout(pop.timer);
+  const p = popEl(); p.textContent = "";
+  if (pinned) p.append(h("button", { type: "button", class: "pur-pop-x", "aria-label": "閉じる", text: "×", onclick: () => hidePop(true) }));
+  p.append(...content); p.hidden = false; pop.pinned = !!pinned; pop.anchor = anchor;
+  p.setAttribute("aria-label", (content[0] && content[0].textContent) || "詳細");
+  const root = $("purchase-root").getBoundingClientRect(), r = anchor.getBoundingClientRect(), pw = p.offsetWidth, ph = p.offsetHeight;
+  const left = Math.max(0, Math.min(r.left - root.left + r.width / 2 - pw / 2, root.width - pw));
+  const shell = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--shell-h")) || 48;
+  const above = r.top - ph - 8 > shell + 4;
+  p.style.left = `${left}px`; p.style.top = `${above ? r.top - root.top - ph - 8 : r.bottom - root.top + 8}px`;
+}
+function hideLater() { clearTimeout(pop.timer); pop.timer = setTimeout(() => hidePop(false), 250); }
+function hidePop(force) { if (pop.pinned && !force) return; clearTimeout(pop.timer); if (pop.el) pop.el.hidden = true; pop.pinned = false; pop.anchor = null; }
+document.addEventListener("pointerdown", (e) => {
+  if (!pop.el || pop.el.hidden || !pop.pinned) return;
+  if (pop.el.contains(e.target) || (pop.anchor && pop.anchor.contains(e.target))) return;
+  hidePop(true);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && pop.el && !pop.el.hidden) { const a = pop.anchor; hidePop(true); if (a && a.focus) a.focus(); } });
+window.addEventListener("portal:route", () => hidePop(true));   // ほかのページに移ったら閉じる
+function attachPop(node, build) {
+  node.setAttribute("tabindex", "0"); node.setAttribute("role", "button");
+  // 指で触れたときは、スクロールのつもりで触れただけで開かないよう、pointerenter では何もしない（押した＝click で開いて留める）
+  node.addEventListener("pointerenter", (e) => { if (pop.pinned || e.pointerType === "touch") return; showPop(node, build(), false); });
+  node.addEventListener("pointerleave", (e) => { if (e.pointerType !== "touch") hideLater(); });
+  node.addEventListener("focus", () => { if (!pop.pinned) showPop(node, build(), false); });
+  node.addEventListener("blur", () => { if (!pop.pinned) hideLater(); });
+  node.addEventListener("click", () => showPop(node, build(), true));
+  node.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault(); showPop(node, build(), true);
+    const x = pop.el.querySelector(".pur-pop-x"); if (x) x.focus({ preventScroll: true });
+  });
+}
+const monthLabel = (m) => `${Number(m.slice(0, 4))}年${Number(m.slice(5))}月`;
+/* 月の詳細: 税込・税抜・発注回数・1回あたり・区分（税抜）・前月との差 */
+function monthPop(m, f) {
+  const cur = m === ym(today()), pm = addMonths(m, -1), pf = figures(pm + "-01", monthEnd(pm + "-01"));
+  const dl = h("dl", {});
+  const row = (k, v, o) => dl.append(h("dt", { class: o && o.tot ? "tot" : null, text: k }), h("dd", { class: (o && o.cls) || (o && o.tot ? "tot" : null), text: v }));
+  const sep = () => dl.append(h("div", { class: "sep" }));
+  row("仕入（税込）", yen(f.gross), { tot: true });
+  row("税抜", yen(f.net));
+  row("発注回数", `${f.days}回`);
+  row("1回あたり（税込）", yen(f.per));
+  const cats = byCat(f.vs), used = Object.keys(cats).filter((c) => cats[c]);
+  if (used.length) { sep(); used.forEach((c) => row(`${c}（税抜）`, yen(cats[c]))); }
+  if (f.returns || f.shortage) { sep(); if (f.returns) row("返品", `${f.returns}件 ${yen(f.returnAmt)}`); if (f.shortage) row("欠品のあった品目", `${f.shortage}件`); }
+  sep();
+  if (cur) row(`前月（${Number(pm.slice(5))}月・1か月分）`, yen(pf.gross));
+  else {
+    const dv = f.gross - pf.gross;
+    row(`前月（${Number(pm.slice(5))}月）`, yen(pf.gross));
+    row("前月との差", (dv > 0 ? "+" : dv < 0 ? "−" : "±") + yen(Math.abs(dv)), { cls: dv > 0 ? "pos" : dv < 0 ? "neg" : "" });
+  }
+  const go = state.sel.kind === "month" && state.sel.month === m ? null
+    : h("button", { type: "button", class: "go", text: "この月を開く", onclick: () => { hidePop(true); select(monthP(m)); } });
+  return [h("h3", { text: monthLabel(m) + (cur ? "（集計中）" : "") }), dl, go].filter(Boolean);
+}
+
 function render() {
+  hidePop(true);   // 描き直す前に閉じる（付いていた棒が消えるため）
   for (const t of ["dash", "items", "master"]) $(`purchase-tab-${t}`).setAttribute("aria-pressed", String(state.tab === t));
   renderNav();
   const view = $("purchase-view"); view.textContent = "";
@@ -368,22 +472,22 @@ function renderDash(view, p) {
     h("span", { text: CAT_OPT[c] ? c : `（${c}）` }), h("span", { class: "bar" }, h("i", { style: `width:${Math.max(0, cats[c]) / maxC * 100}%` })),
     h("b", { class: "num", text: yen(cats[c]) }))));
 
-  // 日ごと（週・月）／月ごと（年）
+  // 月ごとの推移（12か月）: 年はその年の1〜12月、週・月はその月までの12か月。選んだ期間の月を濃くする
+  const last = p.kind === "year" ? p.year + "-12" : p.month;
   const cols = [];
-  if (p.kind === "year") {
-    for (let m = p.year + "-01"; m <= p.year + "-12"; m = addMonths(m, 1)) {
-      cols.push({ g: figures(m + "-01", min(monthEnd(m + "-01"), today())).gross, lb: String(Number(m.slice(5))), title: `${Number(m.slice(5))}月` });
-    }
-  } else {
-    for (let d = p.start; d <= p.end; d = add(d, 1)) {
-      const n = toD(d).getUTCDate();
-      cols.push({ g: sum(x.vs.filter((v) => v.date === d), (v) => v.gross), lb: (p.kind === "week" || d === p.start || n % 5 === 0) ? String(n) : "", title: md(d) });
-    }
+  for (let m = addMonths(last, -11); m <= last; m = addMonths(m, 1)) {
+    if (m > ym(today())) break;   // 先の月は出さない
+    cols.push({ m, f: figures(m + "-01", min(monthEnd(m + "-01"), today())), on: p.kind === "year" || m === p.month });
   }
-  const maxG = Math.max(1, ...cols.map((c) => c.g));
-  const bars = h("div", { class: "daybars", role: "img", "aria-label": p.kind === "year" ? "月ごとの仕入" : "日ごとの仕入" },
-    ...cols.map((c) => h("div", { class: "d" + (c.g ? " has" : ""), title: `${c.title} ${yen(c.g)}` },
-      h("i", { style: `height:${Math.max(0, c.g) / maxG * 100}%` }), h("span", { class: "num", text: c.lb }))));
+  const maxG = Math.max(1, ...cols.map((c) => c.f.gross));
+  const bars = h("div", { class: "daybars mtrend", role: "group", "aria-label": "月ごとの仕入（税込）" },
+    ...cols.map((c, i) => {
+      const n = Number(c.m.slice(5)), lb = n === 1 || i === 0 ? `${c.m.slice(2, 4)}/${n}` : `${n}月`;
+      const col = h("div", { class: "d" + (c.on ? " on" : ""), "aria-label": `${monthLabel(c.m)} ${yen(c.f.gross)}` },
+        h("i", { style: `height:${Math.max(0, c.f.gross) / maxG * 100}%` }), h("span", { class: "num lw", text: lb }), h("span", { class: "num ln", text: String(n) }));
+      attachPop(col, () => monthPop(c.m, c.f));
+      return col;
+    }));
 
   view.append(h("section", { class: "split" },
     card("発注数ランキング TOP5", null, rank, more),
@@ -391,7 +495,7 @@ function renderDash(view, p) {
       h("div", { class: "facts", style: "margin-top:14px" },
         fact("返品", x.returns ? `${x.returns}件` : "なし", x.returns ? yen(x.returnAmt) : null),
         fact("欠品のあった品目", x.shortage ? `${x.shortage}件` : "なし")))));
-  view.append(card(p.kind === "year" ? "月ごとの仕入（税込）" : "日ごとの仕入（税込）", null, bars));
+  view.append(card("月ごとの仕入（税込）", null, bars));
   const notes = notesOf(x);
   if (notes.length) view.append(card("注意", null, ...notes));
   view.append(aiCard(p, x, y, its));
