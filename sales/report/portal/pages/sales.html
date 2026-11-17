@@ -84,7 +84,7 @@
       <section class="card lg lg--text chart"><h2>レンタルスペースの推移</h2><div id="r1"></div></section>
       <section class="card lg lg--text"><h2>レンタルスペースの内訳</h2><div class="facts num" id="rfacts"></div></section>
       <section class="card lg lg--text"><h2>レンタルスペースの月次確定値</h2><div class="tablewrap" id="rmonths"></div></section>
-      <details class="defs"><summary>数字の定義</summary><p id="fresh">売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／日は営業日（6:00〜翌6:00）／週は月曜〜日曜で、月をまたぐ週は月で区切る／曜日ごとの平均は伝票のあった日の平均（週の表示では直近8週）／担当者は LINE で伝票を送った人／レンタルスペースは利用日で集計し、キャンセルを除く（推移の金額はゲストの支払額。薄い棒は予約済みの先の月）／今月これからの予約は、今月のうち今日以降の予約で、金額は店舗収益／レンタルの月次確定値は、毎月1日に前月分をプラットフォームごとに Asana へ記録したもの</p></details>
+      <details class="defs"><summary>数字の定義</summary><p id="fresh">売上＝伝票金額の合計（未収を含み、取消は除く）／予約数＝伝票の件数／客単価＝1組あたり／日は営業日（6:00〜翌6:00）／週は月曜〜日曜で、月をまたぐ週は月で区切る／曜日ごとの平均は伝票のあった日の平均（週の表示では直近8週）／担当者は LINE で伝票を送った人／レンタルスペースは利用日で集計し、キャンセルを除く（推移の金額はゲストの支払額。薄い棒は予約済みの先の月）／今月これからの予約は、今月のうち今日以降（営業日の今日。今日の予約は期間の数字にも入る）の予約で、金額は店舗収益／レンタルの月次確定値は、毎月1日に前月分をプラットフォームごとに Asana へ記録したもの</p></details>
       </div>
      </div>
 
@@ -497,7 +497,7 @@ function renderRental(p, today) {
     setRKpi(0, `${cur.count}件`, [`${pn} ${prev.count}件`]);
     setRKpi(1, yen(cur.gross), [`${pn}比 `, deltaNode(cur.gross, prev.gross)]);
     setRKpi(2, yen(cur.net), [cur.gross ? `手数料率 ${((1 - cur.net / cur.gross) * 100).toFixed(0)}%` : "　"]);
-    setRKpi(3, `${fut.count}件`, [`店舗収益 ${yen(fut.net)}`]);
+    setRKpi(3, `${fut.count}件`, [`店舗収益 ${yen(fut.net)}${fut.noNet ? `（${fut.noNet}件は読めず 0円で計算）` : ""}`]);
     // 推移: 利用日の月ごと（直近12か月と、予約済みの先の月）
     const items = [], last = ym(addMonths(end, 3));
     for (let i = 11; i >= -3; i--) {
@@ -1010,7 +1010,7 @@ function basisOf(p) {
 }
 function rentalData(p) {   // 予約者の名前・本文は含めない
   const today = todayBiz(), end = min(p.end, today), q = prevOf(p);
-  const agg = (x) => ({ count: x.count, gross: Math.round(x.gross), net: Math.round(x.net), hours: +x.hours.toFixed(1),
+  const agg = (x) => ({ count: x.count, gross: Math.round(x.gross), net: Math.round(x.net), no_net: x.noNet, hours: +x.hours.toFixed(1),
                          by_platform: Object.fromEntries(Object.entries(x.byPlatform).map(([k, v]) => [k, { count: v.count, gross: v.gross, net: v.net }])) });
   const monthly = []; for (let i = 11; i >= -3; i--) { const m = addMonths(end, -i), v = rentalIn(m, monthEnd(m)); monthly.push([m.slice(0, 7), v.count, v.gross, v.net, +v.hours.toFixed(1), m > today ? "予約済み（先の月）" : ""]); }
   const rows = (state.rental || []).filter((r) => r.date >= add(end, -180)).sort((a, b) => a.date.localeCompare(b.date)).slice(-200)
@@ -1020,11 +1020,12 @@ function rentalData(p) {   // 予約者の名前・本文は含めない
     source: "Slack の予約通知（速報。予約の変更で同じ予約が2件に見えることがある）と、Asana の月次確定値（翌月1日に記録）",
     this_period: agg(rentalIn(p.start, end)), comparison: { name: noun[p.kind], ...agg(rentalIn(q.start, q.end)) },
     upcoming_after_today: agg(rentalUpcoming(today)),
+    upcoming_this_month_from_today: agg(rentalAheadThisMonth(today)),   // 画面の「今月これからの予約」と同じ数字（今日を含む。金額は net を使う）
     monthly_by_use_date: { columns: ["month", "count", "gross", "net", "hours", "note"], rows: monthly },
     confirmed_monthly_asana: { columns: ["month", "platform", "count", "gross", "fee", "net"], rows: state.rentalMonths.map((m) => [m.month, m.platform, m.count, m.gross, m.fee, m.net]) },
     bookings: { columns: ["use_date", "weekday", "start_hour", "hours", "platform", "guest_pay", "store_revenue", "people", "purpose",
                           "first_time", "lead_days", "notice_kind", "state"], rows },
-    note: "gross＝ゲストの支払額（プラットフォーム手数料を含む）、net＝店舗への振込額。バーの通常営業は主に夜。レンタルの時間帯と重なるかは start_hour と hours で分かる",
+    note: "gross＝ゲストの支払額（プラットフォーム手数料を含む）、net＝店舗への振込額（no_net 件は振込額を読めず 0 円で数えている）。upcoming_this_month_from_today は今日の予約を含み（画面の「今月これからの予約」と同じ）、bookings の state は今日の予約を「利用済み」とする。バーの通常営業は主に夜。レンタルの時間帯と重なるかは start_hour と hours で分かる",
   };
 }
 function insightData(p) {
@@ -1426,7 +1427,7 @@ function figRental(p) {
   box.append(rows.length ? fig("プラットフォーム別（ゲスト支払）", hbars(rows, "s2"))
                          : fig("プラットフォーム別", Object.assign(el("p", "empty"), { textContent: "この期間の利用はありません。" })));
   const fr = Object.entries(fut.byPlatform).map(([k, v]) => ({ label: k, value: v.net, text: yen(v.net), sub: `${v.count}件` }));
-  if (fr.length) box.append(fig(`今月これからの予約 ${fut.count}件・店舗収益 ${yen(fut.net)}`, hbars(fr, "s2")));
+  if (fr.length) box.append(fig(`今月これからの予約 ${fut.count}件・店舗収益 ${yen(fut.net)}${fut.noNet ? `（${fut.noNet}件は読めず）` : ""}`, hbars(fr, "s2")));
   return box;
 }
 

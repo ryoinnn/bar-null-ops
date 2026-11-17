@@ -49,19 +49,6 @@
   .pg-purchase .daybars.mtrend .d .ln{display:inline}
 }
 #purchase-root{position:relative}
-.pg-purchase .pur-pop{position:absolute;z-index:20;width:max-content;min-width:220px;max-width:min(320px,calc(100% - 8px));padding:10px 14px 12px;
-  background:var(--card-solid);border:1px solid var(--border);box-shadow:var(--shadow-pop);font-size:13px;line-height:18px}
-.pg-purchase .pur-pop h3{margin:0 18px 6px 0;font-size:14px;line-height:18px;font-weight:700}
-.pg-purchase .pur-pop dl{display:grid;grid-template-columns:minmax(0,auto) auto;gap:3px 18px;margin:0}
-.pg-purchase .pur-pop dt{color:var(--label-2);white-space:nowrap}
-.pg-purchase .pur-pop dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.pg-purchase .pur-pop .sep{grid-column:1 / -1;height:1px;background:var(--separator);margin:3px 0}
-.pg-purchase .pur-pop .tot{font-weight:700;color:var(--label)}
-.pg-purchase .pur-pop .pos{color:var(--red)} .pg-purchase .pur-pop .neg{color:var(--green)}
-.pg-purchase .pur-pop .go{margin-top:8px;padding:0;border:0;background:none;font:inherit;font-size:13px;color:var(--accent-text);cursor:pointer}
-.pg-purchase .pur-pop .go:hover{text-decoration:underline}
-.pg-purchase .pur-pop-x{position:absolute;top:4px;right:6px;width:24px;height:24px;border:0;background:none;color:var(--label-2);cursor:pointer;font-size:16px;line-height:1}
-.pg-purchase .pur-pop-x:hover{color:var(--label)}
 .pg-purchase th.sort{cursor:pointer;user-select:none}
 .pg-purchase th.sort[aria-sort]::after{content:" ▾";color:var(--label-3)}
 .pg-purchase th.sort[aria-sort="ascending"]::after{content:" ▴"}
@@ -353,54 +340,8 @@ const card = (title, cap, ...kids) => h("section", { class: "card lg lg--text" }
 const defs = (...lines) => h("details", { class: "defs" }, h("summary", { text: "数字の定義" }), ...lines.map((t) => h("p", { text: t })));
 const fact = (k, v, sub) => h("div", { class: "fact" }, h("span", { class: "k", text: k }), h("span", { class: "v num", text: v }), sub ? h("span", { class: "k", text: sub }) : null);
 
-/* ---------- ポップアップ（ホームと同じ動き） ----------
-   マウス: 載せると出て、離すと消える（ポップアップの上に移れば残る）。押す・指で触れると留まる（× か外側か Esc で閉じる）。
-   キーボード: フォーカスで出る。Enter で留める。 */
-const pop = { el: null, timer: 0, pinned: false, anchor: null };
-function popEl() {
-  if (pop.el && pop.el.isConnected) return pop.el;
-  const p = h("div", { class: "pur-pop", role: "dialog", hidden: true });
-  p.addEventListener("pointerenter", () => clearTimeout(pop.timer));
-  p.addEventListener("pointerleave", () => { if (!pop.pinned) hideLater(); });
-  p.addEventListener("focusin", () => clearTimeout(pop.timer));
-  p.addEventListener("focusout", (e) => { if (!pop.pinned && !p.contains(e.relatedTarget)) hideLater(); });
-  $("purchase-root").append(p); pop.el = p; return p;
-}
-function showPop(anchor, content, pinned) {
-  clearTimeout(pop.timer);
-  const p = popEl(); p.textContent = "";
-  if (pinned) p.append(h("button", { type: "button", class: "pur-pop-x", "aria-label": "閉じる", text: "×", onclick: () => hidePop(true) }));
-  p.append(...content); p.hidden = false; pop.pinned = !!pinned; pop.anchor = anchor;
-  p.setAttribute("aria-label", (content[0] && content[0].textContent) || "詳細");
-  const root = $("purchase-root").getBoundingClientRect(), r = anchor.getBoundingClientRect(), pw = p.offsetWidth, ph = p.offsetHeight;
-  const left = Math.max(0, Math.min(r.left - root.left + r.width / 2 - pw / 2, root.width - pw));
-  const shell = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--shell-h")) || 48;
-  const above = r.top - ph - 8 > shell + 4;
-  p.style.left = `${left}px`; p.style.top = `${above ? r.top - root.top - ph - 8 : r.bottom - root.top + 8}px`;
-}
-function hideLater() { clearTimeout(pop.timer); pop.timer = setTimeout(() => hidePop(false), 250); }
-function hidePop(force) { if (pop.pinned && !force) return; clearTimeout(pop.timer); if (pop.el) pop.el.hidden = true; pop.pinned = false; pop.anchor = null; }
-document.addEventListener("pointerdown", (e) => {
-  if (!pop.el || pop.el.hidden || !pop.pinned) return;
-  if (pop.el.contains(e.target) || (pop.anchor && pop.anchor.contains(e.target))) return;
-  hidePop(true);
-});
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && pop.el && !pop.el.hidden) { const a = pop.anchor; hidePop(true); if (a && a.focus) a.focus(); } });
-window.addEventListener("portal:route", () => hidePop(true));   // ほかのページに移ったら閉じる
-function attachPop(node, build) {
-  node.setAttribute("tabindex", "0"); node.setAttribute("role", "button");
-  // 指で触れたときは、スクロールのつもりで触れただけで開かないよう、pointerenter では何もしない（押した＝click で開いて留める）
-  node.addEventListener("pointerenter", (e) => { if (pop.pinned || e.pointerType === "touch") return; showPop(node, build(), false); });
-  node.addEventListener("pointerleave", (e) => { if (e.pointerType !== "touch") hideLater(); });
-  node.addEventListener("focus", () => { if (!pop.pinned) showPop(node, build(), false); });
-  node.addEventListener("blur", () => { if (!pop.pinned) hideLater(); });
-  node.addEventListener("click", () => showPop(node, build(), true));
-  node.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" && e.key !== " ") return;
-    e.preventDefault(); showPop(node, build(), true);
-    const x = pop.el.querySelector(".pur-pop-x"); if (x) x.focus({ preventScroll: true });
-  });
-}
+/* ---------- ポップアップ（common.js の BN.popup。全ページ共通の作り） ---------- */
+const POP = BN.popup("purchase-root");
 const monthLabel = (m) => `${Number(m.slice(0, 4))}年${Number(m.slice(5))}月`;
 /* 月の詳細: 税込・税抜・発注回数・1回あたり・区分（税抜）・前月との差 */
 function monthPop(m, f) {
@@ -415,20 +356,12 @@ function monthPop(m, f) {
   const cats = byCat(f.vs), used = Object.keys(cats).filter((c) => cats[c]);
   if (used.length) { sep(); used.forEach((c) => row(`${c}（税抜）`, yen(cats[c]))); }
   if (f.returns || f.shortage) { sep(); if (f.returns) row("返品", `${f.returns}件 ${yen(f.returnAmt)}`); if (f.shortage) row("欠品のあった品目", `${f.shortage}件`); }
-  sep();
-  if (cur) row(`前月（${Number(pm.slice(5))}月・1か月分）`, yen(pf.gross));
-  else {
-    const dv = f.gross - pf.gross;
-    row(`前月（${Number(pm.slice(5))}月）`, yen(pf.gross));
-    row("前月との差", (dv > 0 ? "+" : dv < 0 ? "−" : "±") + yen(Math.abs(dv)), { cls: dv > 0 ? "pos" : dv < 0 ? "neg" : "" });
-  }
-  const go = state.sel.kind === "month" && state.sel.month === m ? null
-    : h("button", { type: "button", class: "go", text: "この月を開く", onclick: () => { hidePop(true); select(monthP(m)); } });
-  return [h("h3", { text: monthLabel(m) + (cur ? "（集計中）" : "") }), dl, go].filter(Boolean);
+  if (pm >= ym(dataStart())) { sep(); BN.prevRows(f.gross, pf.gross, pm, cur, true).forEach(([k, v, , o]) => row(k, v, o)); }   // 費用なので増えたら赤（前月が記録の始まりより前なら出さない）
+  return [h("h3", { text: monthLabel(m) + (cur ? BN.CUR_MARK : "") }), dl];
 }
 
 function render() {
-  hidePop(true);   // 描き直す前に閉じる（付いていた棒が消えるため）
+  POP.reset(); if (state.tab !== "dash") POP.forget();   // 描き直す前に閉じる（押して留めた月は出し直す）
   for (const t of ["dash", "items", "master"]) $(`purchase-tab-${t}`).setAttribute("aria-pressed", String(state.tab === t));
   renderNav();
   const view = $("purchase-view"); view.textContent = "";
@@ -472,20 +405,16 @@ function renderDash(view, p) {
     h("span", { text: CAT_OPT[c] ? c : `（${c}）` }), h("span", { class: "bar" }, h("i", { style: `width:${Math.max(0, cats[c]) / maxC * 100}%` })),
     h("b", { class: "num", text: yen(cats[c]) }))));
 
-  // 月ごとの推移（12か月）: 年はその年の1〜12月、週・月はその月までの12か月。選んだ期間の月を濃くする
-  const last = p.kind === "year" ? p.year + "-12" : p.month;
-  const cols = [];
-  for (let m = addMonths(last, -11); m <= last; m = addMonths(m, 1)) {
-    if (m > ym(today())) break;   // 先の月は出さない
-    cols.push({ m, f: figures(m + "-01", min(monthEnd(m + "-01"), today())), on: p.kind === "year" || m === p.month });
-  }
+  // 月ごとの推移: 出す月は全ページ共通（BN.trendMonths。契約 §1b）。選んだ期間の月を濃くする
+  const cols = BN.trendMonths(p, today(), ym(dataStart())).map((m) =>
+    ({ m, f: figures(m + "-01", min(monthEnd(m + "-01"), today())), on: m >= ym(p.start) && m <= ym(p.end) }));
   const maxG = Math.max(1, ...cols.map((c) => c.f.gross));
   const bars = h("div", { class: "daybars mtrend", role: "group", "aria-label": "月ごとの仕入（税込）" },
     ...cols.map((c, i) => {
       const n = Number(c.m.slice(5)), lb = n === 1 || i === 0 ? `${c.m.slice(2, 4)}/${n}` : `${n}月`;
       const col = h("div", { class: "d" + (c.on ? " on" : ""), "aria-label": `${monthLabel(c.m)} ${yen(c.f.gross)}` },
         h("i", { style: `height:${Math.max(0, c.f.gross) / maxG * 100}%` }), h("span", { class: "num lw", text: lb }), h("span", { class: "num ln", text: String(n) }));
-      attachPop(col, () => monthPop(c.m, c.f));
+      POP.attach(col, c.m, () => monthPop(c.m, c.f), () => { if (state.sel.key !== `m:${c.m}`) select(monthP(c.m)); });
       return col;
     }));
 

@@ -431,3 +431,19 @@ details.defs[open] > summary{margin-bottom:6px}
   .row[aria-current="true"]{outline:2px solid Highlight}
 }
 @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* ポップアップ（グラフに触れると出る。common.js の BN.popup。全ページ共通） */
+.bn-pop{position:absolute;z-index:20;width:max-content;min-width:220px;max-width:min(320px,calc(100% - 8px));padding:10px 14px 12px;
+  background:var(--card-solid);border:1px solid var(--border);box-shadow:var(--shadow-pop);font-size:13px;line-height:18px;color:var(--label)}
+.bn-pop h3{margin:0 18px 6px 0;font-size:14px;line-height:18px;font-weight:700}
+.bn-pop dl{display:grid;grid-template-columns:minmax(0,auto) auto;gap:3px 18px;margin:0}
+.bn-pop dt{color:var(--label-2);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.bn-pop dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bn-pop dd a{color:var(--accent-text);text-decoration:none}
+.bn-pop dd a:hover{text-decoration:underline}
+.bn-pop .sep{grid-column:1 / -1;height:1px;background:var(--separator);margin:3px 0}
+.bn-pop .tot{font-weight:700;color:var(--label)}
+.bn-pop .pos{color:var(--green)} .bn-pop .neg{color:var(--red)} .bn-pop .na{color:var(--label-3)}
+.bn-pop .sw{display:inline-block;width:9px;height:9px;flex:none}
+.bn-pop .hint{margin:8px 0 0;font-size:12px;line-height:16px;color:var(--label-3)}
+.bn-pop-x{position:absolute;top:4px;right:6px;width:24px;height:24px;border:0;background:none;color:var(--label-2);cursor:pointer;font-size:16px;line-height:1}
+.bn-pop-x:hover{color:var(--label)}

@@ -318,3 +318,24 @@ test("ポータルの版は X.Y.Z の形", () => {
   const { BN } = load();
   assert.match(BN.VERSION, /^\d+\.\d+\.\d+$/);
 });
+
+test("推移に出す月: 年は1〜12月、月・週はその月までの12か月。今月より先と記録の前は出さない", () => {
+  const { BN } = load();
+  const M = (m) => ({ kind: "month", start: m + "-01", end: m + "-28" });
+  const t = "2026-11-17";
+  assert.deepEqual(j(BN.trendMonths(M("2026-11"), t, "2025-01")), ["2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11"]);
+  assert.deepEqual(j(BN.trendMonths(M("2026-11"), t, "2026-08")), ["2026-08", "2026-09", "2026-10", "2026-11"], "記録の始まりより前は出さない");
+  assert.deepEqual(j(BN.trendMonths(M("2026-09"), t, "2026-08")), ["2026-08", "2026-09"], "選んだ月まで");
+  assert.deepEqual(j(BN.trendMonths({ kind: "year", start: "2026-01-01", end: "2026-12-31" }, t, "2026-08")), ["2026-08", "2026-09", "2026-10", "2026-11"], "年は今月まで");
+  assert.deepEqual(j(BN.trendMonths({ kind: "week", start: "2026-11-30", end: "2026-11-30" }, "2026-11-30", null, 3)), ["2026-09", "2026-10", "2026-11"]);
+  assert.deepEqual(j(BN.trendMonths(M("2026-11"), t, "2026-12")), ["2026-11"], "1か月も残らなければ最後の月だけ");
+  assert.deepEqual(j(BN.trendMonths(M("2027-01"), "2026-12-31", null, 2)), ["2026-11", "2026-12"], "今月より先は出さない（年をまたぐ）");
+});
+
+test("前月の行: 今月は差を出さない。費用は増えたら赤（neg）、売上は増えたら緑（pos）", () => {
+  const { BN } = load();
+  assert.equal(j(BN.prevRows(100, 80, "2026-10", true, true)).length, 1);
+  const cost = j(BN.prevRows(100, 80, "2026-10", false, true)), sales = j(BN.prevRows(100, 80, "2026-10", false, false));
+  assert.equal(cost[1][1], "+¥20"); assert.equal(cost[1][3].cls, "neg"); assert.equal(sales[1][3].cls, "pos");
+  assert.equal(j(BN.prevRows(80, 80, "2026-10", false, true))[1][1], "±¥0");
+});

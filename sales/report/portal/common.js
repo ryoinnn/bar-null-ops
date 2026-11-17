@@ -330,11 +330,120 @@
      version()（書き込みの回数）とは別のもの */
   const PORTAL_VERSION = "3.0.0";
 
+  /* ---------- 月ごとの推移に出す月（契約 §1b。2026-11-17 全ページでそろえた） ----------
+     年を選んだとき: その年の1〜12月。月・週を選んだとき: その月までの n か月（既定 12）。
+     今月（営業日の今日の月）より先と、first（記録の始まりの月）より前は出さない。1か月も残らなければ最後の月だけ */
+  const addMonth = (m, k) => { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + k, 1)); return d.toISOString().slice(0, 7); };
+  function trendMonths(sel, today, first, n) {
+    const now = today.slice(0, 7), endM = sel.end.slice(0, 7), last = endM < now ? endM : now;
+    let from = sel.kind === "year" ? sel.start.slice(0, 7) : addMonth(last, -((n || 12) - 1));
+    if (first && from < first) from = first;
+    const out = [];
+    for (let m = from; m <= last; m = addMonth(m, 1)) out.push(m);
+    return out.length ? out : [last];
+  }
+  const yenOf = (v) => v == null ? "—" : "¥" + Math.round(v).toLocaleString("ja-JP");
+  const CUR_MARK = "（途中）";   // 今月の見出しに付ける（全ページ共通）
+  /* 前月の行。今月は途中までの値なので、前月の1か月分だけを出して差は出さない。cost: 費用なら増えたら赤、売上なら増えたら緑 */
+  function prevRows(v, pv, pm, isCur, cost) {
+    const pmS = `${+pm.slice(5, 7)}月`;
+    if (isCur) return [[`前月（${pmS}・1か月分）`, yenOf(pv)]];
+    const dv = v - pv;
+    return [[`前月（${pmS}）`, yenOf(pv)], ["前月との差", (dv > 0 ? "+" : dv < 0 ? "−" : "±") + yenOf(Math.abs(dv)), null, { cls: dv === 0 ? "" : (dv > 0) === !cost ? "pos" : "neg" }]];
+  }
+
+  /* ---------- ポップアップ（グラフに触れると出る。全ページ共通。契約 §1b） ----------
+     マウス: 載せると出て、離すと消える（ポップアップの上に移れば残る）。
+     押す・指で触れる: onPick（その月を選ぶなど）を呼び、その場に留める（× か外側か Esc で閉じる）。
+     キーボード: フォーカスで出る。Enter・Space で押したのと同じ。Esc で閉じる。
+     描き直す前に reset()。押した（onPick）ことによる描き直しのときだけ、留めた key を覚えていて、描き直したあとの attach で出し直す。
+     ほかの理由（サイドバー・タブ・読み込み）の描き直しでは忘れる（前に押した月が、あとで勝手に出ないように）。
+     ほかのページへ移ったとき（portal:route）は閉じる。見た目は shared.css の .bn-pop */
+  function popup(rootId) {
+    const S = { el: null, timer: 0, pinned: false, anchor: null, pin: null, focus: false, picking: false };
+    const host = () => document.getElementById(rootId);
+    const mk = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+    function elOf() {
+      if (S.el && S.el.isConnected) return S.el;
+      const p = mk("div", "bn-pop"); p.hidden = true; p.setAttribute("role", "dialog");
+      p.addEventListener("pointerenter", () => clearTimeout(S.timer));
+      p.addEventListener("pointerleave", () => { if (!S.pinned) hideLater(); });
+      p.addEventListener("focusin", () => clearTimeout(S.timer));
+      p.addEventListener("focusout", (e) => { if (!S.pinned && !p.contains(e.relatedTarget)) hideLater(); });
+      host().append(p); S.el = p; return p;
+    }
+    function show(anchor, content, pinned) {
+      clearTimeout(S.timer);
+      const p = elOf(), keep = S.focus || p.contains(document.activeElement);   // キーボードで留めた・中にフォーカスがあった
+      p.textContent = "";
+      if (pinned) { const x = mk("button", "bn-pop-x", "×"); x.type = "button"; x.setAttribute("aria-label", "閉じる"); x.addEventListener("click", () => hide(true)); p.append(x); }
+      p.append(...content); p.hidden = false; S.pinned = !!pinned; S.anchor = anchor;
+      if (pinned && keep) { S.focus = false; const x = p.querySelector(".bn-pop-x"); if (x) x.focus({ preventScroll: true }); }
+      p.setAttribute("aria-label", (content[0] && content[0].textContent) || "詳細");
+      const root = host().getBoundingClientRect(), r = anchor.getBoundingClientRect(), pw = p.offsetWidth, ph = p.offsetHeight;
+      const left = Math.max(0, Math.min(r.left - root.left + r.width / 2 - pw / 2, root.width - pw));
+      const shell = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--shell-h")) || 48;
+      const above = r.top - ph - 8 > shell + 4;
+      p.style.left = `${left}px`; p.style.top = `${above ? r.top - root.top - ph - 8 : r.bottom - root.top + 8}px`;
+    }
+    function hideLater() { clearTimeout(S.timer); S.timer = setTimeout(() => hide(false), 250); }
+    function hide(force) { if (S.pinned && !force) return; clearTimeout(S.timer); if (S.el) S.el.hidden = true; S.pinned = false; S.anchor = null; if (force) forget(); }
+    function forget() { S.pin = null; S.focus = false; }
+    function reset() { clearTimeout(S.timer); if (S.el) S.el.hidden = true; S.pinned = false; S.anchor = null; if (!S.picking) forget(); }   // 描き直す前
+    document.addEventListener("pointerdown", (e) => {
+      if (!S.el || S.el.hidden || !S.pinned) return;
+      if (S.el.contains(e.target) || (S.anchor && S.anchor.contains(e.target))) return;
+      hide(true);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || !S.el || S.el.hidden) return;
+      const a = S.anchor; hide(true); if (a && a.isConnected && a.focus) a.focus();
+    });
+    window.addEventListener("portal:route", () => hide(true));
+    function attach(node, key, build, onPick) {
+      node.setAttribute("tabindex", "0"); node.setAttribute("role", "button");
+      // 指で触れたときは、スクロールのつもりで触れただけで開かないよう、pointerenter では何もしない（押した＝click で開いて留める）
+      node.addEventListener("pointerenter", (e) => { if (S.pinned || e.pointerType === "touch") return; show(node, build(), false); });
+      node.addEventListener("pointerleave", (e) => { if (e.pointerType !== "touch") hideLater(); });
+      node.addEventListener("focus", () => { if (!S.pinned) show(node, build(), false); });
+      node.addEventListener("blur", () => { if (!S.pinned) hideLater(); });
+      // onPick が描き直したときは、新しい要素の attach が出し直す。描き直さなかったときは、ここで留める
+      const pick = () => {
+        S.pin = key; S.picking = true;
+        try { if (onPick) onPick(); } finally { S.picking = false; }
+        if (node.isConnected && S.pin === key) show(node, build(), true);
+      };
+      node.addEventListener("click", pick);
+      node.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); S.focus = true; pick(); } });
+      if (S.pin === key) setTimeout(() => {
+        if (!node.isConnected || S.pin !== key || (S.pinned && S.anchor && S.anchor.isConnected)) return;
+        const a = document.activeElement; if (!S.focus && (!a || a === document.body || !a.isConnected)) node.focus({ preventScroll: true });   // 描き直しで消えたフォーカスを戻す
+        show(node, build(), true);
+      });
+    }
+    /* 中身: 見出しと、行 [名前, 値, リンク先 or null, {color, cls, tot}] か "sep"。hint は下の小さな注記 */
+    function body(title, rows, hint) {
+      const out = [mk("h3", "", title)], dl = mk("dl");
+      rows.forEach((r) => {
+        if (r === "sep") { dl.append(mk("div", "sep")); return; }
+        const [label, value, href, o] = r, opt = o || {}, dt = mk("dt"), dd = mk("dd", opt.cls || "");
+        if (opt.color) { const s = mk("i", "sw"); s.style.background = opt.color; dt.append(s); }
+        dt.append(label); if (opt.tot) { dt.classList.add("tot"); dd.classList.add("tot"); }
+        if (href && value !== "—") { const a = mk("a", "", value); a.href = href; dd.append(a); } else dd.append(value);
+        dl.append(dt, dd);
+      });
+      out.push(dl); if (hint) out.push(mk("p", "hint", hint));
+      return out;
+    }
+    return { attach, body, show, hide, reset, forget };
+  }
+
   root.BN = Object.freeze({
     VERSION: PORTAL_VERSION,
     IDS, SERVER, OPT, env, todayBiz, dayDiff, fail, errText, writeDenied, canManage, gen,
     fieldsOf, txt, num, dateOf, readAll, writeTasks, coverage,
     version: () => version,
+    trendMonths, addMonth, prevRows, popup, CUR_MARK,
     fixed: Object.freeze({ parse: parseFixed, month: fixedMonth, FIELDS: FIXED_FIELDS }),
     ledger: Object.freeze({ create: ledgerCreate, load: ledgerLoad, month: ledgerMonth, fixed: ledgerFixed, VAR: VAR_KEYS, STATE: LEDGER_STATE, daysIn }),
   });

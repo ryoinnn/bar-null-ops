@@ -66,19 +66,6 @@
 .pg-staff .legend .dot{display:inline-block;width:10px;height:10px;border-radius:0;margin-right:4px}
 .pg-staff details.tbl{margin-top:14px;font-size:14px}
 .pg-staff details.tbl summary{cursor:pointer;color:var(--accent-text);margin-bottom:8px}
-/* ポップアップ（ホームの .hm-pop と同じ見た目と動き） */
-.pg-staff .st-pop{position:absolute;z-index:20;width:max-content;min-width:220px;max-width:min(320px,calc(100% - 8px));padding:10px 14px 12px;
-  background:var(--card-solid);border:1px solid var(--border);box-shadow:var(--shadow-pop);font-size:13px;line-height:18px}
-.pg-staff .st-pop h3{margin:0 18px 6px 0;font-size:14px;line-height:18px;font-weight:700}
-.pg-staff .st-pop dl{display:grid;grid-template-columns:minmax(0,auto) auto;gap:3px 18px;margin:0}
-.pg-staff .st-pop dt{color:var(--label-2);display:flex;align-items:center;gap:6px;white-space:nowrap}
-.pg-staff .st-pop dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.pg-staff .st-pop .sep{grid-column:1 / -1;height:1px;background:var(--separator);margin:3px 0}
-.pg-staff .st-pop .tot{font-weight:700;color:var(--label)}
-.pg-staff .st-pop .na{color:var(--label-3)}
-.pg-staff .st-pop .sw{display:inline-block;width:9px;height:9px;flex:none}
-.pg-staff .st-pop-x{position:absolute;top:4px;right:6px;width:24px;height:24px;border:0;background:none;color:var(--label-2);cursor:pointer;font-size:16px;line-height:1}
-.pg-staff .st-pop-x:hover{color:var(--label)}
 </style>
 
 <div class="app pg-staff" id="staff-root">
@@ -382,74 +369,15 @@ const tableWrap = (heads, numCols, tbody) => h("div", { class: "tablewrap num", 
   h("thead", {}, h("tr", {}, ...heads.map((t, i) => h("th", { class: numCols.includes(i) ? "n" : null, text: t })))), tbody));
 function clickRow(fn, ...cells) { return h("tr", { class: "click", tabindex: 0, onclick: fn, onkeydown: (e) => { if (e.key === "Enter") fn(); } }, ...cells); }
 
-/* ---------- ポップアップ（ホームと同じ動き） ----------
-   マウス: 載せると出て、離すと消える（ポップアップの上に移れば残る）。押す・指で触れると、その月を選んで留める（× か外側で閉じる）。
-   キーボード: フォーカスで出る。Enter で留める。 */
-const pop = { el: null, timer: 0, pinned: false, anchor: null, pin: null, focus: false };
-function popEl() {
-  if (pop.el && pop.el.isConnected) return pop.el;
-  const p = h("div", { class: "st-pop", role: "dialog", hidden: true,
-    onpointerenter: () => clearTimeout(pop.timer), onpointerleave: () => { if (!pop.pinned) hideLater(); },
-    onfocusin: () => clearTimeout(pop.timer), onfocusout: (e) => { if (!pop.pinned && !p.contains(e.relatedTarget)) hideLater(); } });
-  $("staff-root").append(p); pop.el = p; return p;
-}
-function showPop(anchor, content, pinned) {
-  clearTimeout(pop.timer);
-  const p = popEl(), keep = pop.focus || p.contains(document.activeElement);
-  p.textContent = "";
-  if (pinned) p.append(h("button", { type: "button", class: "st-pop-x", "aria-label": "閉じる", text: "×", onclick: () => hidePop(true) }));
-  p.append(...content); p.hidden = false; pop.pinned = !!pinned; pop.anchor = anchor;
-  if (pinned && keep) { pop.focus = false; p.querySelector(".st-pop-x")?.focus({ preventScroll: true }); }
-  p.setAttribute("aria-label", content[0]?.textContent || "詳細");
-  const root = $("staff-root").getBoundingClientRect(), r = anchor.getBoundingClientRect(), pw = p.offsetWidth, ph = p.offsetHeight;
-  const left = Math.max(0, Math.min(r.left - root.left + r.width / 2 - pw / 2, root.width - pw));
-  const shell = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--shell-h")) || 48;
-  const above = r.top - ph - 8 > shell + 4;
-  p.style.left = `${left}px`; p.style.top = `${above ? r.top - root.top - ph - 8 : r.bottom - root.top + 8}px`;
-}
-function hideLater() { clearTimeout(pop.timer); pop.timer = setTimeout(() => hidePop(false), 250); }
-function hidePop(force) { if (pop.pinned && !force) return; clearTimeout(pop.timer); if (pop.el) pop.el.hidden = true; pop.pinned = false; pop.anchor = null; if (force) pop.pin = null; }
-document.addEventListener("pointerdown", (e) => {
-  if (!pop.el || pop.el.hidden || !pop.pinned) return;
-  if (pop.el.contains(e.target) || (pop.anchor && pop.anchor.contains(e.target))) return;
-  hidePop(true);
-});
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && pop.el && !pop.el.hidden) { const a = pop.anchor; hidePop(true); a?.focus?.(); } });
-/* 中身: 見出しと、行 [名前, 値, {color, cls, tot}] か "sep" */
-function popBody(title, rows) {
-  const dl = h("dl");
-  rows.forEach((r) => {
-    if (r === "sep") { dl.append(h("div", { class: "sep" })); return; }
-    const [lb, value, o] = r, opt = o || {};
-    dl.append(h("dt", { class: opt.tot ? "tot" : null }, opt.color ? h("i", { class: "sw", style: `background:${opt.color}` }) : null, lb),
-      h("dd", { class: [opt.cls, opt.tot ? "tot" : ""].filter(Boolean).join(" ") || null, text: value }));
-  });
-  return [h("h3", { text: title }), dl];
-}
-/* グラフの要素にポップアップを付ける。押したら onPick（描き直したあと、同じ key のものを留めて出し直す） */
-function attachPop(node, key, build, onPick) {
-  node.setAttribute("tabindex", "0"); node.setAttribute("role", "button");
-  node.addEventListener("pointerenter", (e) => { if (pop.pinned || e.pointerType === "touch") return; showPop(node, build(), false); });
-  node.addEventListener("pointerleave", (e) => { if (e.pointerType !== "touch") hideLater(); });
-  node.addEventListener("focus", () => { if (!pop.pinned) showPop(node, build(), false); });
-  node.addEventListener("blur", () => { if (!pop.pinned) hideLater(); });
-  const pick = () => { pop.pin = key; onPick(); };
-  node.addEventListener("click", pick);
-  node.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pop.focus = true; pick(); } });
-  if (pop.pin === key) setTimeout(() => {
-    if (!node.isConnected) return;
-    const a = document.activeElement; if (!pop.focus && (!a || a === document.body || !a.isConnected)) node.focus({ preventScroll: true });
-    showPop(node, build(), true);
-  });
-}
+/* ---------- ポップアップ（common.js の BN.popup。全ページ共通の作り） ---------- */
+const POP = BN.popup("staff-root");
 
 function render() {
   $("staff-tab-overview").setAttribute("aria-pressed", String(state.tab === "overview"));
   $("staff-tab-payroll").setAttribute("aria-pressed", String(state.tab === "payroll"));
   const view = $("staff-view"); view.textContent = "";
-  // 描き直す前にポップアップを閉じる（押して留めた月は pop.pin から出し直す。個人の画面を離れたら忘れる）
-  clearTimeout(pop.timer); if (pop.el) { pop.el.hidden = true; pop.pinned = false; pop.anchor = null; }
-  if (!state.sid) pop.pin = null;
+  // 描き直す前にポップアップを閉じる（押して留めた月は出し直す。個人の画面を離れたら忘れる）
+  POP.reset(); if (!state.sid) POP.forget();
   renderNav();
   if (!state.data) return;
   const p = state.sel;
@@ -605,16 +533,13 @@ function renderPerson(view) {
   view.append(conditionsCard(p));
 }
 /* 月ごとの推移（本人指定 2026-11-17: 日ごとは見にくいので月ごと。触れると内訳のポップアップ、押すとその月を表示）。
-   選んだ期間の最後の月（今月より先は出さない）までの12か月。記録の始まりより前の月は出さない。数字は figures（給与の記録がある月はその値） */
-const TREND_N = 12, SLOT = 72;   // 1か月の幅（px）
+   出す月は BN.trendMonths（全ページ共通。契約 §1b）。数字は figures（給与の記録がある月はその値） */
+const SLOT = 72;   // 1か月の幅（px）
 const C_SALES = "var(--c-rev2)", C_COST = "var(--c-labor)";
 const man = (v) => { const a = Math.abs(v), s = v < 0 ? "−" : ""; return a >= 10000 ? `${s}${(a / 10000).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}万` : `${s}${Math.round(a).toLocaleString("ja-JP")}`; };
 const mShort = (m) => `${+m.slice(5, 7)}月`;
 function trendCard(p, x) {
-  const sel = state.sel, last = min(ym(sel.end), ym(today())), first = ym(dataStart());
-  const months = [];
-  for (let i = TREND_N - 1; i >= 0; i--) { const m = addMonths(last, -i); if (m >= first) months.push(m); }
-  if (!months.length) months.push(last);
+  const sel = state.sel, months = BN.trendMonths(sel, today(), ym(dataStart()));
   const rows = months.map((m) => ({ m, x: figures(p, monthP(m)) }));
   const box = h("div", { class: "chart" }, h("div", { class: "chart-y", text: "売上と給与（円）" }));
   const H = 230, AX = 50, T = 12, B = 26, ih = H - T - B;
@@ -625,7 +550,7 @@ function trendCard(p, x) {
   const sc = h("div", { class: "hscroll" });
   box.append(h("div", { class: "hs" }, h("span", { style: "display:contents", html: `<svg class="yax" width="${AX}" height="${H}" viewBox="0 0 ${AX} ${H}" aria-hidden="true">${ax}</svg>` }), sc));
   const draw = (slot) => {
-    if (pop.anchor && sc.contains(pop.anchor) && !pop.pinned) hidePop(false);   // 描き直しで消える棒に付いたポップアップは閉じる
+    POP.hide(false);   // 描き直しで消える棒に付いた（留めていない）ポップアップは閉じる
     const W = slot * rows.length, bw = Math.min(26, slot * .3);
     let g = ""; for (let i = 0; i <= 4; i++) { const yy = y(nice * i / 4); g += `<line class="gl" x1="0" x2="${W}" y1="${yy}" y2="${yy}"/>`; }
     rows.forEach((r, i) => {
@@ -639,7 +564,7 @@ function trendCard(p, x) {
     sc.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="group" aria-label="月ごとの売上と給与">${g}</svg>`;
     sc.querySelectorAll("g.mcol").forEach((n) => {
       const r = rows.find((z) => z.m === n.dataset.m);
-      attachPop(n, `${p.sid}:${r.m}`, () => monthPop(r), () => select(monthP(r.m)));
+      POP.attach(n, `${p.sid}:${r.m}`, () => monthPop(r), () => select(monthP(r.m)));
     });
   };
   draw(SLOT);
@@ -654,13 +579,13 @@ function trendCard(p, x) {
 }
 function monthPop(r) {
   const x = r.x, mp = monthP(r.m);
-  const rows = [["売上", yen(x.sales), { color: C_SALES }], ["給与", yen(x.cost), { color: C_COST, tot: true }],
+  const rows = [["売上", yen(x.sales), null, { color: C_SALES }], ["給与", yen(x.cost), null, { color: C_COST, tot: true }],
     ["時給の分", yen(x.wagePart)], [`バック（${x.rate != null ? x.rate + "%" : "—"}）`, yen(x.back)]];
   if (x.adj) rows.push(["調整額", (x.adj < 0 ? "−" : "+") + yen(Math.abs(x.adj))]);
   rows.push("sep", ["勤務", x.days ? `${x.days}日・${hrs(x.hours)}` : "—"], ["顧客組数", x.count ? `${x.count}組` : "—"],
     ["売上 ÷ 給与", times(x.cost ? x.sales / x.cost : null)],
-    ["状態", inProgress(mp) && active(x) ? "見込み" : x.status, { cls: active(x) ? "" : "na" }]);
-  return popBody(label(mp), rows);
+    ["状態", inProgress(mp) && active(x) ? "見込み" : x.status, null, { cls: active(x) ? "" : "na" }]);
+  return POP.body(label(mp) + (inProgress(mp) ? BN.CUR_MARK : ""), rows);
 }
 /* 選んだ期間の勤務日の一覧（閉じておく。開くと勤怠の Asana タスクへのリンク） */
 function dailyDetails(x) {
