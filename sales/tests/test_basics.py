@@ -127,7 +127,7 @@ def test_last_attempt_failure_is_reported_with_text():
     r = handle_event(ev, "message", deps, attempt=10)
     assert r["status"] == "failed"
     text = deps.notifier.posts[-1]["text"]
-    assert "【処理できなかったメッセージ】" in text and "&lt;!channel&gt;" in text and "<@UALERT>" in text
+    assert "【処理できなかったメッセージ】" in text and "&lt;!channel&gt;" in text and "<@" not in text
     assert handle_event(ev, "message", deps)["status"] == "duplicate"
 
 

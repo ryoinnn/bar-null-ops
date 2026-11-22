@@ -81,16 +81,16 @@ P = [{"key": "売上:billing", "title": "課金停止", "text": "売上: 課金�
 
 
 def test_notify_flow(monkeypatch):
-    monkeypatch.setenv("SLACK_MENTION", "UALERT")
+    monkeypatch.setenv("SLACK_MENTION", "UALERT")      # 残っていても使わない（監視の通知はメンションしない。2026-11-23 本人）
     s = FakeSlack()
     st = check.notify({}, P, s, NOW)                                # 1回目は知らせない
     assert not s.posts and st["売上:billing"]["count"] == 1
     st = check.notify(st, P, s, NOW + timedelta(minutes=15))
-    assert s.posts[-1]["thread_ts"] is None and "<@UALERT> 【課金停止】" in s.posts[-1]["text"]
+    assert s.posts[-1]["thread_ts"] is None and s.posts[-1]["text"].startswith("【課金停止】")
     st = check.notify(st, P, s, NOW + timedelta(hours=4))           # 8時間までは黙る
     assert len(s.posts) == 1
     st = check.notify(st, P, s, NOW + timedelta(hours=8, minutes=16))
-    assert s.posts[-1]["thread_ts"] == "ts1" and "まだ続いています" in s.posts[-1]["text"]
+    assert s.posts[-1]["thread_ts"] == "ts1" and s.posts[-1]["text"].startswith("まだ続いています")
     st = check.notify(st, [], s, NOW + timedelta(hours=9))
     assert s.posts[-1]["thread_ts"] == "ts1" and "【復旧】" in s.posts[-1]["text"]
     assert s.updates[-1][1].startswith("【復旧済み】") and st == {}
@@ -130,11 +130,12 @@ def test_expiry_backup_only_when_worker_is_down(tmp_path, monkeypatch):
     f.write_text('[[monitor.expiry]]\nname = "Claude キー"\nexpires = "2026-11-20T04:00:00+09:00"\nrenew = "set_secret.py"\n',
                  encoding="utf-8")
     monkeypatch.setenv("MONITOR_EXPIRY_FILE", str(f))
+    monkeypatch.setenv("SLACK_MENTION", "UALERT")
     s = FakeSlack()
     assert check.expiry_backup({}, [], s, NOW) == {} and not s.posts                 # worker が元気なら worker に任せる
     down = [{"key": "売上:billing"}]
     st = check.expiry_backup({}, down, s, NOW)
-    assert "【期限が近い】" in s.posts[-1]["text"] and "外部監視から" in s.posts[-1]["text"] and list(st.values()) == [7]
+    assert s.posts[-1]["text"].startswith("【期限が近い】") and "外部監視から" in s.posts[-1]["text"] and list(st.values()) == [7]
     assert check.expiry_backup(st, down, s, NOW + timedelta(hours=1)) == st and len(s.posts) == 1
 
 

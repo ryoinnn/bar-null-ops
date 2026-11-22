@@ -2,7 +2,8 @@
 
 記録は Firestore の meta/job_health（ジョブごとの失敗回数・最後のエラー・知らせた時刻・最初の通知の ts）。
 通知先はシステム監視のチャンネル（settings.monitor_channel。#null_system-monitor）。投稿できなければ業務のチャンネルに出す。
-最初の通知は本人をメンションした親メッセージ、続いている間のリマインドと「復旧」はそのスレッドに付ける（2026-11-15 本人）。
+最初の通知は親メッセージ、続いている間のリマインドと「復旧」はそのスレッドに付ける（2026-11-15 本人）。
+監視の通知では本人をメンションしない。業務のチャンネルに逃がしたときも付けない（2026-11-23 本人）。
 """
 
 from __future__ import annotations
@@ -68,14 +69,14 @@ def record(deps, job: str, error: BaseException | None) -> None:
                 what = "処理" if job == "process_event" else f"定期処理「{job}」"
                 todo = ("トークン・APIキーが無効か取り消されています。新しいものを発行して runbook「秘密情報の更新」で入れ替えてください。\n"
                         if title == "認証切れ" else "")
-                text = (f"{deps.settings.mention}【{title}】{deps.settings.store_name}: {what}が"
+                text = (f"【{title}】{deps.settings.store_name}: {what}が"
                         f"{state['failures']}回続けて失敗しています{where}。\n{todo}"
                         f"直近のエラー：{esc(state['last_error'])}\n"
                         f"Cloud Logging で jsonPayload.job=\"{job}\" を絞り込むと詳しく見られます（runbook「システム監視」）。")
                 ch, ts = post(deps, text)
                 state |= {"notified_at": now.isoformat(), "channel": ch, "thread_ts": ts, "text": text}
             elif last and now - last >= timedelta(hours=RENOTIFY_HOURS):
-                post(deps, f"{deps.settings.mention}まだ続いています（{span(datetime.fromisoformat(state['since']), now)}・"
+                post(deps, f"まだ続いています（{span(datetime.fromisoformat(state['since']), now)}・"
                            f"{state['failures']}回）。直近のエラー：{esc(state['last_error'])}",
                      thread_ts=_thread(deps, state))
                 state["notified_at"] = now.isoformat()

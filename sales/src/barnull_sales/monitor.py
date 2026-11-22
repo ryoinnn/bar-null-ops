@@ -115,7 +115,7 @@ def expiry(deps: Deps, now: datetime | None = None) -> list[str]:
         when = expires.astimezone(s.tz).strftime("%Y-%m-%d %H:%M")
         head = (f"【期限切れ】{esc(name)} の有効期限（{when}）を過ぎています。使っている処理は失敗します。" if stage == 0 else
                 f"【期限が近い】{esc(name)} の有効期限は {when}（あと{max(left.days, 0)}日{'未満' if left.days < 1 else ''}）です。")
-        health.post(deps, f"{s.mention}{head}\n更新の手順: {esc(item.get('renew', 'runbook「秘密情報の更新」'))}")
+        health.post(deps, f"{head}\n更新の手順: {esc(item.get('renew', 'runbook「秘密情報の更新」'))}")
         done[key] = stage
         sent.append(name)
     if sent:

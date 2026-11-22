@@ -131,7 +131,7 @@ def _give_up(event: dict, event_id: str, deps: Deps, error: Exception) -> None:
     todo = (f"伝票 {'、'.join(made)} は作成済み（Slack・Asana は30分ごとのジョブが作る）。二重に起票しないでください。"
             if made else "手で起票・訂正してください。")
     # システムの異常は #null_system-monitor に一元化（2026-11-15 本人）。業務のチャンネルと同じく公開なので、原文も載せる
-    health.post(deps, f"{s.mention}【処理できなかったメッセージ】{s.store_name}: LINE のメッセージを{s.tasks_max_attempts}回試しても"
+    health.post(deps, f"【処理できなかったメッセージ】{s.store_name}: LINE のメッセージを{s.tasks_max_attempts}回試しても"
                       f"処理できませんでした。{todo}\n原因：{esc(str(error)[:300])}\n{texts.quote(text)}")
 
 def _group_name(deps: Deps, group_id: str) -> str:

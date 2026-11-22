@@ -23,7 +23,7 @@ def test_alert_goes_to_monitor_channel_with_reminders_and_recovery_in_thread(mon
         health.record(deps, "deposits", ERR)
     parent = deps.notifier.posts[-1]
     assert parent["channel"] == "CMON" and parent["thread_ts"] is None
-    assert "<@UALERT>" in parent["text"] and "【外部API障害】" in parent["text"] and "Square" in parent["text"]
+    assert "<@" not in parent["text"] and "【外部API障害】" in parent["text"] and "Square" in parent["text"]
     health.record(deps, "deposits", ERR)                       # 8時間たつまでは何も出さない
     assert len(deps.notifier.posts) == 1
     doc = deps.store.get_doc("meta", "job_health")
@@ -31,7 +31,7 @@ def test_alert_goes_to_monitor_channel_with_reminders_and_recovery_in_thread(mon
     deps.store.set_doc("meta", "job_health", doc)
     health.record(deps, "deposits", ERR)
     remind = deps.notifier.posts[-1]
-    assert remind["thread_ts"] == parent["ts"] and "まだ続いています" in remind["text"]
+    assert remind["thread_ts"] == parent["ts"] and "まだ続いています" in remind["text"] and "<@" not in remind["text"]
     health.record(deps, "deposits", None)
     rec = deps.notifier.posts[-1]
     assert rec["thread_ts"] == parent["ts"] and "【復旧】" in rec["text"]
@@ -53,13 +53,14 @@ def test_falls_back_to_business_channel_when_monitor_channel_fails():
     for _ in range(2):
         health.record(deps, "reconcile", KeyError("x"))
     assert deps.notifier.posts[-1]["channel"] == "CPROD" and "【処理エラー】" in deps.notifier.posts[-1]["text"]
+    assert "<@" not in deps.notifier.posts[-1]["text"]           # 業務のチャンネルに逃がしてもメンションしない（2026-11-23 本人）
 
 
 def test_dry_run_uses_test_channel():
     deps = make_deps(dry_run=True, slack_monitor_channel_prod="CMON")
     for _ in range(2):
         health.record(deps, "deposits", ERR)
-    assert deps.notifier.posts[-1]["channel"] == "CTEST"
+    assert deps.notifier.posts[-1]["channel"] == "CTEST" and "<@" not in deps.notifier.posts[-1]["text"]
 
 
 def test_heartbeat_and_snapshot(monkeypatch):
@@ -157,6 +158,7 @@ def test_claude_key_invalid_on_line_event_goes_to_monitor_channel():
     biz = [p for p in deps.notifier.posts if p["channel"] == "CPROD" and "処理できなかったメッセージ" in p["text"]]
     assert len(mon) == 1 and not biz                       # 一元化（2026-11-15 本人）: 業務のチャンネルには出さない
     assert "invalid x-api-key" in mon[0]["text"]
+    assert all("<@" not in p["text"] for p in deps.notifier.posts if p["channel"] == "CMON")   # 監視はメンションしない
 
 
 def test_line_group_notices_go_to_monitor_channel():
@@ -177,7 +179,7 @@ def test_secret_expiry_stages():
     assert monitor.expiry(deps, now=exp - timedelta(days=40)) == []
     assert monitor.expiry(deps, now=exp - timedelta(days=29)) == ["Claude API キー"]
     p = deps.notifier.posts[-1]
-    assert p["channel"] == "CMON" and "<@UALERT>" in p["text"] and "【期限が近い】" in p["text"]
+    assert p["channel"] == "CMON" and "<@" not in p["text"] and "【期限が近い】" in p["text"]
     assert "2027-11-22 04:00" in p["text"] and "set_secret.py ANTHROPIC_API_KEY" in p["text"]
     assert monitor.expiry(deps, now=exp - timedelta(days=28)) == []           # 同じ段階は1回だけ
     assert monitor.expiry(deps, now=exp - timedelta(days=3)) == ["Claude API キー"]   # 7日前（1日遅れても知らせる）

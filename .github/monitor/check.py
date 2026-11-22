@@ -17,7 +17,7 @@ Slack に投稿できなかったら終了コード 1（GitHub から本人に�
   MONITOR_TARGETS  JSON の配列（GitHub の Secrets）。要素: {"name": 表示名, "url": 叩く URL,
                    "kind": "sales"（/health。jobs と version を見る）か "plain"（応答だけ見る）, "deploy": true/false}
   MONITOR_EXTRA_TARGETS  試験用に足す対象（同じ形。手動実行の入力から）
-  SLACK_BOT_TOKEN, SLACK_CHANNEL, SLACK_MENTION（ユーザー ID）
+  SLACK_BOT_TOKEN, SLACK_CHANNEL（監視の通知では本人をメンションしない。2026-11-23 本人）
   GITHUB_TOKEN, GITHUB_REPOSITORY（デプロイの確認に使う）
   MONITOR_CONSECUTIVE（既定 2）, MONITOR_RENOTIFY_MIN（既定 480）, MONITOR_DEPLOY_GRACE_MIN（既定 40）
   MONITOR_EXPECT_SHA（試験用。デプロイの確認で「動いているべきコミット」を上書きする）
@@ -190,20 +190,19 @@ def span(a: datetime, b: datetime) -> str:
 
 
 def notify(state: dict, problems: list[dict], slack: Slack, now: datetime) -> dict:
-    mention = f"<@{os.environ['SLACK_MENTION']}> " if os.environ.get("SLACK_MENTION") else ""
     current = {p["key"]: p for p in problems}
     new_state: dict = {}
     for key, p in current.items():
         s = dict(state.get(key) or {"count": 0, "since": now.isoformat()})
         s["count"] += 1
         if not s.get("ts") and s["count"] >= CONSECUTIVE:
-            text = f"{mention}【{p['title']}】{p['text']}（{jst(iso(s['since']))} から）\n対応: runbook「システム監視」の【{p['title']}】"
+            text = f"【{p['title']}】{p['text']}（{jst(iso(s['since']))} から）\n対応: runbook「システム監視」の【{p['title']}】"
             ts = slack.post(text)
             if ts:
                 s |= {"ts": ts, "text": text, "notified_at": now.isoformat()}
             print(f"通知: {key} {p['title']}")
         elif s.get("ts") and now - iso(s["notified_at"]) >= RENOTIFY:
-            if slack.post(f"{mention}まだ続いています（{span(iso(s['since']), now)}）。{p['text']}", thread_ts=s["ts"]):
+            if slack.post(f"まだ続いています（{span(iso(s['since']), now)}）。{p['text']}", thread_ts=s["ts"]):
                 s["notified_at"] = now.isoformat()
             print(f"リマインド: {key}")
         else:
@@ -236,7 +235,6 @@ def expiry_backup(state: dict, problems: list[dict], slack: Slack, now: datetime
     if not path.exists() or not any(p["key"].endswith(WORKER_DOWN) for p in problems):
         return state
     items = tomllib.loads(path.read_text(encoding="utf-8")).get("monitor", {}).get("expiry", [])
-    mention = f"<@{os.environ['SLACK_MENTION']}> " if os.environ.get("SLACK_MENTION") else ""
     state = dict(state)
     for item in items:
         exp = datetime.fromisoformat(str(item["expires"]))
@@ -247,7 +245,7 @@ def expiry_backup(state: dict, problems: list[dict], slack: Slack, now: datetime
             continue
         head = (f"【期限切れ】{item['name']} の有効期限（{jst(exp)}）を過ぎています。" if stage == 0 else
                 f"【期限が近い】{item['name']} の有効期限は {jst(exp)}（あと{max(left.days, 0)}日）です。")
-        if slack.post(f"{mention}{head}（売上の worker が止まっているため、外部監視から知らせています）\n"
+        if slack.post(f"{head}（売上の worker が止まっているため、外部監視から知らせています）\n"
                       f"更新の手順: {item.get('renew', 'runbook「秘密情報の更新」')}"):
             state[key] = stage
             print(f"期限の通知（予備）: 段階 {stage}")

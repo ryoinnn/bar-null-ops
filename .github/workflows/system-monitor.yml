@@ -72,9 +72,8 @@ jobs:
           MONITOR_CONSECUTIVE: ${{ github.event.inputs.consecutive }}
           MONITOR_RENOTIFY_MIN: ${{ github.event.inputs.renotify_min }}
           MONITOR_DRY: ${{ github.event.inputs.dry == 'true' && '1' || '' }}
-          # 本番 #null_system-monitor / 試験 #test_barnull-sales。メンションは桝本
+          # 本番 #null_system-monitor / 試験 #test_barnull-sales。監視の通知ではメンションしない（2026-11-23 本人）
           SLACK_CHANNEL: ${{ env.MODE == 'test' && 'C0C8E1NLRAM' || 'C0CHSLZA8RY' }}
-          SLACK_MENTION: U0A51TDCCEN
           GITHUB_TOKEN: ${{ github.token }}
           STATE_FILE: state/monitor_state.json
         run: python3 .github/monitor/check.py
