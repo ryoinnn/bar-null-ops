@@ -123,3 +123,12 @@ exclude_patterns = ["NIGITA", "ニギタ"]   # 摘要にこれを含む明細は
 tool_patterns = ["ANTHROPIC", "OPENAI", "CHATGPT", "SLACK", "GITHUB", "NOTION", "ADOBE", "GOOGLE", "SHUTTERSTOCK"]   # 区分を「ツール・サブスク」にする
 high_value = 100000            # この額以上の1件を「高額」とする（ポータルに件数が出る）
 notify = false                 # 取り込みの結果を Slack に知らせない（2026-11-15 本人。失敗だけは既存の障害通知が知らせる）
+
+[investor_report]
+# 出資者向けの月次損益計算書（docs/investor_report.md）。毎日のジョブ（10:05）が 10日以降に前月分を PDF にし、
+# 下のフォルダに置いて #null_system-monitor に URL を知らせる（メンションなし）。フォルダには sales-worker のサービスアカウントの書き込み権限が要る
+enabled = false
+drive_folder_id = "1NK0lsgaYapHLPUhsoy1GGCPrS7sQOj6g"   # 共有ドライブ「01_飲食店事業部」の「5_出資者報告/出資者向け_月次損益計算書（Bar null）」（2026-11-23 作成）
+issue_day = 10                 # 給与の確定（10日 9:00）のあと
+renotify_days = 3
+company = "株式会社0x0（サザン代官山）"

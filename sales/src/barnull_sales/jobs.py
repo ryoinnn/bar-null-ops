@@ -4,7 +4,8 @@
 |------------------------|----------------|-----------------------------------------------------------------------|
 | /jobs/reconcile        | 30分ごと        | manual_overrides → republish → resync → reconcile → deposits → pos_notify |
 |                        |                | → staff_sync → attendance_approvals → attendance_overrides → attendance_resync → payroll → payroll_adjustments |
-| /jobs/daily            | 毎日 10:05      | deposit_alerts → unpaid_reminders → delete_old_events                 |
+| /jobs/daily            | 毎日 10:05      | deposit_alerts → unpaid_reminders → delete_old_events → secret_expiry |
+|                        |                | → investor_report（10日以降に前月分の出資者向け資料）                    |
 | /jobs/weekly           | 毎週月曜 9:10   | weekly_report                                                         |
 
 1つのステップが失敗しても、次のステップは動かす。失敗は health が数え、続いたら Slack に知らせる。
@@ -18,8 +19,21 @@ import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from . import (attendance, deposits, health, labor_hooks, logs, monitor, overrides, payroll, pos_notify, reconcile,
-               supplies, unpaid)
+from . import (
+    attendance,
+    deposits,
+    health,
+    investor_report,
+    labor_hooks,
+    logs,
+    monitor,
+    overrides,
+    payroll,
+    pos_notify,
+    reconcile,
+    supplies,
+    unpaid,
+)
 from .deps import Deps
 from .errors import ItemErrors
 from .slip_ops import publish, sync
@@ -111,5 +125,6 @@ def weekly_report(deps: Deps) -> dict:
 
 DAILY_STEPS = [("deposit_alerts", deposits.deposit_alerts), ("unpaid_reminders", unpaid.reminders),
                ("delete_old_events", delete_old_events),
-               ("secret_expiry", monitor.expiry)]   # 期限のある秘密情報（[[monitor.expiry]]）
+               ("secret_expiry", monitor.expiry),   # 期限のある秘密情報（[[monitor.expiry]]）
+               ("investor_report", investor_report.step)]   # 10日以降に前月分の出資者向け資料（docs/investor_report.md）
 WEEKLY_STEPS = [("weekly_report", weekly_report)]

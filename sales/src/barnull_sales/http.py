@@ -77,7 +77,9 @@ def gcp_id_token(audience: str) -> str:
     return r.text.strip()
 
 
-def gcp_token() -> str:
-    """Cloud Run のサービスアカウントのアクセストークン（メタデータサーバーから）。"""
-    r = request("GCP metadata", "GET", METADATA_TOKEN, headers={"Metadata-Flavor": "Google"}, timeout=5)
+def gcp_token(scopes: str | None = None) -> str:
+    """Cloud Run のサービスアカウントのアクセストークン（メタデータサーバーから）。
+    scopes を渡すとその範囲のトークン（Google ドライブなど、cloud-platform に含まれない API 用）。"""
+    r = request("GCP metadata", "GET", METADATA_TOKEN, headers={"Metadata-Flavor": "Google"}, timeout=5,
+                params={"scopes": scopes} if scopes else None)
     return r.json()["access_token"]

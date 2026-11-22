@@ -137,6 +137,39 @@ def cmd_fixed_show(args: argparse.Namespace) -> None:
             print(f"    {v['category']:<8} {n:<20} ¥{v['amount']:>10,}{'（実績）' if v['kind'] == '実績' else ''}")
 
 
+def cmd_investor_report(args: argparse.Namespace) -> None:
+    """出資者向けの月次損益計算書を手元で作る（Asana を読むだけ。ドライブ・Slack には出さない）。docs/investor_report.md。"""
+    from datetime import date
+    from pathlib import Path
+
+    from . import investor_report as ir
+    from .asana import AsanaAPI
+
+    s = settings()
+    st = ir.build(ir.load(AsanaAPI(secret("ASANA_PAT")), s.asana_ids, args.env), args.month,
+                  date.fromisoformat(args.today) if args.today else date.today())
+    print(f"{args.month}  売上高 {ir.yen(st.sales)}  売上原価 {ir.yen(st.cogs)}  売上総利益 {ir.yen(st.gross)}")
+    for k, v in st.sga_lines:
+        print(f"    {k:<10} {ir.yen(v):>12}")
+    print(f"    販管費合計 {ir.yen(st.sga_total):>12}   営業利益 {ir.yen(st.operating)}")
+    if args.detail:
+        import json
+
+        print(json.dumps(st.detail, ensure_ascii=False, indent=1))
+    for n in st.notes:
+        print("補足:", n)
+    for pr in st.problems:
+        print("そろっていない:", pr)
+    if args.out:
+        draft = bool(st.problems) and not args.final
+        Path(args.out).write_bytes(ir.render(st, company=s.investor_report.company, store=s.store_name,
+                                             created=date.fromisoformat(args.today) if args.today else None,
+                                             draft=draft))
+        print(f"PDF: {args.out}{'（試作の印つき）' if draft else ''}")
+    if st.problems:
+        sys.exit(2)
+
+
 def cmd_purchase_login(args: argparse.Namespace) -> None:
     from .purchase_nos import login_interactive
     from .purchase_run import PROFILE
@@ -350,6 +383,14 @@ def main() -> None:
     fw.add_argument("--until", default=time.strftime("%Y-%m"), help="最後の月（YYYY-MM。既定は今月）")
     fw.add_argument("--months", type=int, default=6)
     fw.set_defaults(func=cmd_fixed_show)
+    ir = sub.add_parser("investor-report", help="出資者向けの月次損益計算書を手元で作る（読むだけ）")
+    ir.add_argument("--month", required=True, help="対象月（YYYY-MM）")
+    ir.add_argument("--env", choices=["test", "prod"], default="prod")
+    ir.add_argument("--out", help="PDF の保存先")
+    ir.add_argument("--today", help="今日の日付として扱う日（YYYY-MM-DD。記録のそろい具合の判定に使う）")
+    ir.add_argument("--detail", action="store_true", help="突き合わせ用の内訳も出す")
+    ir.add_argument("--final", action="store_true", help="そろっていなくても試作の印を付けない（本人が確かめた数字のとき）")
+    ir.set_defaults(func=cmd_investor_report)
     sub.add_parser("purchase-login").set_defaults(func=cmd_purchase_login)
     sub.add_parser("purchase-set-login").set_defaults(func=cmd_purchase_set_login)
     pf = sub.add_parser("purchase-fetch")

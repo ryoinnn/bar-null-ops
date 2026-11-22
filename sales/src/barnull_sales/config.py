@@ -143,6 +143,16 @@ class PurchaseConfig:
 
 
 @dataclass(frozen=True)
+class InvestorReportConfig:
+    """出資者向けの月次損益計算書（[investor_report]。docs/investor_report.md）。毎日のジョブが10日以降に前月分を発行する。"""
+    enabled: bool = False
+    drive_folder_id: str = ""            # PDF を置く Google ドライブのフォルダ（sales-worker のサービスアカウントに書き込み権限）
+    issue_day: int = 10                  # この日以降に前月分を発行する（給与の確定は 10日 9:00）
+    renotify_days: int = 3               # そろっていない理由が同じなら、この日数おきに知らせ直す
+    company: str = "株式会社0x0（サザン代官山）"   # 表の左上に出す名前（出資者向けシートと同じ）
+
+
+@dataclass(frozen=True)
 class Settings:
     dry_run: bool
     project: str
@@ -188,6 +198,7 @@ class Settings:
     labor: LaborConfig = LaborConfig()
     purchase: PurchaseConfig = PurchaseConfig()
     supplies: SuppliesConfig = SuppliesConfig()
+    investor_report: InvestorReportConfig = InvestorReportConfig()
 
     @property
     def labor_channel(self) -> str:
@@ -260,6 +271,7 @@ def load_settings(path: Path | None = None) -> Settings:
         labor=_pick(LaborConfig, c.get("labor", {})),
         purchase=_pick(PurchaseConfig, c.get("purchase", {})),
         supplies=_pick(SuppliesConfig, c.get("supplies", {})),
+        investor_report=_pick(InvestorReportConfig, c.get("investor_report", {})),
     )
 
 

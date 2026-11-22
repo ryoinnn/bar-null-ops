@@ -16,7 +16,8 @@ Cloud Run「sales-webhook」（公開。署名検証 → Cloud Tasks に積む �
 Cloud Run「sales-worker」（非公開。Cloud Tasks と Cloud Scheduler からだけ呼べる。1件ずつ処理）
   ├─ /tasks/process-event   解析（Claude Haiku）→ 起票・訂正・回収報告・現金の入金報告
   ├─ /jobs/reconcile        30分ごと: 手動上書き、作りかけの作り直し、反映のやり直し、Square 突合、入金の照合
-  ├─ /jobs/daily            毎日 10:05: 入金未確認、未収リマインド、古いイベントの削除
+  ├─ /jobs/daily            毎日 10:05: 入金未確認、未収リマインド、古いイベントの削除、秘密情報の期限、
+  │                         10日以降に前月分の出資者向け資料（investor_report.md。PDF を Google ドライブへ）
   └─ /jobs/weekly           毎週月曜 9:10: 売上週報（weekly_report.md）
   │
   ├─ Firestore（状態の正本）  ├─ Secret Manager（サービスごとの秘密情報）
