@@ -102,7 +102,7 @@ payroll_weekday = 2            # 翌月の第1水曜（0=月）
 payroll_time = "17:00"         # に前月分の給与を計算
 confirm_day = 10               # 10日
 confirm_time = "09:00"         # に確定
-payroll_since = "2026-12"      # この月より前の給与は計算しない（勤怠の記録を始めた月の扱いは本人確認）
+payroll_since = "2026-11"      # この月より前の給与は計算しない（2026-11-23 本人の指示で 11月分から。勤怠の記録が無い 11/1〜20 の時給分は本人が調整額で足す）
 
 [purchase]
 # 仕入（NOS の仕入実績一覧 → Asana「Bar null 仕入」。docs/profit/purchasing_requirements.md）。本人の PC で毎週月曜 9:30 に実行
