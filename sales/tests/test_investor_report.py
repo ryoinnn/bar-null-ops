@@ -63,7 +63,8 @@ def test_build_maps_items_like_the_investor_sheet():
     assert st.cogs == 11000                              # 仕入（返品はマイナス、対象外は除く）
     assert st.sga["地代家賃"] == 110000                   # 家賃 ＋ 共益費
     assert st.sga["水道光熱費"] == 1100                   # ガス代 ＋ 設備利用費
-    assert st.sga["人件費"] == 30000 + 20000              # 給与（プロモーター以外）＋ 役員報酬
+    assert st.sga["人件費(店長)"] == 20000               # 固定費の役員報酬（シートの「人件費(店長)」）
+    assert st.sga["人件費(バイト)"] == 30000             # 給与（プロモーター以外）
     assert st.sga["広告宣伝費"] == 8000                   # プロモーターの給与（バック）
     assert st.sga["決済手数料"] == 4500
     assert st.sga["備品・消耗品費"] == 4000
@@ -72,7 +73,9 @@ def test_build_maps_items_like_the_investor_sheet():
                                                                                     "銀行借入の返済": 40000}
     assert st.sga_total == 110000 + 1100 + 50000 + 8000 + 800 + 900 + 4000 + 4500 + 1000 + 700
     assert st.gross == 175000 - 11000 and st.operating == st.gross - st.sga_total
-    assert [k for k, _ in st.sga_lines][-1] == "通信費"   # その他が 0 円なら行を出さない
+    names = [k for k, _ in st.sga_lines]
+    assert names[:5] == ["地代家賃", "水道光熱費", "人件費(店長)", "人件費(バイト)", "広告宣伝費"]   # シートと同じ並び
+    assert names[-1] == "通信費"                          # その他が 0 円なら行を出さない
 
 
 def test_unknown_fixed_item_goes_to_other_with_a_note():
