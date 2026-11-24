@@ -126,9 +126,11 @@ notify = false                 # 取り込みの結果を Slack に知らせな�
 
 [investor_report]
 # 出資者向けの月次損益計算書（docs/investor_report.md）。毎日のジョブ（10:05）が 10日以降に前月分を PDF にし、
-# 下のフォルダに置いて #null_system-monitor に URL を知らせる（メンションなし）。フォルダには sales-worker のサービスアカウントの書き込み権限が要る
+# 下のフォルダに置き、#null_investor-report に対象月・PDF・フォルダの URL を投稿する（メンションなし）。障害と補足は #null_system-monitor。
+# フォルダには sales-worker のサービスアカウントの書き込み権限、チャンネルには bot（@barnull_sales）の招待が要る
 enabled = false
 drive_folder_id = "1NK0lsgaYapHLPUhsoy1GGCPrS7sQOj6g"   # 共有ドライブ「01_飲食店事業部」の「5_出資者報告/出資者向け_月次損益計算書（Bar null）」（2026-11-23 作成）
 issue_day = 10                 # 給与の確定（10日 9:00）のあと
 renotify_days = 3
 company = "株式会社0x0（サザン代官山）"
+slack_channel_prod = "C0CKZ500UET"   # #null_investor-report（非公開。2026-11-24 作成）。空・dry_run のあいだは #test_barnull-sales

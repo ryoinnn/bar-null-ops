@@ -191,3 +191,62 @@ def test_daily_job_includes_the_step():
     from barnull_sales import jobs
 
     assert ("investor_report", ir.step) in jobs.DAILY_STEPS
+
+
+# ---------- #null_investor-report への投稿 ----------
+
+class BrokenNotifier:
+    """出資者向けのチャンネルにだけ投稿できない Slack（bot が未招待など）。"""
+
+    def __init__(self, inner, bad):
+        self.inner, self.bad, self.fail = inner, bad, True
+
+    def post(self, channel, text, thread_ts=None, broadcast=False):
+        if channel == self.bad and self.fail:
+            raise RuntimeError("not_in_channel")
+        return self.inner.post(channel, text, thread_ts=thread_ts, broadcast=broadcast)
+
+
+def deps_live(**cfg):
+    d = deps_on(slack_channel_prod="CINV", **cfg)
+    d.settings = replace(d.settings, dry_run=False)
+    return d
+
+
+def test_issue_posts_month_pdf_and_folder_to_the_investor_channel_without_mention():
+    d, drive = deps_live(), FakeDrive()
+    assert ir.step(d, at(10), loader=sources, drive=drive) == "issued-now"
+    inv = [p for p in d.notifier.posts if p["channel"] == "CINV"]
+    assert len(inv) == 1
+    text = inv[0]["text"]
+    assert "2026年10月分" in text and "/file/d/F1/view" in text and "/drive/folders/FOLDER" in text
+    assert "¥" not in text and "<@" not in text and "<!" not in text
+    assert d.store.get_doc(ir.COLLECTION, "2026-10")["posted"] is True
+    assert ir.step(d, at(11), loader=lambda: pytest.fail("読まない"), drive=drive) == "issued"
+    assert len([p for p in d.notifier.posts if p["channel"] == "CINV"]) == 1          # 二度は投稿しない
+
+
+def test_investor_channel_is_the_test_channel_while_dry_run_or_unset():
+    assert deps_on(slack_channel_prod="CINV").settings.investor_channel == "CTEST"   # dry_run のあいだ
+    unset = deps_on()
+    unset.settings = replace(unset.settings, dry_run=False)
+    assert unset.settings.investor_channel == "CTEST"
+    assert deps_live().settings.investor_channel == "CINV"
+
+
+def test_post_failure_does_not_stop_issuing_and_is_retried_the_next_day():
+    d, drive = deps_live(renotify_days=3), FakeDrive()
+    d.notifier = BrokenNotifier(d.notifier, "CINV")
+    assert ir.step(d, at(10), loader=sources, drive=drive) == "issued-now"        # 発行は済む
+    doc = d.store.get_doc(ir.COLLECTION, "2026-10")
+    assert doc["status"] == "issued" and doc["posted"] is False and len(drive.uploads) == 1
+    posts = d.notifier.inner.posts
+    warn = [p for p in posts if "投稿できませんでした" in p["text"]]
+    assert len(warn) == 1 and warn[0]["channel"] != "CINV" and "<@" not in warn[0]["text"]
+    assert ir.step(d, at(11), loader=lambda: pytest.fail("読まない"), drive=drive) == "issued"
+    assert len([p for p in posts if "投稿できませんでした" in p["text"]]) == 1    # 同じ失敗は3日おき
+    d.notifier.fail = False                                                       # 招待された
+    assert ir.step(d, at(12), loader=lambda: pytest.fail("読まない"), drive=drive) == "issued"
+    assert [p["channel"] for p in posts].count("CINV") == 1
+    doc = d.store.get_doc(ir.COLLECTION, "2026-10")
+    assert doc["posted"] is True and "post_failed_on" not in doc and len(drive.uploads) == 1

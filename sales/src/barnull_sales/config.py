@@ -150,6 +150,7 @@ class InvestorReportConfig:
     issue_day: int = 10                  # この日以降に前月分を発行する（給与の確定は 10日 9:00）
     renotify_days: int = 3               # そろっていない理由が同じなら、この日数おきに知らせ直す
     company: str = "株式会社0x0（サザン代官山）"   # 表の左上に出す名前（出資者向けシートと同じ）
+    slack_channel_prod: str = ""         # 発行した PDF の URL を投稿するチャンネル（#null_investor-report。空・dry_run のあいだはテスト用）
 
 
 @dataclass(frozen=True)
@@ -206,6 +207,13 @@ class Settings:
         if self.labor.dry_run or not self.labor.slack_channel_prod:
             return self.slack_channel_test
         return self.labor.slack_channel_prod
+
+    @property
+    def investor_channel(self) -> str:
+        """出資者向け資料の URL の投稿先（#null_investor-report。dry_run のあいだ・未設定のあいだはテスト用チャンネル）。"""
+        if self.dry_run or not self.investor_report.slack_channel_prod:
+            return self.slack_channel_test
+        return self.investor_report.slack_channel_prod
 
     @property
     def slack_channel(self) -> str:

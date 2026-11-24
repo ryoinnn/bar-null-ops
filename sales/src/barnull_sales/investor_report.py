@@ -441,6 +441,10 @@ def file_url(f: dict) -> str:
     return f.get("webViewLink") or f"https://drive.google.com/file/d/{f['id']}/view"
 
 
+def folder_url(folder_id: str) -> str:
+    return f"https://drive.google.com/drive/folders/{folder_id}"
+
+
 # ---------- 毎日のジョブのステップ ----------
 
 def _month_label(month: str) -> str:
@@ -462,9 +466,11 @@ def step(deps, now: datetime | None = None, loader=None, drive=None) -> str:
         return "not-yet"
     month = prev_month(today)
     state = deps.store.get_doc(COLLECTION, month) or {}
-    if state.get("status") == "issued":
-        return "issued"
     label = _month_label(month)
+    if state.get("status") == "issued":
+        if state.get("posted") is False:      # 発行のときにチャンネルへ投稿できなかった: 毎日やり直す
+            announce(deps, month, state, today)
+        return "issued"
     try:
         if loader is None:
             from .asana import AsanaAPI
@@ -493,12 +499,12 @@ def step(deps, now: datetime | None = None, loader=None, drive=None) -> str:
         reused = f is not None
         f = f or drive.upload(cfg.drive_folder_id, name, pdf)
         url = file_url(f)
-        deps.store.set_doc(COLLECTION, month, {"status": "issued", "file_id": f["id"], "url": url, "name": name,
-                                               "reused": reused, "issued_at": now.isoformat(), "totals": st.totals()})
+        state = {"status": "issued", "file_id": f["id"], "url": url, "name": name, "reused": reused,
+                 "issued_at": now.isoformat(), "totals": st.totals()}
+        deps.store.set_doc(COLLECTION, month, state)
         extra = "（同じ名前のファイルがフォルダにあったため、それを使いました）" if reused else ""
         notes = "".join(f"\n・{n}" for n in st.notes)
         health.post(deps, f"【出資者向け資料】{label}分の月次損益計算書を発行しました{extra}。\n{url}{notes}")
-        return "issued-now"
     except Exception as e:
         try:
             health.post(deps, f"【出資者向け資料】{label}分の月次損益計算書の作成・発行に失敗しました。次の毎日のジョブでもう一度試します。\n"
@@ -506,3 +512,38 @@ def step(deps, now: datetime | None = None, loader=None, drive=None) -> str:
         except Exception:
             log.exception("失敗の通知も送れない")
         raise
+    announce(deps, month, state, today)      # 投稿に失敗しても発行は済んでいる（知らせて、翌日やり直す）
+    return "issued-now"
+
+
+def announce_text(deps, month: str, url: str) -> str:
+    """#null_investor-report への投稿（メンションなし。金額は出さない）。"""
+    return (f"{_month_label(month)}分の月次損益計算書（{deps.settings.store_name}）を発行しました。\n"
+            f"PDF: {url}\nフォルダ: {folder_url(deps.settings.investor_report.drive_folder_id)}")
+
+
+def announce(deps, month: str, state: dict, today: date) -> bool:
+    """発行した PDF の URL をチャンネルに投稿する。失敗は監視のチャンネルに知らせ（renotify_days おき）、翌日やり直す。"""
+    from . import health
+
+    s = deps.settings
+    try:
+        deps.notifier.post(s.investor_channel, announce_text(deps, month, state["url"]))
+    except Exception as e:
+        log.exception("出資者向け資料の URL をチャンネルに投稿できない")
+        last = state.get("post_failed_on")
+        if not last or (today - date.fromisoformat(last)).days >= s.investor_report.renotify_days:
+            try:
+                health.post(deps, f"【出資者向け資料】{_month_label(month)}分の PDF は発行しましたが、URL をチャンネル"
+                                  f"（{s.investor_channel}）に投稿できませんでした。次の毎日のジョブでもう一度試します。\n"
+                                  f"エラー: {type(e).__name__}: {str(e)[:200]}\n"
+                                  "bot がチャンネルに招待されているか確かめてください（runbook「出資者向けの月次資料」）。\n"
+                                  f"{state['url']}")
+            except Exception:
+                log.exception("投稿の失敗の通知も送れない")
+            last = today.isoformat()
+        deps.store.set_doc(COLLECTION, month, {**state, "posted": False, "post_failed_on": last})
+        return False
+    done = {k: v for k, v in state.items() if k != "post_failed_on"}
+    deps.store.set_doc(COLLECTION, month, {**done, "posted": True, "posted_at": datetime.now(s.tz).isoformat()})
+    return True

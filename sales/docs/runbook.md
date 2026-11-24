@@ -345,13 +345,15 @@ uv run barnull-sales report --env prod --date 2026-10-19                # 週報
 
 ## 出資者向けの月次資料（月次損益計算書。2026-11-23 追加）
 設計は [investor_report.md](investor_report.md)。毎日のジョブ（10:05）のステップ `investor_report` が、10日以降に前月分を PDF にして
-共有ドライブの専用フォルダ（`sales.toml` の `[investor_report] drive_folder_id`）に置き、#null_system-monitor に URL を知らせる（メンションなし）。
-URL を出資者に送るのは本人。
+共有ドライブの専用フォルダ（`sales.toml` の `[investor_report] drive_folder_id`）に置き、`#null_investor-report`（非公開。`[investor_report] slack_channel_prod`）に
+対象月・PDF の URL・フォルダの URL を投稿する（メンションなし。金額は出さない）。障害・補足は #null_system-monitor に出す。URL を出資者に送るのは本人。
+- 初めて使うとき: `#null_investor-report` で `/invite @barnull_sales`（非公開チャンネルなので、招待しないと投稿できない）。
 
 | Slack の知らせ | 意味 | 対応 |
 |---|---|---|
 | 【出資者向け資料】…を発行しました | 前月分を作り、フォルダに置いた | URL を開いて中身を確かめ、出資者に送る。行の決まっていない固定費の補足があれば、`investor_report.py` の `FIXED_LINES` に足す |
 | 【出資者向け資料】…をまだ作れません | 前月のデータがそろっていない（理由が並ぶ） | 理由ごとに下の表のとおり直す。直せば次の 10:05 に自動で発行する。同じ理由なら3日おきに知らせ直す |
+| 【出資者向け資料】…は発行しましたが、URL をチャンネルに投稿できませんでした | PDF はできている（通知に URL あり）。bot が `#null_investor-report` にいないか、チャンネル ID が違う | チャンネルで `/invite @barnull_sales`。毎日 10:05 に投稿をやり直す（同じ失敗の通知は3日おき） |
 | 【出資者向け資料】…の作成・発行に失敗しました | PDF の作成か、ドライブへのアップロードが失敗した | エラーが Google Drive の 403/404 なら、専用フォルダに sales-worker のサービスアカウントの書き込み権限があるか、Drive API が有効か（`gcloud.cmd services list --enabled --project barnull-sales`）を見る。次の 10:05 にもう一度試す |
 
 | まだ作れない理由 | 直し方 |
@@ -365,5 +367,6 @@ URL を出資者に送るのは本人。
 - 発行済みのファイルを直す: ドライブでファイルを右クリック →「ファイル情報」→「版を管理」→ 手元で作った PDF をアップロード（URL は変わらない）。Firestore の記録はそのままでよい。
 - 発行をやり直す（新しいファイルにする）: ドライブのファイルを削除し、Firestore の `investor_reports/YYYY-MM` を消すと、その月のうちなら次の 10:05 に作り直す（前月分だけが対象）。
 - 止める: `sales.toml` の `[investor_report] enabled = false` にして push。
-- 金額は Slack・ログに出さない（URL と理由だけ）。人件費は店長とアルバイトを合わせた1行で、個人の額は出さない。
+- チャンネルへの投稿だけ止める・戻す: `[investor_report] slack_channel_prod = ""` にして push すると、投稿先が `#test_barnull-sales` になる（発行は続く）。コードごと戻すなら、そのコミットを revert して push。
+- 金額は Slack・ログに出さない（URL と理由だけ）。人件費はシートと同じ「人件費(店長)」「人件費(バイト)」の2行で、一人ずつの額は出さない。
 
