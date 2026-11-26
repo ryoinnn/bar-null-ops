@@ -6,27 +6,12 @@ from dataclasses import replace
 from datetime import datetime
 
 import pytest
-from helpers import JST, event, make_deps, slip_msg
+from helpers import APPROVER, JST, approve_all, att, event, labor_deps, slip_msg, staff_texts
 
 from barnull_sales import attendance, jobs, labor_hooks, payroll
-from barnull_sales.extract import Entry, Parsed
+from barnull_sales.extract import Entry
 from barnull_sales.process import handle_event
 from barnull_sales.staff import StaffIndex
-from barnull_sales.testing import FakeLaborTracker, FakeLine
-
-APPROVER = "UALERT"      # tests/sales.test.toml の alert_mention
-
-
-def att(month, day, start, end) -> Parsed:
-    return Parsed(kind="attendance", confidence=0.95, attendance={"month": month, "day": day, "start": start, "end": end})
-
-
-def labor_deps(results=(), **kw):
-    deps = make_deps(results, **kw)
-    deps.labor = FakeLaborTracker()
-    deps.line = FakeLine()
-    deps.line.names = {"U1": "たろう", "U2": "はなこ", "U9": "紹介じろう"}
-    return deps
 
 
 def staff_posts(deps) -> list[str]:
@@ -50,11 +35,12 @@ def test_attendance_across_6am_is_recorded_once():
     deps = labor_deps([att(11, 23, "21:00", "03:00")])
     ev = event("2026-11-24 03:30", "E1", user="U1")
     r = handle_event(ev, "message", deps)
-    assert r["status"] == "attendance"
+    assert r["status"] == "attendance_pending" and rec_of(deps) is None          # 承認されるまでは記録しない
+    approve_all(deps)
     rec = rec_of(deps)
     assert rec["business_date"] == "2026-11-23" and rec["hours"] == 6
     assert rec["start"].startswith("2026-11-23T21:00") and rec["end"].startswith("2026-11-24T03:00")
-    texts = staff_posts(deps)
+    texts = staff_texts(deps)
     assert any("【台帳に無い人】" in t and "たろう" in t for t in texts)
     assert any("11/23（月）　21:00〜03:00　6h" in t and "11月の稼働：1日・6h" in t for t in texts)
     tasks = [t for t in deps.labor.tasks.values() if t["project"] == "attendance"]
@@ -66,6 +52,7 @@ def test_attendance_across_6am_is_recorded_once():
 def test_hours_notation_over_24_and_bad_spans():
     deps = labor_deps([att(11, 23, "20:30", "26:15"), att(11, 23, "", "03:00"), att(11, 23, "09:00", "09:00")])
     handle_event(event("2026-11-24 03:30", "E1"), "message", deps)
+    approve_all(deps)
     assert rec_of(deps)["hours"] == 5.75
     assert handle_event(event("2026-11-24 03:31", "E2"), "message", deps)["status"] == "attendance_unparsed"
     assert handle_event(event("2026-11-24 03:32", "E3"), "message", deps)["status"] == "attendance_unparsed"
@@ -75,14 +62,17 @@ def test_hours_notation_over_24_and_bad_spans():
 def test_second_message_for_same_day_overwrites():
     deps = labor_deps([att(11, 23, "21:00", "03:00"), att(11, 23, "21:30", "03:00")])
     handle_event(event("2026-11-24 03:30", "E1"), "message", deps)
+    approve_all(deps)
     handle_event(event("2026-11-24 12:00", "E2"), "message", deps)
+    assert rec_of(deps)["hours"] == 6                       # 訂正も承認されるまでは前の記録のまま
+    approve_all(deps)
     rec = rec_of(deps)
     assert rec["hours"] == 5.5 and len(rec["event_ids"]) == 2
     assert any(p["thread_ts"] and "訂正：21:00〜03:00 6h → 21:30〜03:00 5.5h" in p["text"] for p in deps.notifier.posts)
     assert len([t for t in deps.labor.tasks.values() if t["project"] == "attendance"]) == 1
 
 
-# ---------------------------------------------------------------- 期限外の承認
+# ---------------------------------------------------------------- 承認（期限外。期限内・訂正・リマインドなどは test_attendance_approval.py）
 def late(deps, eid="E1", when="2026-11-25 10:00"):
     ev = event(when, eid, user="U1")
     ev["replyToken"], ev["message"]["quoteToken"] = "R1", "Q1"
@@ -96,7 +86,8 @@ def test_late_input_waits_for_approval_then_is_recorded_and_announced():
     assert deps.store.get_doc("attendance", f"W-20261123-{person.staff_id}") is None
     ask = next(p for p in deps.notifier.posts if "承認依頼（期限切れ）" in p["text"])
     assert ask["channel"] == "CSTAFF" and "<@UALERT>" in ask["text"]
-    assert deps.line.replies[-1][2].startswith("11/23 の勤怠は入力の期限を過ぎている")
+    assert deps.line.replies[-1][2] == ("11/23 の勤怠（21:00〜03:00 6時間）を受け付けました。入力の期限（11/25（水）9:00）を"
+                                        "過ぎています。管理者が承認したら記録し、お知らせします。")
     deps.notifier.reacted = {ask["ts"]: {"white_check_mark": ["USOMEONE"]}}      # 桝本以外は数えない
     jobs.run_steps(deps, [("attendance_approvals", attendance.approvals)])
     assert rec_of(deps) is None
@@ -119,10 +110,16 @@ def test_rejected_late_input_is_not_recorded():
     assert any(p["thread_ts"] == ask["ts"] and "却下" in p["text"] for p in deps.notifier.posts)
 
 
-def test_deadline_is_day_plus_two_at_9am_and_future_needs_approval():
-    deps = labor_deps([att(11, 23, "21:00", "03:00"), att(11, 30, "21:00", "03:00")])
-    assert late(deps, "E1", "2026-11-25 08:59")["status"] == "attendance"
+def test_deadline_is_day_plus_two_at_9am_and_future_is_marked():
+    """期限内も承認待ち（2026-11-26 から）。期限（D+2 9:00）を過ぎた・未来の日付は、依頼の見出しの目印になる。"""
+    deps = labor_deps([att(11, 23, "21:00", "03:00"), att(11, 30, "21:00", "03:00"), att(11, 24, "21:00", "03:00")])
+    assert late(deps, "E1", "2026-11-25 08:59")["status"] == "attendance_pending"
     assert late(deps, "E2", "2026-11-25 08:59")["status"] == "attendance_pending"     # 11/30 はまだ先
+    assert late(deps, "E3", "2026-11-26 09:01")["status"] == "attendance_pending"     # 11/24 の期限は 11/26 9:00
+    heads = [p["text"].split("\n")[0] for p in deps.notifier.posts if "承認依頼" in p["text"]]
+    assert "【勤怠の承認依頼】たろう｜11/23（月）" in heads[0]
+    assert "【勤怠の承認依頼（未来の日付）】たろう｜11/30（月）" in heads[1]
+    assert "【勤怠の承認依頼（期限切れ）】たろう｜11/24（火）" in heads[2]
 
 
 # ---------------------------------------------------------------- 台帳と売上
@@ -133,10 +130,11 @@ def test_ledger_links_line_name_and_shows_real_name_and_own_sales():
     ledger(deps, real_name="山田花子", line_name="たろう", staff_kind="スタッフ", wage=1500, back_rate=10)
     handle_event(event("2026-11-23 23:00", "S1", user="U1"), "message", deps)        # 伝票（本人）
     handle_event(event("2026-11-24 03:30", "E1", user="U1"), "message", deps)        # 勤怠
+    approve_all(deps)
     rec = rec_of(deps)
     assert rec["own_sales"] == 30000 and rec["wage_amount"] == 9000
-    assert not any("【台帳に無い人】" in t for t in staff_posts(deps))
-    assert any(t.startswith("山田花子｜11/23") for t in staff_posts(deps))
+    assert not any("【台帳に無い人】" in t for t in staff_texts(deps))
+    assert any(t.startswith("山田花子｜11/23") for t in staff_texts(deps))
     handle_event(event("2026-11-24 03:40", "S2", user="U1"), "message", deps)        # 後から伝票が入った
     assert rec_of(deps)["own_sales"] == 50000
     task = deps.labor.tasks[rec["asana"]["task_gid"]]
@@ -218,6 +216,7 @@ def test_payroll_calculates_recalculates_confirms_and_alerts(clock):
     ledger(deps, real_name="管理者", line_name="かんりしゃ", staff_kind="管理者")
     handle_event(event("2026-11-23 23:00", "S1", user="U1"), "message", deps)
     handle_event(event("2026-11-24 03:30", "E1", user="U1"), "message", deps)
+    approve_all(deps)
 
     est = payroll_docs(deps)["山田花子"]                                             # 計算日の前は「見込み」
     assert (est["status"], est["pay"]) == ("見込み", 12000)
@@ -275,6 +274,7 @@ def test_first_wednesday():
 def test_asana_override_changes_hours_and_void():
     deps = labor_deps([att(11, 23, "21:00", "03:00")])
     handle_event(event("2026-11-24 03:30", "E1"), "message", deps)
+    approve_all(deps)
     gid = rec_of(deps)["asana"]["task_gid"]
     deps.labor.tasks[gid].update(att_manual="時間を反映", start="22:00", end="03:00")
     jobs.run_steps(deps, [("attendance_overrides", attendance.overrides)])
@@ -288,6 +288,7 @@ def test_asana_failure_is_retried_by_resync():
     deps = labor_deps([att(11, 23, "21:00", "03:00")])
     deps.labor.fail = {"attendance"}
     handle_event(event("2026-11-24 03:30", "E1"), "message", deps)
+    approve_all(deps)                                       # 承認で記録するときに Asana に書けなかった
     assert rec_of(deps)["sync_pending"]
     deps.labor.fail = set()
     assert jobs.run_steps(deps, [("attendance_resync", attendance.resync)])

@@ -94,7 +94,8 @@ class LaborConfig:
     payroll_since: str = ""              # この月（YYYY-MM）より前の給与は計算しない
     approve_emoji: tuple[str, ...] = ("white_check_mark", "heavy_check_mark", "o")
     reject_emoji: tuple[str, ...] = ("x", "negative_squared_cross_mark")
-    approval_remind_days: float = 7
+    approval_remind_time: str = "10:00"  # 承認待ちの勤怠は、依頼の翌日から毎日この時刻以降の最初の回に、依頼のスレッドでリマインド
+    approval_line_notice: bool = True    # 承認したら LINE で知らせる（プッシュ送信。月の無料枠を使う。足りなくなったら false）
 
     @property
     def cycle_start_time(self) -> time:
@@ -103,6 +104,10 @@ class LaborConfig:
     @property
     def cycle_end_time(self) -> time:
         return _hm(self.cycle_end)
+
+    @property
+    def remind_time(self) -> time:
+        return _hm(self.approval_remind_time)
 
     @property
     def asana_env(self) -> str:

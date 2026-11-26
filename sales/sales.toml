@@ -96,7 +96,9 @@ dry_run = false                # 2026-11-15 本番の LINE で確認して本番
 slack_channel_prod = "C0CHSHBBDC2"  # #null_staff-management（非公開。2026-11-15 作成）
 cycle_start = "21:00"          # 勤怠サイクル 21:00〜翌9:00（日付はサイクルの開始日）
 cycle_end = "09:00"
-deadline_extra_days = 1        # 営業日 D の勤務は D+2 日の 9:00 まで。過ぎたら桝本の承認待ち
+deadline_extra_days = 1        # 営業日 D の勤務は D+2 日の 9:00 まで。過ぎた入力は承認依頼に「期限切れ」と出す（勤怠はすべて桝本の承認待ち。2026-11-26 本人）
+approval_remind_time = "10:00" # 承認待ちのあいだ、依頼の翌日から毎日この時刻以降の最初の回（30分ごと）に、依頼のスレッドでリマインド
+approval_line_notice = true    # 承認したら LINE で知らせる（グループへのプッシュ送信。月の無料枠は「送信の回数 × グループの人数」。足りなくなったら false）
 max_shift_hours = 15
 payroll_weekday = 2            # 翌月の第1水曜（0=月）
 payroll_time = "17:00"         # に前月分の給与を計算

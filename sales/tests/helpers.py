@@ -85,3 +85,52 @@ def parents(deps) -> list[dict]:
 def with_staff(deps, *names: str) -> None:
     """現金を振り込む担当者の名義を設定する。"""
     deps.settings = replace(deps.settings, mf=replace(deps.settings.mf, staff_bank_names=tuple(names)))
+
+
+# ---------------------------------------------------------------- 勤怠（docs/profit/labor_design.md）
+APPROVER = "UALERT"      # tests/sales.test.toml の alert_mention（桝本）
+
+
+def att(month, day, start, end) -> Parsed:
+    return Parsed(kind="attendance", confidence=0.95, attendance={"month": month, "day": day, "start": start, "end": end})
+
+
+def labor_deps(results=(), **kw) -> Deps:
+    from barnull_sales.testing import FakeLaborTracker, FakeLine
+
+    deps = make_deps(results, **kw)
+    deps.labor = FakeLaborTracker()
+    deps.line = FakeLine()
+    deps.line.names = {"U1": "たろう", "U2": "はなこ", "U9": "紹介じろう"}
+    return deps
+
+
+def waiting(deps) -> dict[str, dict]:
+    return deps.store.find_docs("attendance_pending", "state", "==", "waiting")
+
+
+def react(deps, target, emoji="white_check_mark", user=APPROVER) -> None:
+    """target: 依頼（attendance_pending の文書）、Slack の投稿（FakeNotifier.posts の要素）、または ts。"""
+    ts = target if isinstance(target, str) else (target["slack"]["ts"] if "slack" in target else target["ts"])
+    reacted = getattr(deps.notifier, "reacted", {})
+    reacted.setdefault(ts, {}).setdefault(emoji, []).append(user)
+    deps.notifier.reacted = reacted
+
+
+def run_approvals(deps):
+    from barnull_sales import attendance, jobs
+
+    return jobs.run_steps(deps, [("attendance_approvals", attendance.approvals)])
+
+
+def approve_all(deps, emoji="white_check_mark", user=APPROVER):
+    """承認待ちの依頼すべてに、桝本が ✅ を付けて 30分ごとのジョブを回す。"""
+    for p in waiting(deps).values():
+        react(deps, p, emoji, user)
+    return run_approvals(deps)
+
+
+def staff_texts(deps) -> list[str]:
+    """#null_staff-management（テストでは CSTAFF）に出た文面（投稿と、書き換えた後の文面）。"""
+    return ([p["text"] for p in deps.notifier.posts if p["channel"] == "CSTAFF"]
+            + [u["text"] for u in deps.notifier.updates if u["channel"] == "CSTAFF"])

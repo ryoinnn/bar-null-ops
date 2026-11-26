@@ -176,10 +176,16 @@ def calculate_all(deps, month: str) -> int:
             if m:
                 missing.append(f"{esc(p.name)}（{'・'.join(m)}）")
     y, mo = month.split("-")
+    confirm_day = run_times(deps, month)[1].day
     note = ("\n条件が未設定の人：" + "、".join(missing) + "。台帳に入れると計算し直します。") if missing else ""
+    new, fix = attendance.waiting_in(deps, month)
+    if new or fix:   # 承認されていない勤怠は給与に入らない（承認すれば、確定までは計算し直す）
+        note += ("\n" + (f"承認待ちの勤怠が{new}件あり、給与に入っていません。" if new else "")
+                 + (f"承認待ちの訂正が{fix}件あり、前の記録のまま計算しています。" if fix else "")
+                 + f"{confirm_day}日 {deps.settings.labor.confirm_time} の確定までに承認すれば、計算し直します。")
     deps.notifier.post(deps.settings.labor_channel,
                        f"{deps.settings.mention}{int(mo)}月分の給与を計算しました（{len(people)}人）。"
-                       f"Asana の「Bar null 給与」で確認してください。{run_times(deps, month)[1].day}日 "
+                       f"Asana の「Bar null 給与」で確認してください。{confirm_day}日 "
                        f"{deps.settings.labor.confirm_time} に確定します。{note}"
                        + ("\n（テスト）" if deps.settings.labor.dry_run else ""))
     errs.raise_if_any()

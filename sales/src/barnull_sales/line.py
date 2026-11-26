@@ -95,9 +95,16 @@ class LineClient:
 
     def push_text(self, to: str, text: str, quote_token: str | None = None, retry_key: str | None = None) -> None:
         """プッシュ送信（月の無料枠を使う）。retry_key（UUID）を付けると、やり直しても二重に届かない。"""
-        msg: dict = {"type": "text", "text": text}
-        if quote_token:
-            msg["quoteToken"] = quote_token
+        self.push_texts(to, [(text, quote_token)], retry_key)
+
+    def push_texts(self, to: str, items: list[tuple[str, str | None]], retry_key: str | None = None) -> None:
+        """引用付きのテキストを1回のプッシュ送信で最大5つ送る（月の無料枠は、送信1回 × 受け取る人数で数える）。"""
+        msgs: list[dict] = []
+        for text, quote_token in items[:5]:
+            msg: dict = {"type": "text", "text": text}
+            if quote_token:
+                msg["quoteToken"] = quote_token
+            msgs.append(msg)
         headers = {**self.headers, **({"X-Line-Retry-Key": retry_key} if retry_key else {})}
         request("LINE", "POST", f"{API}/message/push", headers=headers, timeout=15, idempotent=bool(retry_key),
-                allow=(409,), json={"to": to, "messages": [msg]})
+                allow=(409,), json={"to": to, "messages": msgs})

@@ -117,8 +117,22 @@ class FakeLine:
         self.replies.append((reply_token, quote_token, text))
 
     def push_text(self, to, text, quote_token=None, retry_key=None):
+        self.push_texts(to, [(text, quote_token)], retry_key)
+
+    def push_texts(self, to, items, retry_key=None):
+        """pushes: 吹き出し1つずつ (宛先, 本文, 引用, retry_key)。push_calls: 送信の回数（無料枠の数え方）。"""
+        if getattr(self, "fail_push", False):
+            raise RuntimeError("LINE に送れない")
+        assert 1 <= len(items) <= 5
+        self.keys = getattr(self, "keys", set())
+        if retry_key and retry_key in self.keys:       # LINE は同じ X-Line-Retry-Key の送信を二度届けない（409）
+            return
+        if retry_key:
+            self.keys.add(retry_key)
         self.pushes = getattr(self, "pushes", [])
-        self.pushes.append((to, text, quote_token, retry_key))
+        self.push_calls = getattr(self, "push_calls", 0) + 1
+        for text, quote_token in items:
+            self.pushes.append((to, text, quote_token, retry_key))
 
 
 class FakePos:

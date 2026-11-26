@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from helpers import event, make_deps, slip_msg, threads
+from helpers import approve_all, event, make_deps, slip_msg, staff_texts, threads
 
 from barnull_sales.extract import Entry, Parsed
 from barnull_sales.process import handle_event
@@ -51,4 +51,7 @@ def test_resent_attendance_is_recorded_for_quoted_sender():
     handle_event(quoting(event("2026-11-15 05:20", "E2", user="U9"), original), "message", deps)
     person = StaffIndex.load(deps.store).by_line_user("U1")
     assert person and person.line_name == "担当たろう"
-    assert deps.store.get_doc("attendance", f"W-20261114-{person.staff_id}")["hours"] == 6
+    assert any("管理じろうさんが引用して送り直し" in t for t in staff_texts(deps))     # 承認依頼に出す
+    approve_all(deps)
+    rec = deps.store.get_doc("attendance", f"W-20261114-{person.staff_id}")
+    assert rec["hours"] == 6 and "管理じろうさんが引用して送り直し" in rec["history"][-1]["reason"]
