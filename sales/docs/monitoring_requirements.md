@@ -22,6 +22,18 @@
 
 ### (1) GCP の外からの死活監視
 - GitHub Actions のワークフロー `system-monitor`（`.github/workflows/system-monitor.yml`）が **15 分ごと** に次を叩く。
+  - **起こし方（2026-11-27 変更）**: GitHub の定時実行（schedule）は混雑時に間引かれ、15 分ごとの指定でも実際は
+    11/14〜11/17 は約 1 時間おき、11/18 からは **6〜9 時間おき** にしか動かなかった（11/14〜11/27 の約 13 日で 106 回。指定どおりなら約 1,200 回）。
+    GitHub の文書にも「混雑時は遅れ、落とされることもある」とあり、設定では直せない。
+    そのため **本人の Google アカウントの Apps Script**「null 外部監視の起動」（控えは `.github/monitor/kick.gs`）が
+    15 分ごとに GitHub の API で `workflow_dispatch`（`mode=prod`）を送って起こす（2026-11-27 本人の決定）。
+    - Apps Script は GCP の `barnull-sales` の外（課金にも Cloud Scheduler の無料枠にも関わらない）なので、課金停止でも動く。
+    - GitHub のトークンは fine-grained で、このリポジトリだけ・権限は **Actions の読み書きだけ**（コードは変えられない）。
+      Apps Script のスクリプト プロパティ `GITHUB_TOKEN` に置く（本人が入れる。Claude は入力しない）。
+      期限は 2027-11-26。`sales.toml` の `[[monitor.expiry]]` に載せ、30 日前から知らせる。
+    - 定時実行は予備に残す（`7,22,37,52 * * * *`。毎時ちょうどは混むので避ける）。Apps Script が止まっても 6〜9 時間おきには動く。
+    - 本番の回の名前（run-name）は `system-monitor prod`、試験（`mode=test`）は `system-monitor test`。
+      本番の回と定時実行は、状態（キャッシュ）・通知先・同時実行の組が同じで、動きは変わらない。
   - 売上（Bar null）`sales-webhook` の `GET /health`（新設。認証なし）
   - 福岡の売上 `sales-webhook` の `GET /health`（同じコード）
   - 福岡の `node-api` の `GET /api/health`（既存。本番）
@@ -37,7 +49,10 @@
   - 返すもの: `ok`、`version`（デプロイしたコミットの短い ID）、`jobs`（reconcile / daily / weekly の最後の完了時刻）、`failing`（失敗が続いているステップ名だけ）
 - 定期処理の完了時刻は、`jobs.run_steps` の最後に Firestore の `meta/heartbeat` に 1 回書く（30 分に 1 回の書き込み。無料枠に収まる）。
 - **監視が止まったときの見張り（相互監視）**: worker の reconcile のステップ `monitor_watch` が、公開の GitHub API で
-  `system-monitor` の定時実行を読む。3 時間以上動いていない、または続けて失敗している（Slack に出せていない・監視先や期限の設定に読めない要素がある）なら health が通知する。
+  `system-monitor` の **本番の回**（定時実行と、名前が `system-monitor prod` の手動実行。試験の回は数えない）を読む。
+  3 時間以上動いていない、または続けて失敗している（Slack に出せていない・監視先や期限の設定に読めない要素がある）なら health が通知する。
+  Apps Script が止まった（トークンの期限切れ・取り消し、トリガーの消失）ときも、定時実行だけでは 3 時間に収まらないので、これで気づく
+  （2026-11-27 までは定時実行だけを数えていたため、間引きで 11/27 02:01〜07:30・11:00 以降に誤って失敗し続けた）。
   GitHub 側が止まっても GCP 側が、GCP 側が止まっても GitHub 側が気づく。
   （当初案の「/health が呼ばれた時刻を Firestore に書く」は、公開の webhook に書き込み権限が要るためやめた）
 - `/health` が Firestore を読むため、sales-webhook に **`roles/datastore.viewer`**（読み取りだけ）を付ける（IAM の変更なので本人）。
@@ -117,6 +132,7 @@
 | 追加するもの | 費用 |
 |---|---|
 | GitHub Actions（公開リポジトリ） | 無料（時間の上限なし） |
+| Apps Script（15 分ごとに起こす。1 日 96 回の外部への呼び出し。2026-11-27 追加） | 無料（本人の Google アカウントの上限の範囲内） |
 | Cloud Run への `/health`（15 分ごと × 2 店舗 = 192 回/日） | 無料枠内（月 200 万リクエスト） |
 | Firestore（heartbeat の書き込み 約 150 回/日、読み 約 400 回/日） | 無料枠内（書き 2 万・読み 5 万/日） |
 | Cloud Scheduler | **増やさない**（無料枠 3 本は使い切り） |
@@ -129,6 +145,8 @@
    コマンドは runbook に書く（秘密情報は Claude が入力しない）。
 3. LINE Developers で「Webhook の再送」「エラーの統計集計」を有効にする。
 4. （任意）課金停止の実地試験: 試験用プロジェクトで課金を 30 分だけ外す（下の §6）。外さない場合は記録済みの応答で模擬する。
+5. （2026-11-27 追加）GitHub で外部監視を起こすトークンを作り、Apps Script「null 外部監視の起動」に入れて `setup` を実行する
+   （手順は runbook「システム監視」の「最初に一度だけ」の 5）。
 
 ## 6. 完了条件（止める試験。すべてテスト用チャンネル `#test_barnull-sales` で行い、通った後で本番へ切り替える）
 | 観点 | 止め方 | 確かめること |
@@ -155,5 +173,7 @@
 | Slack に出せない | 単体テストのみ（投稿に失敗したら終了コード 1）。GitHub からのメールは実地では未確認 |
 
 GitHub の定期実行は 15 分ごとの指定に対し、実際は約 40 分おき（2026-11-15 06:07・06:47 JST）。`monitor_watch` のしきい値 3 時間には収まる。
+→ 2026-11-27 追記: その後 11/18 から 6〜9 時間おきに間引かれ、しきい値 3 時間を超えて `monitor_watch` が失敗し続けた。
+Apps Script で 15 分ごとに起こす形に変えた（上の (1) の「起こし方」）。
 
 あわせて runbook.md に「システム監視」の節（通知ごとの意味と最初にやること、止まったときの復旧手順、監視そのものの止め方・戻し方）を足す。

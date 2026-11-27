@@ -2,11 +2,16 @@
 # GCP の外（GitHub）から 15 分ごとに各サービスを叩き、止まっていたら Slack の #null_system-monitor に知らせる。
 # 公開リポジトリなので無料。ログは誰でも見られるため、URL や応答の本文は出さない（check.py）。
 # 必要な Secrets: SLACK_BOT_TOKEN（@barnull_sales の bot トークン）、MONITOR_TARGETS（監視先。runbook 参照）
+# 起こし方（2026-11-27）: GitHub の定時実行は間引かれ、15 分ごとの指定でも 6〜9 時間おきにしか動かない。
+# そのため本人の Google アカウントの Apps Script（.github/monitor/kick.gs）が 15 分ごとに mode=prod の手動実行で起こす。
+# 定時実行は予備に残す（毎時ちょうどは混むので避ける）。
 name: system-monitor
+# 本番の回は「system-monitor prod」。worker の monitor_watch はこの名前の回と定時実行を数える（monitor.py の PROD_TITLE）
+run-name: system-monitor ${{ inputs.mode || 'prod' }}
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
     inputs:
       mode:

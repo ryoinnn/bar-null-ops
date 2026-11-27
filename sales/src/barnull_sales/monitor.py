@@ -3,7 +3,8 @@
 - beat: 定期ジョブ（reconcile / daily / weekly）が最後まで動いた時刻を meta/heartbeat に残す（ジョブ1回につき1回の書き込み）。
 - snapshot: sales-webhook の GET /health が返す状態（時刻と状態だけ。金額・名前・エラー本文は返さない）。
 - watch: 外部監視（GitHub Actions の system-monitor）が動いているかを、公開の GitHub API で確かめる（相互監視）。
-  3時間以上動いていない、または続けて失敗している（Slack に出せていない）なら例外にして、health が通知する。
+  本番の回（定時実行と、Apps Script が15分ごとに起こす mode=prod の手動実行）が3時間以上無い、
+  または続けて失敗している（Slack に出せていない）なら例外にして、health が通知する。
 - expiry: 期限のある秘密情報（[[monitor.expiry]]）を、30日前・7日前・前日・期限切れの時点で知らせる（毎日のジョブ）。
   どの段階まで知らせたかは meta/secret_expiry に残す（ジョブが1日止まっても、次の回で知らせ漏れない）。
 """
@@ -19,6 +20,9 @@ from .deps import Deps
 log = logging.getLogger(__name__)
 WATCH_MAX_AGE = timedelta(hours=3)
 WORKFLOW = "system-monitor.yml"
+# 本番の回の名前（ワークフローの run-name）。GitHub の定時実行は間引かれて 6〜9 時間おきにしか動かないため、
+# 本人の Google アカウントの Apps Script（.github/monitor/kick.gs）が 15 分ごとに mode=prod で起こす（2026-11-27）
+PROD_TITLE = "system-monitor prod"
 
 
 class MonitorStopped(RuntimeError):
@@ -56,18 +60,26 @@ def watch(deps: Deps, fetch=None, now: datetime | None = None) -> str:
     runs = (fetch or _fetch_runs)(repo)
     if runs is None:
         return "unknown"                      # GitHub の API の回数制限など（次の回にもう一度見る）
-    scheduled = [r for r in runs if r.get("event") == "schedule"]
-    if not scheduled:
-        return "not-started"                  # まだ一度も定時実行していない（設定前）
-    latest = datetime.fromisoformat(scheduled[0]["created_at"].replace("Z", "+00:00"))
+    prod = [r for r in runs if _is_prod(r)]
+    if not prod:
+        return "not-started"                  # まだ一度も本番の回が無い（設定前）
+    latest = max(datetime.fromisoformat(r["created_at"].replace("Z", "+00:00")) for r in prod)
     if now - latest > WATCH_MAX_AGE:
         raise MonitorStopped(f"外部監視（GitHub Actions の system-monitor）が {latest.astimezone(deps.settings.tz):%m/%d %H:%M} "
-                             f"から動いていません。GitHub の Actions でワークフローが無効になっていないか確かめてください")
-    done = [r for r in scheduled if r.get("status") == "completed"][:2]
+                             f"から動いていません。15 分ごとに起こす Apps Script（GitHub のトークンの期限切れ・トリガーの消失）と、"
+                             f"GitHub の Actions でワークフローが無効になっていないかを確かめてください")
+    done = [r for r in prod if r.get("status") == "completed"][:2]
     if len(done) == 2 and all(r.get("conclusion") == "failure" for r in done):
         raise MonitorStopped("外部監視（GitHub Actions の system-monitor）が続けて失敗しています（Slack のトークン切れなど）。"
                              "GitHub の Actions のログを確かめてください")
     return "ok"
+
+
+def _is_prod(run: dict) -> bool:
+    """本番の状態で動いた回か。試験（mode=test の手動実行）は数えない。"""
+    if run.get("event") == "schedule":
+        return True
+    return run.get("event") == "workflow_dispatch" and run.get("display_title") == PROD_TITLE
 
 
 def _fetch_runs(repo: str) -> list[dict] | None:

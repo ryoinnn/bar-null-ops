@@ -134,7 +134,8 @@ uv run python sales/infra/setup.py secrets deploy
 
 | 見張るもの | どこで | 間隔 |
 |---|---|---|
-| 外部監視 `system-monitor` | GitHub Actions（`.github/workflows/system-monitor.yml`、`.github/monitor/check.py`） | 15 分ごと |
+| 外部監視 `system-monitor` | GitHub Actions（`.github/workflows/system-monitor.yml`、`.github/monitor/check.py`） | 15 分ごと（下の Apps Script が起こす） |
+| 外部監視を起こす | 本人の Google アカウントの Apps Script「null 外部監視の起動」（控えは `.github/monitor/kick.gs`。2026-11-27 追加） | 15 分ごと。GitHub の定時実行は間引かれて 6〜9 時間おきにしか動かないため。定時実行は予備 |
 | 外部API障害・処理エラー | sales-worker の health（`health.py`） | 30 分ごとのジョブの中 |
 | 外部監視が動いているか | sales-worker のステップ `monitor_watch`（公開の GitHub API を読む） | 30 分ごと |
 
@@ -156,7 +157,7 @@ uv run python sales/infra/setup.py secrets deploy
 | 【期限が近い】【期限切れ】 | sales.toml の `[[monitor.expiry]]` に載せた鍵の期限の 30日前・7日前・前日・期限切れ（毎日 10:05 のステップ secret_expiry） | 通知の「更新の手順」に従って発行し直し、`expires` を新しい期限に書き換えて push |
 | 【処理できなかったメッセージ】 | LINE のメッセージを 10 回試しても処理できなかった（原文つき。2026-11-15 から業務のチャンネルには出さない） | 通知に従って起票し直す（伝票が作成済みなら二重に起票しない） |
 | LINE の Bot の参加・処理対象ではないグループ | 運用の通知（2026-11-15 からここ） | 処理するなら sales.toml の allowed_group_ids に追加 |
-| 【処理エラー】定期処理「monitor_watch」 | 外部監視（GitHub Actions）が 3 時間以上動いていない、または続けて失敗（Slack のトークン切れ・設定の誤りなど） | GitHub の Actions →「system-monitor」。無効になっていれば「Enable workflow」。失敗ならログを見て、下の行の対応をする |
+| 【処理エラー】定期処理「monitor_watch」 | 外部監視（GitHub Actions）の本番の回（定時実行と `system-monitor prod`）が 3 時間以上無い、または続けて失敗（Slack のトークン切れ・設定の誤りなど） | 「動いていません」: GitHub の Actions →「system-monitor」に `system-monitor prod` が 15 分おきに並んでいるか見る。並んでいなければ Apps Script「null 外部監視の起動」の「実行数」でエラーを見る（`401` はトークンの期限切れ・取り消し → 下の「最初に一度だけ」の 5 でトークンを作り直す。トリガーが無ければ `setup` を実行し直す）。ワークフローが無効なら「Enable workflow」。<br>「続けて失敗」: ログを見て、下の行の対応をする |
 | GitHub からのメール「system-monitor failed」 | 外部監視が Slack に投稿できなかった、または設定に読めない要素がある（2026-11-27 から。読めない要素だけ飛ばし、ほかの監視・通知は続く） | 失敗した回のログを見る。<br>「Slack の … に失敗」: Slack のトークン（GitHub の Secrets `SLACK_BOT_TOKEN`）と、bot がチャンネルにいるか。<br>「監視先の設定（MONITOR_TARGETS）に読めない要素」: GitHub の Secrets `MONITOR_TARGETS` の各要素に `name` と `url`（文字列）があるか（形は下の「最初に一度だけ」の 3）。<br>「秘密情報の期限の設定: 読めない項目がある」: `sales/sales.toml` の `[[monitor.expiry]]` の `name`・`expires`（例 `2027-02-20T00:00:00+09:00`）を直して push。<br>「秘密情報の期限の予備の通知: 設定を読めない」: `sales/sales.toml` の書き方の誤り（TOML として読めない）。直して push |
 
 ### 止まったときの復旧（課金停止・長い停止の後）
@@ -171,7 +172,7 @@ uv run python sales/infra/setup.py secrets deploy
 ### 最初に一度だけ（本人の作業。Claude は秘密情報を入力しない）
 - 状態の道は `/health`（`/healthz` は Cloud Run が予約していてアプリに届かない）。福岡の売上は再デプロイ（`setup.py deploy`）までは `/health` が無いので、`MONITOR_TARGETS` では `"kind":"plain"`（応答と課金停止だけを見る）にしてある。
 - PowerShell で「スクリプトの実行が無効」と出るときは、`gcloud` を `gcloud.cmd` に置き換える（実行ポリシーは変えなくてよい）。
-- 2026-11-15: 1〜4 はすべて済み（招待・IAM・Secrets 2 つ・LINE の再送とエラーの統計情報）。
+- 2026-11-15: 1〜4 はすべて済み（招待・IAM・Secrets 2 つ・LINE の再送とエラーの統計情報）。5 は 2026-11-27 に追加（本人の作業）。
 1. Slack の `#null_system-monitor` で `/invite @barnull_sales`。
 2. sales-webhook が Firestore を読めるようにする（`/health` のため。読み取りだけ）:
    ```powershell
@@ -185,6 +186,20 @@ uv run python sales/infra/setup.py secrets deploy
    ```
 4. LINE Developers →（Bar null の売上の）チャネル →「Messaging API設定」→「Webhookの再送」と「エラーの統計情報」を有効にする。
    同じイベントが再送されても、イベント ID から作るタスク名で 1 件にまとまる（`tasks.py`）。
+5. 外部監視を 15 分ごとに起こす Apps Script（2026-11-27 追加。GitHub の定時実行は 6〜9 時間おきに間引かれるため）:
+   1. GitHub のトークンを作る: https://github.com/settings/personal-access-tokens/new
+      - Token name `null-monitor-kick`、Expiration は Custom で **2027-11-26**（`sales.toml` の `[[monitor.expiry]]` と同じ日。変えたらそちらも直す）
+      - Repository access は「Only select repositories」で `ryoinnn/bar-null-ops` だけ
+      - Permissions → Repository permissions → **Actions を「Read and write」**（ほかは触らない。Metadata の Read-only は自動で付く）
+      - 「Generate token」→ 表示されたトークンをコピー（この画面でしか見られない）
+   2. https://script.google.com →「新しいプロジェクト」→ 名前を「null 外部監視の起動」にする →
+      `コード.gs` の中身をすべて消し、`.github/monitor/kick.gs` の中身を貼って保存。
+   3. 左の歯車「プロジェクトの設定」→ 下の「スクリプト プロパティを追加」→ プロパティ `GITHUB_TOKEN`、値に 1 のトークン →「スクリプト プロパティを保存」。
+   4. エディタに戻り、上の関数の選択を `setup` にして「実行」→ 権限の確認で自分のアカウントを選び、「詳細」→「（安全ではないページ）に移動」→「許可」
+      （外部への接続とトリガーの管理。自分で作ったスクリプトなのでこの表示が出る）。
+   5. 確かめる: GitHub の Actions →「system-monitor」に `system-monitor prod`（workflow_dispatch）が 1 回出て成功する。以後 15 分ごとに並ぶ。
+      `gh run list -R ryoinnn/bar-null-ops --workflow system-monitor --limit 10`
+   - トークンを作り直したとき: 3 の値を書き換えるだけ（`setup` の実行は不要）。`sales.toml` の `expires` も書き換えて push。
 
 ### 利用額上限の手前の通知（2026-11-15 設定）
 - 予算 `barnull-sales-guard`（対象 barnull-sales）を ¥1,000・実績 50%・80%・100% にした（本人）。請求先アカウントの管理者とプロジェクトのオーナーにメールが届く。上限に達して止まったときは、外部監視が【課金停止】を出す。
@@ -195,10 +210,12 @@ uv run python sales/infra/setup.py secrets deploy
 - 一覧は `sales/sales.toml` の `[[monitor.expiry]]`（null システム全体の鍵をここにまとめる。福岡・予約対応の鍵も）。名前・期限・更新の手順だけで、キー本体は書かない。
 - 鍵を発行するときに期限を決められるもの（Anthropic など）は、必ずここに足す。期限の無い鍵は載せない（切れたら【認証切れ】で分かる）。
 - 2026-11-15 時点で載っているもの: 売上管理の Claude API キー（2027-11-22 04:00）。ほかの鍵の期限は本人に確認中。
+- 2026-11-27 追加: 外部監視を起こす GitHub のトークン `null-monitor-kick`（2027-11-26）。作り直しは上の「最初に一度だけ」の 5。
 
 ### 監視そのものを止める・戻す
 - 外部監視を止める: GitHub の Actions →「system-monitor」→「…」→「Disable workflow」（3 時間たつと `monitor_watch` が知らせる。長く止めるときは先に一言書いておく）。
-- 戻す: 同じ画面で「Enable workflow」。
+  無効のあいだ Apps Script の起動は `422` で失敗し、Google から失敗のメールが届く。長く止めるときは Apps Script の「トリガー」で `kick` のトリガーも消す。
+- 戻す: 同じ画面で「Enable workflow」。トリガーを消していたら Apps Script で `setup` を実行し直す。
 - 監視先を変える: Secrets の `MONITOR_TARGETS` を上書きする（形は上の 3）。
 - 手で 1 回動かす・試験する: Actions →「system-monitor」→「Run workflow」。`mode=test` は `#test_barnull-sales` に出し、本番の状態を汚さない。
   例: 停止の試験は `extra_targets` に `[{"name":"試験","url":"https://127.0.0.1:9/","kind":"plain"}]`、課金停止の模擬は

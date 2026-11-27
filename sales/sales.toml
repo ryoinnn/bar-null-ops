@@ -84,6 +84,11 @@ name = "売上管理の Claude API キー（Anthropic Console、Default ワー�
 expires = "2027-11-22T04:00:00+09:00"   # 2026-11-15 発行（前のキーは 2026-11-09 に切れ、11/10 からの伝票が失敗した）
 renew = "Anthropic Console で新しいキーを発行 → `uv run python sales/scripts/set_secret.py ANTHROPIC_API_KEY` → `uv run python sales/infra/setup.py secrets deploy` → この expires を書き換えて push"
 
+[[monitor.expiry]]
+name = "外部監視を起こす GitHub のトークン（fine-grained、null-monitor-kick）"
+expires = "2027-11-26T00:00:00+09:00"   # 2026-11-27 の手順で期限を 2027-11-26 にして発行（.github/monitor/kick.gs が使う）
+renew = "GitHub の Settings → Developer settings → Fine-grained tokens で null-monitor-kick を Regenerate（リポジトリ ryoinnn/bar-null-ops だけ、Actions: Read and write だけ）→ Apps Script「null 外部監視の起動」のスクリプト プロパティ GITHUB_TOKEN を書き換える → この expires を書き換えて push（runbook「システム監視」）"
+
 [claude]
 model_primary = "claude-haiku-5-5"
 model_fallback = "claude-sonnet-5-5"

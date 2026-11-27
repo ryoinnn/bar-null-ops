@@ -85,9 +85,15 @@ def test_snapshot_reports_store_failure():
 NOW = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
 
 
-def run(event="schedule", ago_min=10, status="completed", conclusion="success"):
+def run(event="schedule", ago_min=10, status="completed", conclusion="success", title=None):
+    title = title or ("system-monitor test" if event == "workflow_dispatch" else "system-monitor prod")
     return {"event": event, "created_at": (NOW - timedelta(minutes=ago_min)).isoformat().replace("+00:00", "Z"),
-            "status": status, "conclusion": conclusion}
+            "status": status, "conclusion": conclusion, "display_title": title}
+
+
+def kicked(ago_min=10, **kw):
+    """Apps Script が mode=prod で起こした回（run-name が system-monitor prod）。"""
+    return run("workflow_dispatch", ago_min, title="system-monitor prod", **kw)
 
 
 def test_watch_external_monitor():
@@ -103,6 +109,27 @@ def test_watch_external_monitor():
     # 実行中の回は数えない
     assert monitor.watch(deps, fetch=lambda r: [run(status="in_progress", conclusion=None), run(ago_min=20),
                                                  run(ago_min=35, conclusion="failure")], now=NOW) == "ok"
+
+
+def test_watch_counts_prod_dispatch_from_apps_script():
+    """GitHub の定時実行は 6〜9 時間おきに間引かれる（2026-11-27）。Apps Script が起こす本番の回も数える。"""
+    deps = make_deps(monitor_watch_repo="o/r")
+    # 定時実行は 7 時間前でも、15 分ごとの本番の回があれば動いている
+    assert monitor.watch(deps, fetch=lambda r: [kicked(5), kicked(20), run(ago_min=420)], now=NOW) == "ok"
+    # 本番の回だけでも（定時実行がまだ一度も無くても）よい
+    assert monitor.watch(deps, fetch=lambda r: [kicked(5)], now=NOW) == "ok"
+    # 試験（mode=test）の回は数えない: 試験が新しくても、本番が 3 時間以上前なら止まっている
+    with pytest.raises(monitor.MonitorStopped, match="Apps Script"):
+        monitor.watch(deps, fetch=lambda r: [run("workflow_dispatch", 5), kicked(200), run(ago_min=420)], now=NOW)
+    assert monitor.watch(deps, fetch=lambda r: [run("workflow_dispatch", 5)], now=NOW) == "not-started"
+    # 名前の無い古い手動実行（run-name を入れる前）も数えない
+    assert monitor.watch(deps, fetch=lambda r: [run("workflow_dispatch", 5, title="system-monitor")], now=NOW) == "not-started"
+    # 続けて失敗: 本番の回だけで見る（間の試験の成功では打ち消さない）
+    with pytest.raises(monitor.MonitorStopped, match="続けて失敗"):
+        monitor.watch(deps, fetch=lambda r: [kicked(5, conclusion="failure"), run("workflow_dispatch", 10),
+                                             run(ago_min=15, conclusion="failure")], now=NOW)
+    # 並びが時刻順でなくても、いちばん新しい本番の回で判定する
+    assert monitor.watch(deps, fetch=lambda r: [run(ago_min=420), kicked(5)], now=NOW) == "ok"
 
 
 def test_health_endpoint(monkeypatch):
