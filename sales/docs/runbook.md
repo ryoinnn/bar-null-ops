@@ -148,14 +148,16 @@ uv run python sales/infra/setup.py secrets deploy
 | 【停止】 | サービスが応答しない（応答なし・5xx） | Cloud Run のコンソールで該当サービスのリビジョンとログを見る。直前のデプロイが原因なら前のリビジョンにトラフィックを戻す |
 | 【定期処理の停止】 | 30分ごと（75 分）・毎日（26 時間）・毎週（8 日）の処理が動いていない | Cloud Scheduler の `sales-reconcile` などが「有効」か、sales-worker のログに 429・500 が無いか。福岡は Cloud Tasks のキューが一時停止していないか（`gcloud tasks queues describe`）。POS の伝票が来れば予約し直されるが、待たずに手で `/jobs/tick` を積む |
 | 【監視の異常】 | `/health` から状態を読めない（Firestore を読めない・古い版） | sales-webhook に `roles/datastore.viewer` があるか（下の「最初に一度だけ」）。デプロイ直後なら次の回まで待つ |
+| 【監視の異常】（GitHub から〜調べられません） | 外部監視が GitHub の API から最新のコミットを調べられない。そのあいだ【デプロイ失敗】だけ見張れない（ほかの監視は続く。出ている【デプロイ失敗】はそのまま） | 括弧の中の理由を見る。`HTTP 403`・`HTTP 429`・`HTTP 5xx`・接続の失敗（`URLError` など）は GitHub 側の一時的なことが多く、調べられるようになれば【復旧】が付く。それ以外の理由（応答を読めない・形が違う・〜が無い・時差が無い・60 秒を超えた・思わぬ失敗）が続くときは `.github/monitor/check.py` の `latest_deploy_commit` を直す（2026-11-27 は 285KB のコミットが読み取りの上限で切れた） |
+| 【監視の異常】（/health の中身を読めません） | `/health` の中身が思わぬ形で、判定の途中で失敗した（括弧の中は例外の種類） | sales-webhook の `/health` の応答の形が変わっていないかを見る。変えたのなら `.github/monitor/check.py` の `check_target` を合わせる |
 | 【デプロイ失敗】 | main に push したコミットが 40 分たっても動いていない | Cloud Build の履歴（`gcloud builds list --region us-central1`）で失敗したステップを見る。`deploy-worker` の「container failed to start」でアプリのログが 1 行も無いときは、課金の反映待ちを疑う（2026-11-15 の例） |
 | 【外部API障害】【処理エラー】 | 上の「Slack に出る障害の通知と対応」と同じ（通知先がここに変わった） | 同上 |
 | 【認証切れ】 | 連携先（Claude・Square・マネフォ・Asana・Slack・LINE）が 401・403。待っても直らないので 1 回目から出る。LINE の伝票の処理（process_event）でも出る（2026-11-10 の Claude のキー無効の例） | 新しいトークン・APIキーを発行し「秘密情報の更新」。Square は「Square の許可をやり直す」 |
 | 【期限が近い】【期限切れ】 | sales.toml の `[[monitor.expiry]]` に載せた鍵の期限の 30日前・7日前・前日・期限切れ（毎日 10:05 のステップ secret_expiry） | 通知の「更新の手順」に従って発行し直し、`expires` を新しい期限に書き換えて push |
 | 【処理できなかったメッセージ】 | LINE のメッセージを 10 回試しても処理できなかった（原文つき。2026-11-15 から業務のチャンネルには出さない） | 通知に従って起票し直す（伝票が作成済みなら二重に起票しない） |
 | LINE の Bot の参加・処理対象ではないグループ | 運用の通知（2026-11-15 からここ） | 処理するなら sales.toml の allowed_group_ids に追加 |
-| 【処理エラー】定期処理「monitor_watch」 | 外部監視（GitHub Actions）が 3 時間以上動いていない、または続けて失敗（Slack のトークン切れなど） | GitHub の Actions →「system-monitor」。無効になっていれば「Enable workflow」。失敗ならログの「Slack の … に失敗」を見てトークンを更新 |
-| GitHub からのメール「system-monitor failed」 | 外部監視が Slack に投稿できなかった | Slack のトークン（GitHub の Secrets `SLACK_BOT_TOKEN`）と、bot がチャンネルにいるかを確かめる |
+| 【処理エラー】定期処理「monitor_watch」 | 外部監視（GitHub Actions）が 3 時間以上動いていない、または続けて失敗（Slack のトークン切れ・設定の誤りなど） | GitHub の Actions →「system-monitor」。無効になっていれば「Enable workflow」。失敗ならログを見て、下の行の対応をする |
+| GitHub からのメール「system-monitor failed」 | 外部監視が Slack に投稿できなかった、または設定に読めない要素がある（2026-11-27 から。読めない要素だけ飛ばし、ほかの監視・通知は続く） | 失敗した回のログを見る。<br>「Slack の … に失敗」: Slack のトークン（GitHub の Secrets `SLACK_BOT_TOKEN`）と、bot がチャンネルにいるか。<br>「監視先の設定（MONITOR_TARGETS）に読めない要素」: GitHub の Secrets `MONITOR_TARGETS` の各要素に `name` と `url`（文字列）があるか（形は下の「最初に一度だけ」の 3）。<br>「秘密情報の期限の設定: 読めない項目がある」: `sales/sales.toml` の `[[monitor.expiry]]` の `name`・`expires`（例 `2027-02-20T00:00:00+09:00`）を直して push。<br>「秘密情報の期限の予備の通知: 設定を読めない」: `sales/sales.toml` の書き方の誤り（TOML として読めない）。直して push |
 
 ### 止まったときの復旧（課金停止・長い停止の後）
 1. 課金を戻す（本人）。Cloud Run が普通に応答するまで待つ（30 分以上かかることがある）。
